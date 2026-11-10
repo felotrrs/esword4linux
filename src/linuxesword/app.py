@@ -5,11 +5,11 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from . import APP_NAME, __version__, i18n
-from .config import Settings
+from .config import Settings, asset
 from .core.context import AppContext
 from .ui.main_window import MainWindow
 from .ui.theme import stylesheet
@@ -42,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
             f"Ruta de caché: {settings.cache_dir}",
         )
         return 1
+
+    icon = asset("linuxesword.png")
+    if icon.is_file():
+        app.setWindowIcon(QIcon(str(icon)))
 
     window = MainWindow(ctx)
     window.show()

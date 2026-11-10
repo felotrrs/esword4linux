@@ -18,6 +18,11 @@ def _xdg(env: str, default: str) -> Path:
     return Path(os.environ.get(env) or default).expanduser()
 
 
+def asset(name: str) -> Path:
+    """Ruta a un recurso empaquetado (iconos)."""
+    return Path(__file__).resolve().parent / "assets" / name
+
+
 # Directorio de datos de usuario (settings, logs). Pequeño, va al home.
 CONFIG_DIR = _xdg("XDG_CONFIG_HOME", "~/.config") / APP_NAME.lower()
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
@@ -54,6 +59,14 @@ class Settings:
     open_tabs: list[dict] = field(default_factory=list)
     search_scope: list[int] = field(default_factory=list)  # module ids
     first_run_done: bool = False
+
+    # ── paneles y pestañas-vista ────────────────────────────────────────
+    sidebar_visible: bool = True
+    workspaces: list[dict] = field(default_factory=list)
+    workspace_active: int = 0
+    commentary_split: int = 280          # alto del panel de comentario (px)
+    parallel_split: int = 640            # ancho relativo de la biblia principal
+    encrypted_ready: bool = False
 
     # ── persistencia ────────────────────────────────────────────────────
     @classmethod

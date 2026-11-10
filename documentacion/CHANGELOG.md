@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.2.0 — 2026-11-10
+
+### Cambiado (modelo de interfaz)
+
+- **Pestañas-vista (`Workspace`)** en lugar de una pestaña por módulo. Cada
+  pestaña agrupa un recurso principal y, si es biblia, su propia biblia
+  paralela y su propio comentario. Nombres automáticos «Pestaña A/B/C…»,
+  color asignable y renombrado por menú contextual. Persistencia completa del
+  grupo (traducción, paralela, comentario, alturas).
+- **Comentario en panel propio**, en la parte inferior y con división vertical
+  (~28 %), en vez de incrustado entre versículos.
+- **Seleccionar un recurso ya no abre pestaña**: se carga como recurso
+  principal de la pestaña activa. Crear pestaña es explícito (`＋`, `Ctrl+T`).
+- **Paralela y comentario solo con biblias.** Un diccionario ya no muestra
+  controles de biblia (la «vista paralela de diccionarios» desaparece).
+- **«Leer completo» abre un diálogo**, no una pestaña.
+
+### Añadido
+
+- **Un clic carga el recurso** en el panel lateral; un clic en la categoría la
+  pliega/despliega.
+- **Panel de recursos ocultable**: `Ctrl+B`, menú *Ver → Panel de recursos* y
+  botón `☰` junto a las pestañas; el estado se persiste.
+- **Iconos de la aplicación**: icono plano (ventana, lanzador, hicolor
+  16–512 px) e ilustrado (diálogo *Acerca de*). Instalación con
+  `make desktop`.
+- **`make encrypted` / menú Índice**: descifra e indexa de una vez todos los
+  módulos cifrados (23 módulos / ~620 k registros) para que queden listos.
+- **Comentarios con esquema moderno**: soporte de `.cmtx` con
+  `Verses(ChapterBegin, ChapterEnd, VerseBegin, VerseEnd)` además del antiguo
+  `VerseCommentary`. Antes fallaba con «no such column: Chapter».
+- Pruebas de regresión para los dos esquemas de comentario (50 en total).
+
+### Corregido
+
+- El panel de comentario no se refrescaba porque `isVisible()` es falso antes
+  de mostrar la ventana; ahora depende del toggle.
+- La pestaña fija «Buscar» ya no muestra un botón de cierre inerte.
+- Carpeta duplicada `~/StorageC/linuxesword`: era un artefacto de una escritura
+  con otra capitalización (contenía solo `__main__.py`). Eliminada.
+
 ## 0.1.0 — 2026-11-10
 
 Primera versión funcional.

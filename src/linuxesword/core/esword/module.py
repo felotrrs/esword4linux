@@ -245,64 +245,97 @@ class EswordModule:
                 book=b, chapter=c, verse=v, order=b * 1_000_000 + c * 1_000 + v,
             )
 
+    def _columns(self, table: str) -> set[str]:
+        try:
+            return {r[1] for r in self.conn.execute(f'PRAGMA table_info("{table}")')}
+        except sqlite3.Error:
+            return set()
+
+    def _comment_specs(self) -> list[tuple[str, str]]:
+        """Tablas de comentario y su nivel: verse | range | chapter | book.
+
+        Los nombres de tabla no bastan: e-Sword usa `VerseCommentary` en el
+        esquema antiguo y `Verses` en el moderno, pero `Verses` puede ser
+        (Book, Chapter, Verse) o (Book, ChapterBegin, ChapterEnd, VerseBegin,
+        VerseEnd). Se decide por columnas.
+        """
+        specs: list[tuple[str, str]] = []
+        for table in ("Verses", "VerseCommentary"):
+            if table in self.tables:
+                cols = self._columns(table)
+                if {"Book", "Chapter", "Verse", "Comments"} <= cols:
+                    specs.append((table, "verse"))
+                elif {"Book", "ChapterBegin", "VerseBegin", "Comments"} <= cols:
+                    specs.append((table, "range"))
+        for table in ("Chapters", "ChapterCommentary"):
+            if table in self.tables and {"Book", "Chapter", "Comments"} <= self._columns(table):
+                specs.append((table, "chapter"))
+        for table in ("Books", "BookCommentary"):
+            if table in self.tables and {"Book", "Comments"} <= self._columns(table):
+                specs.append((table, "book"))
+        return specs
+
     def _pages_commentary(self) -> Iterator[Page]:
         from ..books import book_name
 
-        if "Verses" in self.tables:
-            for row in self._rows(
-                "SELECT Book, Chapter, Verse, Comments FROM Verses "
-                "ORDER BY Book, Chapter, Verse"
-            ):
-                b, c, v = row["Book"], row["Chapter"], row["Verse"]
-                yield Page(
-                    ref=f"{b}:{c}:{v}", title=f"{book_name(b)} {c}:{v}",
-                    raw=self._decode(row["Comments"], "Verses", f"{b}:{c}:{v}"),
-                    book=b, chapter=c, verse=v, order=b * 1_000_000 + c * 1_000 + v,
-                )
-        if "VerseCommentary" in self.tables:
-            for row in self._rows(
-                "SELECT Book, ChapterBegin, VerseBegin, ChapterEnd, VerseEnd, Comments "
-                "FROM VerseCommentary ORDER BY Book, ChapterBegin, VerseBegin"
-            ):
-                b = row["Book"]
-                cb = row["ChapterBegin"]
-                vb = row["VerseBegin"] or 0
-                ce = row["ChapterEnd"] or cb
-                ve = row["VerseEnd"]
-                if ce == cb and ve and ve != vb:
-                    label = f"{book_name(b)} {cb}:{vb}-{ve}"
-                    ref = f"{b}:{cb}:{vb}-{ve}"
-                else:
-                    label = f"{book_name(b)} {cb}:{vb}"
-                    ref = f"{b}:{cb}:{vb}"
-                yield Page(
-                    ref=ref, title=label,
-                    raw=self._decode(row["Comments"], "VerseCommentary", ref),
-                    book=b, chapter=cb, verse=vb,
-                    order=b * 1_000_000 + cb * 1_000 + vb,
-                )
-        if "ChapterCommentary" in self.tables:
-            for row in self._rows(
-                "SELECT Book, Chapter, Comments FROM ChapterCommentary "
-                "ORDER BY Book, Chapter"
-            ):
-                b, c = row["Book"], row["Chapter"]
-                yield Page(
-                    ref=f"{b}:{c}", title=f"{book_name(b)} {c}",
-                    raw=self._decode(row["Comments"], "ChapterCommentary", f"{b}:{c}"),
-                    book=b, chapter=c, verse=None,
-                    order=b * 1_000_000 + c * 1_000,
-                )
-        if "BookCommentary" in self.tables:
-            for row in self._rows(
-                "SELECT Book, Comments FROM BookCommentary ORDER BY Book"
-            ):
-                b = row["Book"]
-                yield Page(
-                    ref=str(b), title=book_name(b),
-                    raw=self._decode(row["Comments"], "BookCommentary", b),
-                    book=b, order=b * 1_000_000,
-                )
+        for table, level in self._comment_specs():
+            if level == "verse":
+                for row in self._rows(
+                    f'SELECT Book, Chapter, Verse, Comments FROM "{table}" '
+                    "ORDER BY Book, Chapter, Verse"
+                ):
+                    b, c, v = row["Book"], row["Chapter"], row["Verse"]
+                    ref = f"{b}:{c}:{v}"
+                    yield Page(
+                        ref=ref, title=f"{book_name(b)} {c}:{v}",
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=b, chapter=c, verse=v,
+                        order=b * 1_000_000 + c * 1_000 + v,
+                    )
+            elif level == "range":
+                for row in self._rows(
+                    f'SELECT Book, ChapterBegin, ChapterEnd, VerseBegin, VerseEnd, Comments '
+                    f'FROM "{table}" ORDER BY Book, ChapterBegin, VerseBegin'
+                ):
+                    b = row["Book"]
+                    cb = row["ChapterBegin"]
+                    vb = row["VerseBegin"] or 0
+                    ce = row["ChapterEnd"] or cb
+                    ve = row["VerseEnd"]
+                    if ce == cb and ve and ve != vb:
+                        label = f"{book_name(b)} {cb}:{vb}-{ve}"
+                        ref = f"{b}:{cb}:{vb}-{ve}"
+                    else:
+                        label = f"{book_name(b)} {cb}:{vb}"
+                        ref = f"{b}:{cb}:{vb}"
+                    yield Page(
+                        ref=ref, title=label,
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=b, chapter=cb, verse=vb,
+                        order=b * 1_000_000 + cb * 1_000 + vb,
+                    )
+            elif level == "chapter":
+                for row in self._rows(
+                    f'SELECT Book, Chapter, Comments FROM "{table}" ORDER BY Book, Chapter'
+                ):
+                    b, c = row["Book"], row["Chapter"]
+                    ref = f"{b}:{c}"
+                    yield Page(
+                        ref=ref, title=f"{book_name(b)} {c}",
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=b, chapter=c, verse=None,
+                        order=b * 1_000_000 + c * 1_000,
+                    )
+            elif level == "book":
+                for row in self._rows(
+                    f'SELECT Book, Comments FROM "{table}" ORDER BY Book'
+                ):
+                    b = row["Book"]
+                    yield Page(
+                        ref=str(b), title=book_name(b),
+                        raw=self._decode(row["Comments"], table, b),
+                        book=b, order=b * 1_000_000,
+                    )
 
     def _pages_dictionary(self) -> Iterator[Page]:
         yield from self._pages_topic_table("Dictionary", "Definition")
@@ -469,16 +502,43 @@ class EswordModule:
         if self.structure == "commentary":
             from ..books import book_name
 
-            if "VerseCommentary" in self.tables:
-                return [
-                    (f"{r['Book']}:{r['ChapterBegin']}:{r['VerseBegin']}",
-                     f"{book_name(r['Book'])} {r['ChapterBegin']}:{r['VerseBegin']}")
-                    for r in self._rows(
-                        "SELECT Book, ChapterBegin, VerseBegin FROM VerseCommentary "
-                        "ORDER BY Book, ChapterBegin, VerseBegin LIMIT ?", (limit,)
+            out: list[tuple[str, str]] = []
+            for table, level in self._comment_specs():
+                if level == "verse":
+                    out.extend(
+                        (f"{r['Book']}:{r['Chapter']}:{r['Verse']}",
+                         f"{book_name(r['Book'])} {r['Chapter']}:{r['Verse']}")
+                        for r in self._rows(
+                            f'SELECT Book, Chapter, Verse FROM "{table}" '
+                            "ORDER BY Book, Chapter, Verse LIMIT ?", (limit,)
+                        )
                     )
-                ]
-            return []
+                elif level == "range":
+                    out.extend(
+                        (f"{r['Book']}:{r['ChapterBegin']}:{r['VerseBegin']}",
+                         f"{book_name(r['Book'])} {r['ChapterBegin']}:{r['VerseBegin']}")
+                        for r in self._rows(
+                            f'SELECT Book, ChapterBegin, VerseBegin FROM "{table}" '
+                            "ORDER BY Book, ChapterBegin, VerseBegin LIMIT ?", (limit,)
+                        )
+                    )
+                elif level == "chapter":
+                    out.extend(
+                        (f"{r['Book']}:{r['Chapter']}",
+                         f"{book_name(r['Book'])} {r['Chapter']}")
+                        for r in self._rows(
+                            f'SELECT Book, Chapter FROM "{table}" '
+                            "ORDER BY Book, Chapter LIMIT ?", (limit,)
+                        )
+                    )
+                elif level == "book":
+                    out.extend(
+                        (str(r["Book"]), book_name(r["Book"]))
+                        for r in self._rows(
+                            f'SELECT Book FROM "{table}" ORDER BY Book LIMIT ?', (limit,)
+                        )
+                    )
+            return out[:limit]
         return []
 
     def get_page(self, ref: str) -> Page | None:
@@ -537,24 +597,23 @@ class EswordModule:
                             raw=self._decode(row["Devotion"], table, ref))
             if self.structure == "commentary":
                 parts = ref.split(":")
-                if len(parts) == 3 and "VerseCommentary" in self.tables:
-                    b, c, v = (int(x) for x in parts)
-                    row = self.conn.execute(
-                        "SELECT Comments FROM VerseCommentary "
-                        "WHERE Book=? AND ChapterBegin=? AND VerseBegin=?", (b, c, v),
-                    ).fetchone()
-                    if row:
-                        return Page(ref=ref, title=f"{book_name(b)} {c}:{v}",
-                                    raw=self._decode(row["Comments"], "VerseCommentary", ref))
-                if len(parts) == 2 and "ChapterCommentary" in self.tables:
-                    b, c = (int(x) for x in parts)
-                    row = self.conn.execute(
-                        "SELECT Comments FROM ChapterCommentary WHERE Book=? AND Chapter=?",
-                        (b, c),
-                    ).fetchone()
-                    if row:
-                        return Page(ref=ref, title=f"{book_name(b)} {c}",
-                                    raw=self._decode(row["Comments"], "ChapterCommentary", ref))
+                if len(parts) < 2:
+                    return None
+                try:
+                    b = int(parts[0])
+                    c = int(parts[1])
+                    v = int(parts[2].split("-")[0]) if len(parts) > 2 else 0
+                except ValueError:
+                    return None
+                comments = self.chapter_comments(b, c)
+                if v:
+                    for page in comments.get(v, []):
+                        return page
+                for page in comments.get(0, []):
+                    return page
+                for key in sorted(comments):
+                    if comments[key]:
+                        return comments[key][0]
                 return None
             if self.structure == "twm":
                 row = self.conn.execute(
@@ -673,42 +732,57 @@ class EswordModule:
         def push(key: int, page: Page) -> None:
             out.setdefault(key, []).append(page)
 
-        if "VerseCommentary" in self.tables:
-            for row in self._rows(
-                "SELECT Book, ChapterBegin, VerseBegin, ChapterEnd, VerseEnd, Comments "
-                "FROM VerseCommentary WHERE Book=? AND ChapterBegin=? "
-                "ORDER BY VerseBegin, rowid", (book, chapter),
-            ):
-                vb = int(row["VerseBegin"] or 0)
-                ref = f"{book}:{chapter}:{vb}"
-                push(vb, Page(
-                    ref=ref, title=f"{chapter}:{vb}",
-                    raw=self._decode(row["Comments"], "VerseCommentary", ref),
-                    book=book, chapter=chapter, verse=vb, order=vb,
-                ))
-        if "ChapterCommentary" in self.tables:
-            for row in self._rows(
-                "SELECT Comments FROM ChapterCommentary WHERE Book=? AND Chapter=?",
-                (book, chapter),
-            ):
-                ref = f"{book}:{chapter}"
-                push(0, Page(
-                    ref=ref, title=f"Cap. {chapter}",
-                    raw=self._decode(row["Comments"], "ChapterCommentary", ref),
-                    book=book, chapter=chapter, order=0,
-                ))
-        if not out and "Verses" in self.tables:
-            for row in self._rows(
-                "SELECT Verse, Comments FROM Verses WHERE Book=? AND Chapter=? ORDER BY Verse",
-                (book, chapter),
-            ):
-                v = int(row["Verse"] or 0)
-                ref = f"{book}:{chapter}:{v}"
-                push(v, Page(
-                    ref=ref, title=f"{chapter}:{v}",
-                    raw=self._decode(row["Comments"], "Verses", ref),
-                    book=book, chapter=chapter, verse=v, order=v,
-                ))
+        for table, level in self._comment_specs():
+            if level == "verse":
+                for row in self._rows(
+                    f'SELECT Chapter, Verse, Comments FROM "{table}" '
+                    "WHERE Book=? AND Chapter=? ORDER BY Verse", (book, chapter),
+                ):
+                    v = int(row["Verse"] or 0)
+                    ref = f"{book}:{chapter}:{v}"
+                    push(v, Page(
+                        ref=ref, title=f"{chapter}:{v}",
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=book, chapter=chapter, verse=v, order=v,
+                    ))
+            elif level == "range":
+                for row in self._rows(
+                    f'SELECT ChapterBegin, ChapterEnd, VerseBegin, VerseEnd, Comments '
+                    f'FROM "{table}" WHERE Book=? AND ChapterBegin<=? '
+                    f"AND (ChapterEnd IS NULL OR ChapterEnd>=?) "
+                    "ORDER BY ChapterBegin, VerseBegin", (book, chapter, chapter),
+                ):
+                    cb = int(row["ChapterBegin"] or 0)
+                    vb = int(row["VerseBegin"] or 0)
+                    key = vb if cb == chapter else 0
+                    ref = f"{book}:{chapter}:{vb}" if cb == chapter else f"{book}:{chapter}"
+                    push(key, Page(
+                        ref=ref, title=f"{chapter}:{vb}" if cb == chapter else f"Cap. {chapter}",
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=book, chapter=chapter, verse=vb if cb == chapter else None,
+                        order=key,
+                    ))
+            elif level == "chapter":
+                for row in self._rows(
+                    f'SELECT Comments FROM "{table}" WHERE Book=? AND Chapter=?',
+                    (book, chapter),
+                ):
+                    ref = f"{book}:{chapter}"
+                    push(0, Page(
+                        ref=ref, title=f"Cap. {chapter}",
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=book, chapter=chapter, order=0,
+                    ))
+            elif level == "book":
+                for row in self._rows(
+                    f'SELECT Comments FROM "{table}" WHERE Book=?', (book,),
+                ):
+                    ref = str(book)
+                    push(0, Page(
+                        ref=ref, title=f"Libro {book}",
+                        raw=self._decode(row["Comments"], table, ref),
+                        book=book, order=0,
+                    ))
         return out
 
     def chapter_count(self, book: int) -> int:

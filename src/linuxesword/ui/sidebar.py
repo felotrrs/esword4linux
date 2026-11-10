@@ -63,8 +63,8 @@ class Sidebar(QWidget):
         self.tree.setAnimated(True)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._context_menu)
-        self.tree.itemDoubleClicked.connect(self._activate)
-        self.tree.itemActivated.connect(self._activate)
+        self.tree.itemClicked.connect(self._on_click)
+        self.tree.itemActivated.connect(self._on_keyboard)
         layout.addWidget(self.tree, 1)
 
     def _folder_label(self) -> QLabel:
@@ -141,7 +141,17 @@ class Sidebar(QWidget):
         data = item.data(0, Qt.UserRole)
         return data if isinstance(data, int) else None
 
-    def _activate(self, item: QTreeWidgetItem, _column: int = 0) -> None:
+    def _on_click(self, item: QTreeWidgetItem, _column: int = 0) -> None:
+        """Un solo clic carga el recurso; en una categoría, la despliega."""
+        mid = self._module_id(item)
+        if mid is not None:
+            self.module_activated.emit(mid)
+            return
+        data = item.data(0, Qt.UserRole)
+        if isinstance(data, str) and data.startswith("kind:"):
+            item.setExpanded(not item.isExpanded())
+
+    def _on_keyboard(self, item: QTreeWidgetItem, _column: int = 0) -> None:
         mid = self._module_id(item)
         if mid is not None:
             self.module_activated.emit(mid)

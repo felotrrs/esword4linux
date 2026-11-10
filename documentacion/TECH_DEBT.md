@@ -2,6 +2,18 @@
 
 Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
+## Resuelto en 0.2.0
+
+- Comentarios en panel inferior propio (antes incrustados en el texto).
+- Una pestaña por módulo → pestañas-vista con grupo biblia + paralela +
+  comentario.
+- Vista paralela y comentario ocultos cuando el recurso no es biblia.
+- Panel de recursos ocultable (`Ctrl+B`).
+- Un clic carga el recurso (antes: doble clic).
+- Esquema moderno de comentarios `.cmtx` (`Verses` con rangos).
+- Descifrado masivo de módulos cifrados (`make encrypted`).
+- Iconos de aplicación instalados con `make desktop`.
+
 ## Datos / formato
 
 | # | Tema | Detalle | Impacto |
@@ -27,7 +39,7 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
 | # | Tema | Detalle | Impacto |
 |---|---|---|---|
-| 12 | **Reordenar paneles** | Las pestañas se reordenan y se cierran, pero no se pueden dividir en dos grupos simultáneos (solo la vista paralela de Biblia). | Medio |
+| 12 | **Dividir una pestaña en dos grupos** | Las pestañas se reordenan y cada una tiene su split vertical (biblia/comentario) y horizontal (paralela), pero no se pueden tener dos grupos independientes dentro de la misma pestaña. | Medio |
 | 13 | **Idioma en caliente** | Cambiar de idioma pide reiniciar. | Bajo |
 | 14 | **Accesibilidad** | Sin atajos configurables ni navegación por teclado más allá de Ctrl+F/Ctrl+R/Ctrl+Q. | Bajo |
 | 15 | **Iconos** | La UI usa glifos de texto (`●○✕🔒`) en vez de un set de iconos. | Bajo |

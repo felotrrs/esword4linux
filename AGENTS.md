@@ -25,6 +25,9 @@ reglas doradas + el mapa del sistema + los comandos. El detalle vive en
 4. **El índice es bajo demanda por categoría.** No se indexa todo al arrancar
    (salvo la base declarada en `Settings.preindex`). Cada módulo tiene estado
    `pending → indexing → ready | failed`; el estado vive en `catalog.db`.
+   Los **módulos cifrados** se descifran e indexan una vez (menú
+   *Índice → Descifrar módulos cifrados*, `make encrypted`) para que queden
+   listos para consulta y búsqueda sin esperas.
 
 5. **Una sola fuente por concepto.** Categorías → `core/catalog.py:KIND_ORDER` /
    `KIND_LABELS`. Libros y alias → `core/books.py:BOOKS`. Cadenas de UI →
@@ -100,11 +103,14 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 | `core/search.py` | Detección de intención y consulta al store. |
 | `core/books.py` | IDs e-Sword 1–73, nombres es/en, alias y `parse_reference`. |
 | `core/context.py` | `AppContext`: catálogo, store, motor y cache LRU de módulos abiertos. |
-| `ui/bible_view.py` | Navegación, traducción, paralela y comentarios en línea. |
+| `ui/bible_view.py` | `BiblePane`: navegación, traducción, paralela. El comentario NO va aquí. |
+| `ui/commentary_pane.py` | `CommentaryPane`: panel inferior de comentarios del capítulo. |
+| `ui/workspace.py` | `Workspace`: pestaña-vista (recurso principal + biblia/paralela/comentario). |
+| `ui/entry_dialog.py` | `EntryDialog`: lectura completa de una entrada sin crear pestaña. |
 | `ui/library_view.py` | Visor genérico (diccionario, léxico, referencia, mapa, devocional...). |
 | `ui/search_view.py` | Caja única con intención y resultados agrupados. |
-| `ui/sidebar.py` | Árbol de categorías/módulos con estado y menú contextual. |
-| `ui/main_window.py` | Pestañas, menús, workers, persistencia de estado. |
+| `ui/sidebar.py` | Árbol de categorías/módulos; un clic carga el recurso. |
+| `ui/main_window.py` | Pestañas-vista, nombres/colores, menús, workers, persistencia. |
 | `ui/theme.py` | Paletas claro/oscuro, QSS y CSS de documento. |
 | `i18n/` | `tr(key, **kwargs)` sobre catálogos JSON `es`/`en`. |
 
@@ -114,9 +120,10 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 make install     # venv + dependencias
 make run         # arranca la app
 make scan        # escanea la carpeta y pre-indexa la base (CLI)
-make test        # pytest (48 pruebas)
+make encrypted   # descifra e indexa todos los módulos cifrados (una vez)
+make test        # pytest
 make drift       # compara el núcleo vendorizado con ~/StorageC/bible/shared/esword
-make desktop     # instala ~/.local/share/applications/linuxesword.desktop
+make desktop     # instala app + iconos hicolor (16–512 px)
 make clean       # borra venv y caché
 ```
 
@@ -137,7 +144,7 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 
 ## Definición de "terminado"
 
-- `make test` en verde (48 pruebas).
+- `make test` en verde (50 pruebas).
 - `make drift` sin deriva inesperada del núcleo vendorizado.
 - La app arranca con `./run.sh` y muestra la Biblia sin índice.
 - Cambio de comportamiento → una línea en `documentacion/CHANGELOG.md`.

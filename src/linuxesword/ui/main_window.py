@@ -1,33 +1,51 @@
-"""Ventana principal: panel lateral + pestañas centrales modificables."""
+"""Ventana principal: panel lateral + pestañas-vista (workspaces)."""
 
 from __future__ import annotations
 
 import base64
-import json
-from pathlib import Path
+import string
 
-from PySide6.QtCore import QByteArray, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtCore import QByteArray, QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPixmap
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QDialogButtonBox, QFileDialog, QLabel, QMainWindow, QMenu,
-    QMessageBox, QProgressBar, QSplitter, QTabWidget, QVBoxLayout, QWidget,
+    QFileDialog, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox,
+    QProgressBar, QSplitter, QTabBar, QTabWidget, QToolButton, QWidget,
 )
 
-from .. import __version__
+from .. import __version__, i18n
+from ..config import asset
 from ..core.books import Reference, parse_reference
-from ..core.catalog import KIND_LABELS, KIND_ORDER, Catalog
+from ..core.catalog import KIND_ORDER, Catalog
 from ..core.context import AppContext
 from ..core.indexer import Indexer
 from ..core.store import ContentStore
 from ..i18n import tr
-from .bible_view import BibleView
-from .library_view import LibraryView
 from .search_view import SearchView
 from .sidebar import Sidebar
 from .tasks import Worker
 from .theme import stylesheet
+from .workspace import Workspace
+from .entry_dialog import EntryDialog
 
-FIXED_TABS = 2  # Biblia + Buscar
+# La pestaña 0 es «Buscar» (fija). Las pestañas-vista empiezan en 1.
+FIXED_TABS = 1
+
+TAB_COLORS = [
+    "#c9973f", "#4a7fb5", "#5f9a6b", "#b5564a",
+    "#8a6aa8", "#4a9a9a", "#c97a3f", "#7a7568",
+]
+
+
+def color_dot(color: str, size: int = 12) -> QIcon:
+    pm = QPixmap(QSize(size, size))
+    pm.fill(Qt.transparent)
+    painter = QPainter(pm)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setBrush(QColor(color))
+    painter.setPen(Qt.NoPen)
+    painter.drawEllipse(1, 1, size - 2, size - 2)
+    painter.end()
+    return QIcon(pm)
 
 
 class MainWindow(QMainWindow):
@@ -36,7 +54,7 @@ class MainWindow(QMainWindow):
         self.ctx = ctx
         self.settings = ctx.settings
         self._worker: Worker | None = None
-        self._index_tabs: dict[int, int] = {}
+        self._workspaces: list[Workspace] = []
         self._build_ui()
         self._build_menus()
         self._restore_state()
@@ -46,36 +64,53 @@ class MainWindow(QMainWindow):
     # ── UI ───────────────────────────────────────────────────────────────
     def _build_ui(self) -> None:
         self.setWindowTitle(tr("app.title"))
+        self.setWindowIcon(QIcon(str(asset("linuxesword.png"))))
         self.resize(1400, 900)
 
         self.sidebar = Sidebar(self.ctx)
-        self.sidebar.module_activated.connect(self.open_module)
+        self.sidebar.module_activated.connect(self.open_resource)
         self.sidebar.index_module_requested.connect(self._index_single)
         self.sidebar.index_kind_requested.connect(self._index_kind)
+        self.sidebar.setVisible(self.settings.sidebar_visible)
 
         self.tabs = QTabWidget()
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
         self.tabs.setDocumentMode(True)
         self.tabs.tabCloseRequested.connect(self._close_tab)
-
-        self.bible = BibleView(self.ctx)
-        self.bible.open_module.connect(self.open_module)
-        self.bible.search_requested.connect(self._search_for)
-        self.bible.reference_changed.connect(self._on_reference_changed)
-        self.tabs.addTab(self.bible, tr("bible.tab"))
+        self.tabs.currentChanged.connect(self._on_tab_changed)
 
         self.search = SearchView(self.ctx)
         self.search.open_hit.connect(self._open_hit)
         self.search.go_reference.connect(self._go_reference)
         self.tabs.addTab(self.search, tr("search.tab"))
+        self.tabs.tabBar().setTabButton(0, QTabBar.RightSide, None)
+
+        corner = QWidget()
+        row = QHBoxLayout(corner)
+        row.setContentsMargins(0, 0, 6, 0)
+        row.setSpacing(2)
+        self.btn_sidebar = QToolButton()
+        self.btn_sidebar.setText("☰")
+        self.btn_sidebar.setToolTip(tr("menu.view.sidebar") + "  (Ctrl+B)")
+        self.btn_sidebar.clicked.connect(self.toggle_sidebar)
+        row.addWidget(self.btn_sidebar)
+        self.btn_new = QToolButton()
+        self.btn_new.setText("＋")
+        self.btn_new.setToolTip(tr("workspace.new_tab"))
+        self.btn_new.clicked.connect(lambda: self._add_workspace())
+        row.addWidget(self.btn_new)
+        self.tabs.setCornerWidget(corner, Qt.TopRightCorner)
+
+        self.tabs.tabBar().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tabs.tabBar().customContextMenuRequested.connect(self._tab_menu)
 
         split = QSplitter(Qt.Horizontal)
         split.addWidget(self.sidebar)
         split.addWidget(self.tabs)
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 1)
-        split.setSizes([300, 1100])
+        split.setSizes([290, 1110])
         self.setCentralWidget(split)
 
         self.lbl_status = QLabel("")
@@ -105,6 +140,13 @@ class MainWindow(QMainWindow):
         m_file.addAction(act_quit)
 
         m_view = bar.addMenu(tr("menu.view"))
+        self.act_sidebar = QAction(tr("menu.view.sidebar"), self)
+        self.act_sidebar.setCheckable(True)
+        self.act_sidebar.setChecked(self.settings.sidebar_visible)
+        self.act_sidebar.setShortcut(QKeySequence("Ctrl+B"))
+        self.act_sidebar.triggered.connect(self.toggle_sidebar)
+        m_view.addAction(self.act_sidebar)
+        m_view.addSeparator()
         group = QActionGroup(self)
         group.setExclusive(True)
         for theme, key in (("light", "menu.view.theme_light"), ("dark", "menu.view.theme_dark")):
@@ -127,6 +169,9 @@ class MainWindow(QMainWindow):
             lang_menu.addAction(act)
 
         m_index = bar.addMenu(tr("menu.index"))
+        act_enc = QAction(tr("menu.index.encrypted"), self)
+        act_enc.triggered.connect(lambda: self._prepare_encrypted(force=True))
+        m_index.addAction(act_enc)
         act_pending = QAction(tr("menu.index.pending"), self)
         act_pending.triggered.connect(self._index_pending)
         m_index.addAction(act_pending)
@@ -152,6 +197,239 @@ class MainWindow(QMainWindow):
         act_find.setShortcut(QKeySequence("Ctrl+F"))
         act_find.triggered.connect(self._focus_search)
         self.addAction(act_find)
+        act_new = QAction(self)
+        act_new.setShortcut(QKeySequence("Ctrl+T"))
+        act_new.triggered.connect(lambda: self._add_workspace())
+        self.addAction(act_new)
+
+    # ── pestañas-vista ───────────────────────────────────────────────────
+    def _next_name(self) -> str:
+        used = {ws.name for ws in self._workspaces}
+        for letter in string.ascii_uppercase:
+            name = tr("workspace.default_name", letter=letter)
+            if name not in used:
+                return name
+        return tr("workspace.default_name", letter=str(len(self._workspaces) + 1))
+
+    def _add_workspace(self, name: str | None = None, color: str | None = None,
+                       state: dict | None = None, activate: bool = True) -> Workspace:
+        name = name or self._next_name()
+        color = color or TAB_COLORS[len(self._workspaces) % len(TAB_COLORS)]
+        ws = Workspace(self.ctx, name, color)
+        ws.reference_changed.connect(self._on_reference_changed)
+        ws.search_requested.connect(self._search_for)
+        ws.open_module.connect(self._open_entry_dialog)
+        ws.reference_requested.connect(self._go_reference)
+
+        if state:
+            ws.apply_state(state)
+        else:
+            default = self.ctx.catalog.by_rel_path(self.settings.bible_module)
+            if default is None:
+                bibles = self.ctx.bibles()
+                default = bibles[0] if bibles else None
+            ws.set_main(default)
+
+        idx = self.tabs.addTab(ws, ws.name)
+        self.tabs.setTabIcon(idx, color_dot(ws.color))
+        self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
+        self._workspaces.append(ws)
+        if activate:
+            self.tabs.setCurrentIndex(idx)
+        return ws
+
+    def _workspace_tooltip(self, ws: Workspace) -> str:
+        row = self.ctx.catalog.by_rel_path(ws.main_rel) if ws.main_rel else None
+        title = row["title"] if row else tr("main.no_resource")
+        return f"{ws.name} · {title}"
+
+    def _current_workspace(self) -> Workspace | None:
+        widget = self.tabs.currentWidget()
+        return widget if isinstance(widget, Workspace) else None
+
+    def _active_workspace(self) -> Workspace:
+        """Pestaña activa; si estamos en «Buscar», la última usada."""
+        ws = self._current_workspace()
+        if ws is not None:
+            return ws
+        idx = self.settings.workspace_active
+        if 0 <= idx < len(self._workspaces):
+            return self._workspaces[idx]
+        return self._workspaces[0] if self._workspaces else self._add_workspace()
+
+    def _workspace_index(self, ws: Workspace) -> int:
+        return self.tabs.indexOf(ws)
+
+    def _close_tab(self, index: int) -> None:
+        if index < FIXED_TABS:
+            return
+        widget = self.tabs.widget(index)
+        if len(self._workspaces) <= 1:
+            self.statusBar().showMessage(tr("workspace.last"), 4000)
+            return
+        if isinstance(widget, Workspace) and widget in self._workspaces:
+            self._workspaces.remove(widget)
+        self.tabs.removeTab(index)
+        widget.deleteLater()
+
+    def _tab_menu(self, pos) -> None:
+        index = self.tabs.tabBar().tabAt(pos)
+        if index < FIXED_TABS:
+            return
+        widget = self.tabs.widget(index)
+        if not isinstance(widget, Workspace):
+            return
+        ws = widget
+        menu = QMenu(self)
+        act_rename = QAction(tr("workspace.rename"), self)
+        act_rename.triggered.connect(lambda: self._rename_workspace(ws))
+        menu.addAction(act_rename)
+        colors = menu.addMenu(tr("workspace.color"))
+        for color in TAB_COLORS:
+            act = QAction(color_dot(color, 14), color, self)
+            act.triggered.connect(lambda _=False, c=color: self._set_workspace_color(ws, c))
+            colors.addAction(act)
+        menu.addSeparator()
+        act_close = QAction(tr("workspace.close"), self)
+        act_close.triggered.connect(lambda: self._close_tab(self._workspace_index(ws)))
+        menu.addAction(act_close)
+        menu.exec(self.tabs.tabBar().mapToGlobal(pos))
+
+    def _rename_workspace(self, ws: Workspace) -> None:
+        name, ok = QInputDialog.getText(
+            self, tr("workspace.rename"), tr("workspace.rename_prompt"), text=ws.name
+        )
+        if ok and name.strip():
+            ws.name = name.strip()
+            idx = self._workspace_index(ws)
+            self.tabs.setTabText(idx, ws.name)
+            self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
+            self._save_state()
+
+    def _set_workspace_color(self, ws: Workspace, color: str) -> None:
+        ws.color = color
+        idx = self._workspace_index(ws)
+        self.tabs.setTabIcon(idx, color_dot(color))
+        self._save_state()
+
+    def _on_tab_changed(self, index: int) -> None:
+        widget = self.tabs.widget(index)
+        if isinstance(widget, Workspace):
+            self.settings.workspace_active = self._workspaces.index(widget) \
+                if widget in self._workspaces else 0
+            self._refresh_status()
+
+    def toggle_sidebar(self) -> None:
+        visible = not self.sidebar.isVisible()
+        self.sidebar.setVisible(visible)
+        self.settings.sidebar_visible = visible
+        self.settings.save()
+        if hasattr(self, "act_sidebar"):
+            self.act_sidebar.setChecked(visible)
+
+    # ── recursos ─────────────────────────────────────────────────────────
+    def open_resource(self, module_id: int) -> None:
+        """Clic en el panel lateral: carga el recurso en la pestaña activa."""
+        row = self.ctx.catalog.module(module_id)
+        if not row:
+            return
+        ws = self._active_workspace()
+        ws.set_main(row)
+        idx = self._workspace_index(ws)
+        if idx >= 0:
+            self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
+            self.tabs.setCurrentIndex(idx)
+        self._refresh_status()
+
+    def _open_module_tab(self, module_id: int, ref: str | None = None) -> None:
+        """Abre un módulo como recurso principal de una pestaña nueva."""
+        row = self.ctx.catalog.module(module_id)
+        if not row:
+            return
+        ws = self._add_workspace()
+        ws.set_main(row, ref=ref)
+        idx = self._workspace_index(ws)
+        if idx >= 0:
+            self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
+
+    def _open_entry_dialog(self, module_id: int, ref: str = "") -> None:
+        """Lectura completa de una entrada sin crear pestañas."""
+        row = self.ctx.catalog.module(module_id)
+        if not row:
+            return
+        if not ref:
+            ref = "1" if row.get("kind") == "bible" else ""
+        dialog = EntryDialog(self.ctx, row, ref, self)
+        dialog.exec()
+
+    def _bible_workspace(self) -> Workspace:
+        ws = self._current_workspace()
+        if ws is not None and ws.is_bible():
+            return ws
+        for candidate in self._workspaces:
+            if candidate.is_bible():
+                return candidate
+        ws = ws or self._add_workspace()
+        default = self.ctx.catalog.by_rel_path(self.settings.bible_module)
+        if default:
+            ws.set_main(default)
+        return ws
+
+    def _go_reference(self, ref_text: str) -> None:
+        ref = parse_reference(ref_text)
+        if ref is None:
+            import re
+
+            m = re.search(r"([1-3]?\s*[A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+(\d+)(?::(\d+))?", ref_text)
+            if m:
+                ref = parse_reference(
+                    f"{m.group(1)} {m.group(2)}" + (f":{m.group(3)}" if m.group(3) else "")
+                )
+        if not ref:
+            return
+        ws = self._bible_workspace()
+        ws.bible.navigate(ref)
+        idx = self._workspace_index(ws)
+        if idx >= 0:
+            self.tabs.setCurrentIndex(idx)
+
+    def _open_hit(self, module_id: int, ref: str, kind: str) -> None:
+        row = self.ctx.catalog.module(module_id)
+        if not row:
+            return
+        if row["kind"] == "bible":
+            ws = self._bible_workspace()
+            if ws.main_rel != row["rel_path"]:
+                ws.set_main(row)
+            book, _, rest = ref.partition(":")
+            chapter, _, verse = rest.partition(":")
+            try:
+                ws.bible.navigate(Reference(int(book), int(chapter), int(verse) or None))
+            except ValueError:
+                pass
+            idx = self._workspace_index(ws)
+            if idx >= 0:
+                self.tabs.setCurrentIndex(idx)
+            return
+        ws = self._active_workspace()
+        ws.set_main(row, ref=ref)
+        idx = self._workspace_index(ws)
+        if idx >= 0:
+            self.tabs.setCurrentIndex(idx)
+            self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
+
+    def _focus_search(self) -> None:
+        self.tabs.setCurrentIndex(0)
+        self.search.query.setFocus()
+        self.search.query.selectAll()
+
+    def _search_for(self, text: str) -> None:
+        self.tabs.setCurrentIndex(0)
+        self.search.set_query(text)
+
+    def _on_reference_changed(self, label: str) -> None:
+        self.settings.last_reference = label
+        self.lbl_status.setText(f"{tr('status.ready')} · {label}")
 
     # ── estado ───────────────────────────────────────────────────────────
     def _restore_state(self) -> None:
@@ -160,27 +438,27 @@ class MainWindow(QMainWindow):
                 self.restoreGeometry(QByteArray(base64.b64decode(self.settings.window_geometry)))
             except (ValueError, TypeError):
                 pass
-        target = self.settings.last_reference
-        ref = parse_reference(target) or Reference(43, 3, 16)
-        self.bible.navigate(ref)
-        for tab in self.settings.open_tabs:
-            try:
-                self.open_module(int(tab["module_id"]), tab.get("ref"), activate=False)
-            except (KeyError, TypeError, ValueError):
-                continue
-        self.tabs.setCurrentIndex(0)
+        states = self.settings.workspaces or []
+        if states:
+            for state in states:
+                try:
+                    self._add_workspace(state=state, activate=False)
+                except Exception:
+                    continue
+        if not self._workspaces:
+            self._add_workspace(activate=False)
+        idx = min(FIXED_TABS + max(0, self.settings.workspace_active),
+                  self.tabs.count() - 1)
+        self.tabs.setCurrentIndex(idx)
 
     def _save_state(self) -> None:
         self.settings.window_geometry = base64.b64encode(
             bytes(self.saveGeometry())
         ).decode("ascii")
-        open_tabs = []
-        for i in range(FIXED_TABS, self.tabs.count()):
-            widget = self.tabs.widget(i)
-            row = getattr(widget, "module_row", None)
-            if row:
-                open_tabs.append({"module_id": row["id"]})
-        self.settings.open_tabs = open_tabs
+        self.settings.workspaces = [ws.state() for ws in self._workspaces]
+        current = self._current_workspace()
+        if current is not None and current in self._workspaces:
+            self.settings.workspace_active = self._workspaces.index(current)
         self.settings.save()
 
     def closeEvent(self, event) -> None:  # noqa: N802
@@ -196,19 +474,13 @@ class MainWindow(QMainWindow):
         self.settings.theme = theme
         self.settings.save()
         self.setStyleSheet(stylesheet(theme, self.settings.font_size))
-        self.bible.reload()
+        for ws in self._workspaces:
+            ws.reload_theme()
         self.search.run_search()
-        for i in range(FIXED_TABS, self.tabs.count()):
-            widget = self.tabs.widget(i)
-            if isinstance(widget, LibraryView):
-                widget.reload_theme()
 
     def _set_locale(self, code: str) -> None:
-        from .. import i18n
-
         self.settings.locale = code
         self.settings.save()
-        i18n.set_locale(code)
         QMessageBox.information(
             self, tr("app.title"),
             "Idioma guardado. Reinicia linuxEsword para aplicarlo por completo."
@@ -216,102 +488,10 @@ class MainWindow(QMainWindow):
             "Language saved. Restart linuxEsword to apply it fully.",
         )
 
-    # ── pestañas ─────────────────────────────────────────────────────────
-    def open_module(self, module_id: int, ref: str | None = None,
-                    activate: bool = True) -> None:
-        row = self.ctx.catalog.module(module_id)
-        if not row:
-            return
-        if row["kind"] == "bible":
-            self.tabs.setCurrentIndex(0)
-            target = parse_reference(ref) if ref else None
-            if target:
-                self.bible.navigate(target)
-            return
-        if module_id in self._index_tabs:
-            idx = self._index_tabs[module_id]
-            if idx < self.tabs.count():
-                self.tabs.setCurrentIndex(idx)
-                if ref:
-                    view = self.tabs.widget(idx)
-                    if isinstance(view, LibraryView):
-                        view.initial_ref = ref
-                        view._load_entries()
-                return
-        view = LibraryView(self.ctx, row, initial_ref=ref)
-        view.open_reference.connect(self._go_reference)
-        title = row["abbreviation"] or row["title"]
-        idx = self.tabs.addTab(view, title[:26])
-        self.tabs.setTabToolTip(idx, row["title"])
-        self._index_tabs[module_id] = idx
-        if activate:
-            self.tabs.setCurrentIndex(idx)
-
-    def _close_tab(self, index: int) -> None:
-        if index < FIXED_TABS:
-            return
-        widget = self.tabs.widget(index)
-        row = getattr(widget, "module_row", None)
-        if row and row["id"] in self._index_tabs:
-            del self._index_tabs[row["id"]]
-        self.tabs.removeTab(index)
-        widget.deleteLater()
-        # reindexa el mapa de pestañas
-        self._index_tabs = {
-            mid: i for mid, i in self._index_tabs.items() if i < index
-        }
-        for i in range(FIXED_TABS, self.tabs.count()):
-            w = self.tabs.widget(i)
-            r = getattr(w, "module_row", None)
-            if r:
-                self._index_tabs[r["id"]] = i
-        widget.deleteLater()
-
-    def _focus_search(self) -> None:
-        self.tabs.setCurrentIndex(1)
-        self.search.query.setFocus()
-        self.search.query.selectAll()
-
-    def _search_for(self, text: str) -> None:
-        self.tabs.setCurrentIndex(1)
-        self.search.set_query(text)
-
-    def _go_reference(self, ref_text: str) -> None:
-        ref = parse_reference(ref_text)
-        if ref is None:
-            # pudo venir como "Juan 3:16" dentro de un título
-            import re
-
-            m = re.search(r"([1-3]?\s*[A-Za-zÁÉÍÓÚÑáéíóúñ]+)\s+(\d+)(?::(\d+))?", ref_text)
-            if m:
-                ref = parse_reference(f"{m.group(1)} {m.group(2)}" +
-                                      (f":{m.group(3)}" if m.group(3) else ""))
-        if ref:
-            self.tabs.setCurrentIndex(0)
-            self.bible.navigate(ref)
-
-    def _open_hit(self, module_id: int, ref: str, kind: str) -> None:
-        row = self.ctx.catalog.module(module_id)
-        if not row:
-            return
-        if row["kind"] == "bible":
-            book, _, rest = ref.partition(":")
-            chapter, _, verse = rest.partition(":")
-            try:
-                self.tabs.setCurrentIndex(0)
-                self.bible.navigate(Reference(int(book), int(chapter), int(verse) or None))
-            except ValueError:
-                pass
-            return
-        self.tabs.setCurrentIndex(1)
-        self.open_module(module_id, ref)
-
-    def _on_reference_changed(self, label: str) -> None:
-        self.settings.last_reference = label
-        self.lbl_status.setText(f"{tr('status.ready')} · {label}")
-
     # ── escaneo ──────────────────────────────────────────────────────────
     def _bootstrap(self) -> None:
+        from pathlib import Path
+
         if not Path(self.settings.resources_dir).is_dir():
             self._choose_folder(first_run=True)
             return
@@ -359,14 +539,14 @@ class MainWindow(QMainWindow):
 
     def _scan_done(self, result, auto_index: bool) -> None:
         self._idle()
+        self.sidebar.refresh()
+        self._refresh_status()
         counts = self.ctx.catalog.counts_by_kind()
         total = sum(counts.values())
         self.statusBar().showMessage(
             f"{tr('status.modules', n=total)} · {result.added} nuevos · "
             f"{result.updated} actualizados · {result.seconds:.1f}s", 8000
         )
-        self.sidebar.refresh()
-        self._refresh_status()
         if auto_index:
             self._auto_index()
 
@@ -377,9 +557,29 @@ class MainWindow(QMainWindow):
             if m["rel_path"] in self.settings.preindex and m["index_status"] != "ready"
         ]
         if pending:
-            self._index_paths([m["rel_path"] for m in pending], tr("menu.index.pending"))
+            self._index_paths([m["rel_path"] for m in pending], tr("menu.index.pending"),
+                              then=self._prepare_encrypted)
         else:
-            self._refresh_status()
+            self._prepare_encrypted()
+
+    def _prepare_encrypted(self, force: bool = False) -> None:
+        """Descifra e indexa todos los módulos cifrados (bajo demanda del usuario)."""
+        if self._busy():
+            return
+        encrypted = [m for m in self.ctx.catalog.modules() if m["encrypted"]]
+        if not encrypted:
+            return
+        pending = [m for m in encrypted if m["index_status"] != "ready"]
+        if not pending:
+            self.settings.encrypted_ready = True
+            self.settings.save()
+            return
+        if not force and self.settings.encrypted_ready:
+            return
+        self._index_paths(
+            [m["rel_path"] for m in pending],
+            tr("menu.index.encrypted"),
+        )
 
     def _index_single(self, module_id: int) -> None:
         row = self.ctx.catalog.module(module_id)
@@ -397,8 +597,14 @@ class MainWindow(QMainWindow):
     def _index_kinds(self, kinds: list[str], label: str) -> None:
         self._index_worker(lambda idx, cb: idx.index_kind_list(kinds, progress=cb), label)
 
-    def _index_paths(self, rel_paths: list[str], label: str) -> None:
-        self._index_worker(lambda idx, cb: idx.index_paths(rel_paths, progress=cb), label)
+    def _index_paths(self, rel_paths: list[str], label: str, then=None) -> None:
+        def runner(idx, cb):
+            result = idx.index_paths(rel_paths, progress=cb)
+            if then is not None:
+                result["then"] = then
+            return result
+
+        self._index_worker(runner, label)
 
     def _index_worker(self, fn, label: str) -> None:
         if self._busy():
@@ -427,9 +633,7 @@ class MainWindow(QMainWindow):
     def _on_progress_index(self, done: int, total: int, label: str) -> None:
         self.progress.setRange(0, max(1, total))
         self.progress.setValue(done)
-        self.statusBar().showMessage(
-            f"{tr('status.indexing')} {done}/{total} {label[:48]}"
-        )
+        self.statusBar().showMessage(f"{tr('status.indexing')} {done}/{total} {label[:48]}")
 
     def _index_done(self, result: dict) -> None:
         self._idle()
@@ -440,6 +644,15 @@ class MainWindow(QMainWindow):
         if result.get("failed"):
             msg += " · " + tr("index.failed", n=result["failed"])
         self.statusBar().showMessage(msg, 12000)
+
+        encrypted = [m for m in self.ctx.catalog.modules() if m["encrypted"]]
+        if encrypted and all(m["index_status"] == "ready" for m in encrypted):
+            self.settings.encrypted_ready = True
+            self.settings.save()
+
+        then = result.get("then")
+        if callable(then):
+            QTimer.singleShot(400, then)
 
     # ── workers ──────────────────────────────────────────────────────────
     def _run(self, worker: Worker) -> None:
@@ -485,5 +698,12 @@ class MainWindow(QMainWindow):
         )
 
     def _about(self) -> None:
-        QMessageBox.about(self, tr("dialog.about.title"),
-                          tr("dialog.about.text", version=__version__))
+        logo = str(asset("linuxesword-about.png"))
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("dialog.about.title"))
+        box.setTextFormat(Qt.RichText)
+        box.setText(tr("dialog.about.text", version=__version__))
+        pm = QPixmap(logo)
+        if not pm.isNull():
+            box.setIconPixmap(pm.scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        box.exec()

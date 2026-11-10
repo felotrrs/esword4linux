@@ -1,0 +1,122 @@
+"""Workspace: una pestaña-vista con su propio recurso principal.
+
+Una pestaña agrupa un recurso principal. Si es una biblia, incluye su propia
+biblia paralela y su propio panel de comentario. Si no es biblia, muestra el
+visor del módulo y no ofrece controles de biblia.
+"""
+
+from __future__ import annotations
+
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
+
+from ..core.context import AppContext
+from ..i18n import tr
+from .bible_view import BiblePane
+from .library_view import LibraryView
+
+
+class Workspace(QWidget):
+    reference_changed = Signal(str)
+    open_module = Signal(int, str)
+    search_requested = Signal(str)
+    reference_requested = Signal(str)
+
+    def __init__(self, ctx: AppContext, name: str, color: str, parent=None):
+        super().__init__(parent)
+        self.ctx = ctx
+        self.settings = ctx.settings
+        self.name = name
+        self.color = color
+        self.main_rel = ""
+        self.main_kind = ""
+        self._library: LibraryView | None = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.stack = QStackedWidget()
+        self.bible = BiblePane(ctx)
+        self.bible.reference_changed.connect(self.reference_changed)
+        self.bible.open_module.connect(self.open_module)
+        self.bible.search_requested.connect(self.search_requested)
+        self.stack.addWidget(self.bible)
+
+        self.placeholder = QWidget()
+        self.stack.addWidget(self.placeholder)
+        layout.addWidget(self.stack)
+
+    # ── recurso principal ────────────────────────────────────────────────
+    def set_main(self, row: dict | None, ref: str | None = None) -> None:
+        if row is None:
+            self.stack.setCurrentWidget(self.placeholder)
+            return
+        if (row["rel_path"] == self.main_rel and self.main_kind == row["kind"]
+                and (row["kind"] == "bible" or self._library is not None)
+                and not ref):
+            return
+        self.main_rel = row["rel_path"]
+        self.main_kind = row["kind"]
+        if row["kind"] == "bible":
+            self.stack.setCurrentWidget(self.bible)
+            self.bible.load_module(row)
+            return
+        old = self._library
+        self._library = LibraryView(self.ctx, row, initial_ref=ref)
+        self._library.open_reference.connect(self.reference_requested)
+        self.stack.addWidget(self._library)
+        self.stack.setCurrentWidget(self._library)
+        if old is not None:
+            self.stack.removeWidget(old)
+            old.deleteLater()
+
+    def is_bible(self) -> bool:
+        return self.main_kind == "bible"
+
+    # ── estado ───────────────────────────────────────────────────────────
+    def state(self) -> dict:
+        data = {
+            "name": self.name,
+            "color": self.color,
+            "main_rel": self.main_rel,
+        }
+        if self.is_bible():
+            data.update({
+                "parallel": self.bible.is_parallel(),
+                "parallel_rel": self.bible.parallel_rel(),
+                "commentary": self.bible.is_commentary(),
+                "commentary_rel": self.bible.commentary_rel(),
+                "split": list(self.bible.split_sizes()),
+            })
+        return data
+
+    def apply_state(self, data: dict) -> None:
+        if not data:
+            return
+        self.name = data.get("name") or self.name
+        self.color = data.get("color") or self.color
+        rel = data.get("main_rel") or ""
+        row = self.ctx.catalog.by_rel_path(rel) if rel else None
+        if row is None:
+            row = self.ctx.catalog.by_rel_path(self.settings.bible_module)
+        self.set_main(row)
+        if self.is_bible():
+            if data.get("commentary_rel"):
+                self.bible.set_commentary_rel(data["commentary_rel"])
+            if data.get("parallel_rel"):
+                self.bible.set_parallel_rel(data["parallel_rel"])
+            self.bible.set_commentary(bool(data.get("commentary", True)))
+            self.bible.set_parallel(bool(data.get("parallel", False)))
+            split = data.get("split")
+            if isinstance(split, (list, tuple)) and len(split) == 2:
+                self.bible.set_split_sizes((int(split[0]), int(split[1])))
+
+    # ── tema ─────────────────────────────────────────────────────────────
+    def reload_theme(self) -> None:
+        self.bible.reload_theme()
+        if self._library is not None:
+            self._library.reload_theme()
+
+    def label(self) -> str:
+        return self.name

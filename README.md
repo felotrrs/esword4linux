@@ -7,10 +7,13 @@ Windows y sin la UI de pestañas fijas del programa original.
 - **Clasifica automáticamente** cada módulo por su estructura SQL (no por la
   extensión: en el corpus real hay `.refx` que son tópicos y `.cmtx` con el
   esquema antiguo de comentarios).
-- **Panel lateral** con las bibliografías agrupadas por categoría y plegables.
-- **Paneles centrales modificables**: pestañas cerrables, reordenables y vista
-  paralela de dos traducciones.
-- **Comentario junto al versículo**, tomado del módulo de comentarios que elijas.
+- **Panel lateral** con las bibliografías agrupadas por categoría, plegables y
+  ocultable (`Ctrl+B`). **Un clic** carga el recurso.
+- **Pestañas-vista**: cada pestaña («Pestaña A», «Pestaña B»…) agrupa su propio
+  recurso principal y, si es una biblia, su biblia paralela y su comentario.
+  Nombre y color configurables.
+- **Comentario en panel inferior** (división vertical, ~28 %), no dentro del
+  texto bíblico.
 - **Búsqueda unificada**: referencia (`Juan 3:16`), número Strong (`G2316`) o
   texto libre, con resaltado y salto directo al módulo.
 
@@ -22,9 +25,11 @@ Windows y sin la UI de pestañas fijas del programa original.
 | Descifrado SQLitePlus (Twofish-128) | ✅ 43 módulos del corpus |
 | Catálogo por estructura + dedup | ✅ 970 archivos |
 | Índice FTS5 bajo demanda | ✅ |
-| Biblia + comentario en línea + paralela | ✅ |
+| Biblia + comentario en panel inferior + paralela | ✅ |
+| Pestañas-vista con nombre y color | ✅ |
 | Diccionarios / léxicos / mapas / devocionales | ✅ |
 | UI bilingüe es/en | ✅ |
+| Iconos de aplicación (hicolor 16–512) | ✅ |
 | Empaquetado `.desktop` | ✅ |
 
 ## Arranque rápido

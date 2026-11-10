@@ -66,6 +66,35 @@ def test_commentary_for_chapter():
         assert comments, "el comentario RV1960x debe tener notas en Juan 3"
 
 
+def test_commentary_modern_cmtx_range_schema():
+    """`.cmtx` moderno: Verses(ChapterBegin, ChapterEnd, VerseBegin, VerseEnd).
+
+    Regresión: leerlo como (Book, Chapter, Verse) rompía con
+    «no such column: Chapter» y dejaba el módulo vacío.
+    """
+    path = CORPUS / "COMENTARIOS" / "comment_wesley_en.cmtx"
+    if not path.is_file():
+        pytest.skip("módulo ausente")
+    with EswordModule(path) as mod:
+        specs = dict(mod._comment_specs())
+        assert specs.get("Verses") == "range"
+        comments = mod.chapter_comments(43, 3)
+        assert comments, "Wesley debe tener comentarios en Juan 3"
+        assert any(page.raw for entries in comments.values() for page in entries)
+        assert sum(1 for _ in mod.iter_pages()) > 1000
+
+
+def test_commentary_old_cmti_schema():
+    path = CORPUS / "COMENTARIOS" / "comment_rvr1960x_es.cmti"
+    if not path.is_file():
+        pytest.skip("módulo ausente")
+    with EswordModule(path) as mod:
+        specs = dict(mod._comment_specs())
+        assert specs.get("VerseCommentary") == "range"
+        page = mod.page_by_ref("43:3:16")
+        assert page is not None and page.raw
+
+
 def test_page_by_ref_dictionary():
     path = CORPUS / "04-Vine.lexi"
     if not path.is_file():
