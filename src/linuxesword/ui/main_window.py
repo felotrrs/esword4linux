@@ -55,6 +55,7 @@ class MainWindow(QMainWindow):
         self.settings = ctx.settings
         self._worker: Worker | None = None
         self._workspaces: list[Workspace] = []
+        self._closing = False
         self._build_ui()
         self._build_menus()
         self._restore_state()
@@ -462,6 +463,7 @@ class MainWindow(QMainWindow):
         self.settings.save()
 
     def closeEvent(self, event) -> None:  # noqa: N802
+        self._closing = True
         if self._worker and self._worker.isRunning():
             self._worker.requestInterruption()
             self._worker.wait(3000)
@@ -492,6 +494,8 @@ class MainWindow(QMainWindow):
     def _bootstrap(self) -> None:
         from pathlib import Path
 
+        if self._closing:
+            return
         if not Path(self.settings.resources_dir).is_dir():
             self._choose_folder(first_run=True)
             return
