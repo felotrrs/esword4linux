@@ -33,8 +33,17 @@ class BiblePane(QWidget):
         self._current = Reference(43, 3, 16)
         self._main_rel = ""
         self._secondary_rel = ""
+        self._sizes_applied = False
         self._build_ui()
         self.reload_modules()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        if not self._sizes_applied:
+            self._sizes_applied = True
+            total = max(400, self.vsplit.height())
+            bottom = max(120, min(int(total * 0.28), 420))
+            self.vsplit.setSizes([total - bottom, bottom])
 
     # ── construcción ─────────────────────────────────────────────────────
     def _build_ui(self) -> None:
@@ -164,7 +173,11 @@ class BiblePane(QWidget):
         default_secondary = previous_secondary
         if not default_secondary:
             candidates = [m for m in bibles if m["rel_path"] != primary_rel]
-            if candidates:
+            pre = set(self.settings.preindex)
+            preferred = [m for m in candidates if m["rel_path"] in pre]
+            if preferred:
+                default_secondary = preferred[0]["rel_path"]
+            elif candidates:
                 default_secondary = max(candidates, key=lambda m: m["entries"] or 0)["rel_path"]
         idx = self.secondary.findData(default_secondary)
         if idx >= 0:
