@@ -80,7 +80,7 @@ class Indexer:
         try:
             with EswordModule(path) as mod:
                 if mod.kind == "unknown":
-                    self.catalog.set_status(module_id, "failed", "tipo desconocido")
+                    self.catalog.set_status(module_id, "skipped", "sin tipo de contenido")
                     return 0
                 if mod.kind == "bible" and mod.encrypted:
                     pages = self._bible_pages_parallel(mod, progress)

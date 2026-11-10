@@ -32,6 +32,7 @@ class BiblePane(QWidget):
         self._loading = False
         self._current = Reference(43, 3, 16)
         self._main_rel = ""
+        self._secondary_rel = ""
         self._build_ui()
         self.reload_modules()
 
@@ -83,7 +84,7 @@ class BiblePane(QWidget):
         row.addWidget(self.parallel)
         self.secondary = QComboBox()
         self.secondary.setMinimumWidth(150)
-        self.secondary.currentIndexChanged.connect(lambda _=0: self.reload())
+        self.secondary.currentIndexChanged.connect(self._on_secondary)
         row.addWidget(self.secondary)
 
         row.addStretch(1)
@@ -159,13 +160,16 @@ class BiblePane(QWidget):
         for mod in bibles:
             self.secondary.addItem(mod["abbreviation"] or mod["title"], mod["rel_path"])
         primary_rel = self.translation.currentData()
-        default_secondary = ""
-        candidates = [m for m in bibles if m["rel_path"] != primary_rel]
-        if candidates:
-            default_secondary = max(candidates, key=lambda m: m["entries"] or 0)["rel_path"]
+        previous_secondary = self._secondary_rel or ""
+        default_secondary = previous_secondary
+        if not default_secondary:
+            candidates = [m for m in bibles if m["rel_path"] != primary_rel]
+            if candidates:
+                default_secondary = max(candidates, key=lambda m: m["entries"] or 0)["rel_path"]
         idx = self.secondary.findData(default_secondary)
         if idx >= 0:
             self.secondary.setCurrentIndex(idx)
+        self._secondary_rel = self.secondary.currentData() or ""
         self._loading = False
         self._main_rel = self.translation.currentData() or ""
         self._rebuild_books()
@@ -343,6 +347,11 @@ class BiblePane(QWidget):
         if checked:
             self.reload()
 
+    def _on_secondary(self, _index: int) -> None:
+        self._secondary_rel = self.secondary.currentData() or ""
+        if self.parallel.isChecked():
+            self.reload()
+
     def _on_comments_toggle(self, checked: bool) -> None:
         self.settings.show_commentary_inline = checked
         self.commentary.setVisible(checked)
@@ -421,6 +430,7 @@ class BiblePane(QWidget):
         idx = self.secondary.findData(rel)
         if idx >= 0:
             self.secondary.setCurrentIndex(idx)
+            self._secondary_rel = rel
 
     def split_sizes(self) -> tuple[int, int]:
         sizes = self.vsplit.sizes()

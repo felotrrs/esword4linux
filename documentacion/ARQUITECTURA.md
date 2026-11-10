@@ -16,7 +16,8 @@ de módulos. linuxEsword ataca las dos cosas:
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ ui/            PySide6. Solo presentación y coordinación.    │
-│  main_window · sidebar · bible_view · library_view · search  │
+│  main_window · sidebar · workspace · bible_view ·            │
+│  commentary_pane · library_view · search_view · entry_dialog │
 ├──────────────────────────────────────────────────────────────┤
 │ core/          Lógica pura, sin Qt. Testeable sin pantalla.   │
 │  catalog · indexer · store · search · books · text · context │
@@ -65,6 +66,22 @@ desde el primer instante.
 
 Esta separación es la decisión central: permite indexación bajo demanda sin
 degradar la experiencia de lectura.
+
+## Modelo de pestañas
+
+```
+QTabWidget
+ ├── [0] Buscar            (fija)
+ └── [1..] Workspace       (una por grupo de estudio)
+       ├── recurso principal (biblia | diccionario | comentario | ...)
+       ├── si biblia: biblia paralela (split horizontal)
+       └── si biblia: comentario (split vertical inferior)
+```
+
+Seleccionar un recurso en el panel lateral **no** crea pestaña: sustituye el
+recurso principal de la pestaña activa. Crear un grupo nuevo es explícito
+(`＋` / `Ctrl+T`). Esto evita la proliferación de pestañas y mantiene el
+contexto de lectura.
 
 ## Escaneo
 

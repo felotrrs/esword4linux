@@ -41,7 +41,8 @@ def main() -> int:
     catalog = Catalog(settings.catalog_db)
     store = ContentStore(settings.content_db)
 
-    encrypted = [m for m in catalog.modules() if m["encrypted"]]
+    encrypted = [m for m in catalog.modules()
+                 if m["encrypted"] and m["kind"] != "unknown"]
     pending = encrypted if args.force else [m for m in encrypted if m["index_status"] != "ready"]
 
     print(f"Módulos cifrados: {len(encrypted)} · pendientes: {len(pending)}")

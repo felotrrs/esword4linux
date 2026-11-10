@@ -12,7 +12,8 @@ from ..core.catalog import KIND_LABELS, KIND_ORDER
 from ..core.context import AppContext
 from ..i18n import tr
 
-STATUS_GLYPH = {"ready": "●", "pending": "○", "indexing": "◐", "failed": "✕"}
+STATUS_GLYPH = {"ready": "●", "pending": "○", "indexing": "◐", "failed": "✕",
+                "skipped": "–"}
 
 
 class Sidebar(QWidget):

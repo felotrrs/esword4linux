@@ -566,7 +566,8 @@ class MainWindow(QMainWindow):
         """Descifra e indexa todos los módulos cifrados (bajo demanda del usuario)."""
         if self._busy():
             return
-        encrypted = [m for m in self.ctx.catalog.modules() if m["encrypted"]]
+        encrypted = [m for m in self.ctx.catalog.modules()
+                     if m["encrypted"] and m["kind"] != "unknown"]
         if not encrypted:
             return
         pending = [m for m in encrypted if m["index_status"] != "ready"]
@@ -645,7 +646,8 @@ class MainWindow(QMainWindow):
             msg += " · " + tr("index.failed", n=result["failed"])
         self.statusBar().showMessage(msg, 12000)
 
-        encrypted = [m for m in self.ctx.catalog.modules() if m["encrypted"]]
+        encrypted = [m for m in self.ctx.catalog.modules()
+                     if m["encrypted"] and m["kind"] != "unknown"]
         if encrypted and all(m["index_status"] == "ready" for m in encrypted):
             self.settings.encrypted_ready = True
             self.settings.save()
