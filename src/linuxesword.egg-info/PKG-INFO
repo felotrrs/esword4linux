@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: linuxesword
+Version: 0.1.0
+Summary: Lector nativo de módulos e-Sword para Linux (sin Wine)
+Author: linuxEsword
+License: GPL-3.0-only
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: PySide6-Essentials>=6.6
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"

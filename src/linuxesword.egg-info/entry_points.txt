@@ -1,0 +1,2 @@
+[console_scripts]
+linuxesword = linuxesword.app:main

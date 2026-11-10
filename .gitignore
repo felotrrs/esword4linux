@@ -1,0 +1,19 @@
+# Entorno
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Caché de datos (catálogo + índice FTS5). Nunca se versiona.
+.cache/
+*.db
+*.db-wal
+*.db-shm
+
+# Configuración local
+*.local.json
+
+# Editores
+.idea/
+.vscode/
+*.swp
