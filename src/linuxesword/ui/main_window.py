@@ -9,7 +9,8 @@ from PySide6.QtCore import QByteArray, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox,
-    QProgressBar, QSplitter, QTabBar, QTabWidget, QToolButton, QWidget,
+    QProgressBar, QSizePolicy, QSplitter, QTabBar, QTabWidget, QToolButton,
+    QVBoxLayout, QWidget,
 )
 
 from .. import __version__, i18n
@@ -22,8 +23,9 @@ from ..core.store import ContentStore
 from ..i18n import tr
 from .search_view import SearchView
 from .sidebar import Sidebar
+from .tab_bar import ColoredTabBar
 from .tasks import Worker
-from .theme import stylesheet
+from .theme import palette, stylesheet
 from .workspace import Workspace
 from .entry_dialog import EntryDialog
 
@@ -56,6 +58,7 @@ class MainWindow(QMainWindow):
         self._worker: Worker | None = None
         self._workspaces: list[Workspace] = []
         self._closing = False
+        self._sidebar_width = 290
         self._build_ui()
         self._build_menus()
         self._restore_state()
@@ -72,46 +75,34 @@ class MainWindow(QMainWindow):
         self.sidebar.module_activated.connect(self.open_resource)
         self.sidebar.index_module_requested.connect(self._index_single)
         self.sidebar.index_kind_requested.connect(self._index_kind)
-        self.sidebar.setVisible(self.settings.sidebar_visible)
 
         self.tabs = QTabWidget()
-        self.tabs.setTabsClosable(True)
+        self.tabs.setTabBar(ColoredTabBar(self.tabs))
+        self.tabs.setTabsClosable(False)   # el cierre lo pinta la barra custom
         self.tabs.setMovable(True)
         self.tabs.setDocumentMode(True)
-        self.tabs.tabCloseRequested.connect(self._close_tab)
+        self.tabs.tabBar().tabCloseRequested.connect(self._close_tab)
+        self.tabs.tabBar().new_tab_requested.connect(lambda: self._add_workspace())
+        self.tabs.tabBar().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tabs.tabBar().customContextMenuRequested.connect(self._tab_menu)
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
         self.search = SearchView(self.ctx)
         self.search.open_hit.connect(self._open_hit)
         self.search.go_reference.connect(self._go_reference)
         self.tabs.addTab(self.search, tr("search.tab"))
-        self.tabs.tabBar().setTabButton(0, QTabBar.RightSide, None)
 
-        corner = QWidget()
-        row = QHBoxLayout(corner)
-        row.setContentsMargins(0, 0, 6, 0)
-        row.setSpacing(2)
-        self.btn_sidebar = QToolButton()
-        self.btn_sidebar.setText("☰")
-        self.btn_sidebar.setToolTip(tr("menu.view.sidebar") + "  (Ctrl+B)")
-        self.btn_sidebar.clicked.connect(self.toggle_sidebar)
-        row.addWidget(self.btn_sidebar)
-        self.btn_new = QToolButton()
-        self.btn_new.setText("＋")
-        self.btn_new.setToolTip(tr("workspace.new_tab"))
-        self.btn_new.clicked.connect(lambda: self._add_workspace())
-        row.addWidget(self.btn_new)
-        self.tabs.setCornerWidget(corner, Qt.TopRightCorner)
-
-        self.tabs.tabBar().setContextMenuPolicy(Qt.CustomContextMenu)
-        self.tabs.tabBar().customContextMenuRequested.connect(self._tab_menu)
+        self.sidebar_dock = self._build_sidebar_dock()
+        self.sidebar_dock.setVisible(self.settings.sidebar_visible)
+        self._apply_tab_palette()
 
         split = QSplitter(Qt.Horizontal)
-        split.addWidget(self.sidebar)
+        split.addWidget(self.sidebar_dock)
         split.addWidget(self.tabs)
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 1)
         split.setSizes([290, 1110])
+        self._split = split
         self.setCentralWidget(split)
 
         self.lbl_status = QLabel("")
@@ -122,6 +113,34 @@ class MainWindow(QMainWindow):
         self.progress.hide()
         self.statusBar().addWidget(self.lbl_status, 1)
         self.statusBar().addPermanentWidget(self.progress)
+
+    def _build_sidebar_dock(self) -> QWidget:
+        """Panel lateral + asa vertical para plegarlo desde su propio borde."""
+        dock = QWidget()
+        row = QHBoxLayout(dock)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(0)
+        row.addWidget(self.sidebar, 1)
+
+        self.sidebar_handle = QToolButton()
+        self.sidebar_handle.setObjectName("sidebarHandle")
+        self.sidebar_handle.setText("‹" if self.settings.sidebar_visible else "›")
+        self.sidebar_handle.setFixedWidth(15)
+        self.sidebar_handle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.sidebar_handle.setToolTip(tr("sidebar.hide") + "  (Ctrl+B)")
+        self.sidebar_handle.setCursor(Qt.PointingHandCursor)
+        self.sidebar_handle.clicked.connect(self.toggle_sidebar)
+        row.addWidget(self.sidebar_handle)
+        return dock
+
+    def _apply_tab_palette(self) -> None:
+        bar = self.tabs.tabBar()
+        if isinstance(bar, ColoredTabBar):
+            p = palette(self.settings.theme)
+            bar.set_palette_colors(
+                selected_bg=p.bg, panel_bg=p.panel, border=p.border,
+                text=p.text, muted=p.muted,
+            )
 
     def _build_menus(self) -> None:
         bar = self.menuBar()
@@ -232,7 +251,7 @@ class MainWindow(QMainWindow):
             ws.set_main(default)
 
         idx = self.tabs.addTab(ws, ws.name)
-        self.tabs.setTabIcon(idx, color_dot(ws.color))
+        self.tabs.tabBar().set_tab_color(idx, ws.color)
         self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
         self._workspaces.append(ws)
         if activate:
@@ -310,7 +329,7 @@ class MainWindow(QMainWindow):
     def _set_workspace_color(self, ws: Workspace, color: str) -> None:
         ws.color = color
         idx = self._workspace_index(ws)
-        self.tabs.setTabIcon(idx, color_dot(color))
+        self.tabs.tabBar().set_tab_color(idx, color)
         self._save_state()
 
     def _on_tab_changed(self, index: int) -> None:
@@ -323,6 +342,17 @@ class MainWindow(QMainWindow):
     def toggle_sidebar(self) -> None:
         visible = not self.sidebar.isVisible()
         self.sidebar.setVisible(visible)
+        self.sidebar_handle.setText("‹" if visible else "›")
+        self.sidebar_handle.setToolTip(
+            tr("sidebar.hide" if visible else "sidebar.show") + "  (Ctrl+B)"
+        )
+        if visible:
+            sizes = self._split.sizes()
+            width = self._sidebar_width or 290
+            total = max(sum(sizes), width + 200)
+            self._split.setSizes([width, total - width])
+        else:
+            self._sidebar_width = max(200, self.sidebar.width())
         self.settings.sidebar_visible = visible
         self.settings.save()
         if hasattr(self, "act_sidebar"):
@@ -476,6 +506,7 @@ class MainWindow(QMainWindow):
         self.settings.theme = theme
         self.settings.save()
         self.setStyleSheet(stylesheet(theme, self.settings.font_size))
+        self._apply_tab_palette()
         for ws in self._workspaces:
             ws.reload_theme()
         self.search.run_search()

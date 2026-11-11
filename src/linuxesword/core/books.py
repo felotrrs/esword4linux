@@ -132,6 +132,12 @@ _ALIAS.update({
     "salmo": 19, "salmos": 19, "psalm": 19, "psalms": 19,
     "cantar de los cantares": 22, "cantares": 22, "song of songs": 22,
     "hechos de los apostoles": 44, "apocalipsis de juan": 66,
+    # formas inglesas cortas que aparecen en citas de módulos
+    "act": 44, "exo": 2, "deut": 5, "josh": 6, "judg": 7, "prov": 20,
+    "eccl": 21, "isa": 23, "jer": 24, "lam": 25, "ezek": 26, "dan": 27,
+    "hos": 28, "obad": 31, "jonah": 32, "mic": 33, "zech": 38, "mal": 39,
+    "matt": 40, "rom": 45, "gal": 48, "eph": 49, "col": 51, "thess": 52,
+    "tim": 54, "titus": 56, "phlm": 57, "jas": 59, "pet": 60, "rev": 66,
     "1a corintios": 46, "2a corintios": 47, "1a de corintios": 46,
     "1a pedro": 60, "2a pedro": 61, "1a juan": 62, "2a juan": 63, "3a juan": 64,
     "1a tesalonicenses": 52, "2a tesalonicenses": 53,

@@ -42,11 +42,13 @@ reglas doradas + el mapa del sistema + los comandos. El detalle vive en
    (`Catalog`/`ContentStore` nuevos dentro del worker). Los objetos del hilo
    principal no se comparten con el worker.
 
-8. **Todo texto de módulo pasa por `core/text.py`.** `to_plain()` para indexar,
-   `to_rich()` para mostrar. `to_rich` sanea: elimina `<script>`, descarta tags
-   fuera de la lista blanca, convierte `<ref>X</ref>` en `href="ref:X"` y
-   colapsa el relleno vertical del RTF. Nunca se inyecta HTML crudo del módulo
-   en un `QTextBrowser`.
+8. **Todo texto de módulo pasa por `core/text.py`.** `to_plain(raw, hint)` para
+   indexar, `to_rich(raw, hint)` para mostrar. Además de sanear (`<script>`,
+   lista blanca, relleno RTF), **convierte los pseudo-tags de e-Sword**
+   (`<red>`, `<blu>`, `<grk>`, `<heb>`, `<num>`, `<Pg>`…) — sin esto se ven
+   literalmente como `</red>`. El `hint` (stem del módulo) activa los codepages
+   legacy (cp1253/cp1255) y las transliteraciones. Nunca se inyecta HTML crudo
+   del módulo en un `QTextBrowser`.
 
 9. **El núcleo criptográfico/RTF es vendorizado y GPL-3.0.** `twofish.py`,
    `sqliteplus.py`, `rtf.py`, `font_codepages.py` y `legacy_translit.py` vienen
@@ -96,15 +98,21 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 | `core/esword/sqliteplus.py` | Header SQLitePlus + zlib. Descifra un blob. |
 | `core/esword/twofish.py` | Twofish-128-ECB (vendorizado, GPL-3.0). |
 | `core/esword/rtf.py` | RTF → texto plano / HTML enriquecido (vendorizado). |
-| `core/text.py` | `to_plain` / `to_rich` / `snippet`. Frontera entre indexar y renderizar. |
+| `core/text.py` | `to_plain` / `to_rich` / `snippet`. Pseudo-tags e-Sword + codepages legacy. |
+| `core/refs.py` | Detección de citas bíblicas (`find_reference_spans`, `link_references`). |
+| `core/strong.py` | `StrongIndex`: autodetecta el léxico Strong y resuelve `G2316`. |
+| `core/commentary.py` | Emparejamiento biblia↔comentario por identidad + cobertura real. |
 | `core/catalog.py` | Escaneo incremental, clasificación, fingerprint y duplicados, estado de índice. |
 | `core/store.py` | Esquema `page` + `page_fts` FTS5, triggers, `build_match`. |
 | `core/indexer.py` | Módulo → páginas → FTS5. Pool de procesos para biblias cifradas. |
 | `core/search.py` | Detección de intención y consulta al store. |
 | `core/books.py` | IDs e-Sword 1–73, nombres es/en, alias y `parse_reference`. |
 | `core/context.py` | `AppContext`: catálogo, store, motor y cache LRU de módulos abiertos. |
-| `ui/bible_view.py` | `BiblePane`: navegación, traducción, paralela. El comentario NO va aquí. |
-| `ui/commentary_pane.py` | `CommentaryPane`: panel inferior de comentarios del capítulo. |
+| `ui/bible_view.py` | `BiblePane`: navegación, paralela y panel inferior apilado (Comentario\|Strong). |
+| `ui/commentary_pane.py` | `CommentaryPane`: comentarios del capítulo, salto a la nota. |
+| `ui/strong_pane.py` | `StrongPane`: entrada del léxico Strong. |
+| `ui/rich_browser.py` | `RichBrowser`: burbujas perezosas al pasar el ratón. |
+| `ui/tab_bar.py` | `ColoredTabBar`: pestañas con color pleno, negrita y botón ＋. |
 | `ui/workspace.py` | `Workspace`: pestaña-vista (recurso principal + biblia/paralela/comentario). |
 | `ui/entry_dialog.py` | `EntryDialog`: lectura completa de una entrada sin crear pestaña. |
 | `ui/library_view.py` | Visor genérico (diccionario, léxico, referencia, mapa, devocional...). |
@@ -144,7 +152,7 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 
 ## Definición de "terminado"
 
-- `make test` en verde (50 pruebas).
+- `make test` en verde (70 pruebas).
 - `make drift` sin deriva inesperada del núcleo vendorizado.
 - La app arranca con `./run.sh` y muestra la Biblia sin índice.
 - Cambio de comportamiento → una línea en `documentacion/CHANGELOG.md`.

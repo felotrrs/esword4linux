@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.3.0 — 2026-11-10
+
+### Añadido
+
+- **Pseudo-tags de e-Sword** (`<red>`, `<blu>`, `<grk>`, `<heb>`, `<num>`,
+  `<Pg>`, `<T>`, `<trn>`, `<Hebr>`, `<SHE…>`…) convertidos a HTML semántico.
+  Antes se mostraban literalmente como `</red>` porque la detección de HTML no
+  los reconocía (20 tipos inventariados sobre los 863 módulos).
+- **Griego/hebreo legacy**: se conectan `font_codepages.py` (cp1253/cp1255) y
+  `legacy_translit.py` con el stem del módulo. `dicc_vine_es_nt_es` pasa de
+  `ἀðüèåóéò` a `ἀπόθεσις`. Los ficheros vendorizados no se tocan.
+- **Burbujas**: notas y referencias resuelven su texto al pintar (atributo
+  `title`, tooltip nativo); los números Strong se resuelven al pasar el ratón
+  con caché (`RichBrowser`, 180 ms).
+- **Clic en un marcador de nota** → abre el comentario si estaba cerrado,
+  salta al módulo emparejado con esa biblia, hace scroll a la nota y mantiene
+  el foco en el versículo.
+- **Clic en un número Strong** → el panel inferior pasa a **Strong** con la
+  entrada completa (lexema, transliteración, morfología).
+- **Panel inferior apilado**: `Comentario ⇄ Strong` con selector en la barra.
+- **Emparejamiento biblia↔comentario** automático y visible: identidad
+  (tokens/año/abreviatura) + **cobertura real** de los marcadores del texto.
+  RV1960 → RVR1960x; LBLA → LBLA; sin coincidencia no inventa.
+- **Pestañas con color pleno**: `ColoredTabBar` pinta fondo, texto en negrita
+  cuando está seleccionada, tinte pálido cuando no, cierre con margen y botón
+  **＋** estilo navegador detrás de la última pestaña.
+- **Panel lateral plegable** con asa en su propio borde (`‹`/`›`).
+
+### Corregido
+
+- Referencias falsas: `_abbrev()` devolvía espacios y el bonus de subcadena
+  emparejaba cualquier comentario.
+- Coste de render: las notas y referencias se resuelven con los datos ya
+  cargados del capítulo (cero consultas extra por versículo).
+
 ## 0.2.0 — 2026-11-10
 
 ### Cambiado (modelo de interfaz)

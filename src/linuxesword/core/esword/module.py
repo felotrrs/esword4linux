@@ -156,6 +156,11 @@ class EswordModule:
         return out
 
     @property
+    def stem(self) -> str:
+        """Stem del archivo: hint para codepages/transliteraciones legacy."""
+        return self.path.stem
+
+    @property
     def title(self) -> str:
         d = self.details()
         for key in ("Title", "Description", "title", "description"):

@@ -1,22 +1,42 @@
-"""Vista de Biblia: navegación, traducción paralela y comentario inferior."""
+"""Vista de Biblia: navegación, traducción paralela y panel inferior apilado.
+
+El panel inferior alterna entre **Comentario** y **Strong**. Los marcadores del
+texto (notas `(B)` y números `G2316`) son enlaces con burbuja:
+
+* la nota y la referencia resuelven su texto **al pintar** (ya están en
+  memoria) → tooltip nativo de Qt;
+* el número Strong se resuelve **al pasar el ratón** (un `SELECT` indexado) →
+  `RichBrowser` lo muestra con caché.
+"""
 
 from __future__ import annotations
 
 import html as _html
+import re
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QGuiApplication
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QHBoxLayout, QLabel, QMenu, QPushButton, QSpinBox,
-    QSplitter, QTextBrowser, QToolButton, QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QLabel, QMenu, QPushButton, QSpinBox,
+    QSplitter, QStackedWidget, QToolButton, QVBoxLayout, QWidget,
 )
 
 from ..core.books import Reference, book_name, parse_reference
+from ..core.commentary import best_commentary
 from ..core.context import AppContext
-from ..core.text import to_plain, to_rich
+from ..core.text import snippet, to_plain, to_rich
 from ..i18n import tr
 from .commentary_pane import CommentaryPane
+from .rich_browser import RichBrowser
+from .strong_pane import StrongPane
 from .theme import document_css, palette
+
+_STRONG_COLOR = "#8f6bc4"
+_STRONG_STYLE = f"color:{_STRONG_COLOR};font-size:80%;text-decoration:none;"
+_TAGS_RE = re.compile(r"<[^>]+>")
+_SUP_RE = re.compile(r"(?is)<sup>(.*?)</sup>")
+_STRONG_IN_TEXT = re.compile(r"\b([GH]\d{1,5})\b")
+_REF_A_RE = re.compile(r'<a href="ref:([^"]+)">')
 
 
 class BiblePane(QWidget):
@@ -34,6 +54,7 @@ class BiblePane(QWidget):
         self._main_rel = ""
         self._secondary_rel = ""
         self._sizes_applied = False
+        self._comments_cache: dict[tuple, dict] = {}
         self._build_ui()
         self.reload_modules()
 
@@ -50,7 +71,40 @@ class BiblePane(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        layout.addWidget(self._build_toolbar())
 
+        self.vsplit = QSplitter(Qt.Vertical)
+        self.hsplit = QSplitter(Qt.Horizontal)
+        self.primary = self._make_browser()
+        self.second = self._make_browser()
+        for browser in (self.primary, self.second):
+            browser.setMaximumWidth(980)
+        self.host_primary = self._center(self.primary)
+        self.host_second = self._center(self.second)
+        self.hsplit.addWidget(self.host_primary)
+        self.hsplit.addWidget(self.host_second)
+        self.host_second.hide()
+
+        self.commentary = CommentaryPane(self.ctx)
+        self.commentary.open_module.connect(self.open_module)
+        self.strong = StrongPane(self.ctx)
+        self.strong.open_module.connect(self.open_module)
+
+        self.bottom = QStackedWidget()
+        self.bottom.addWidget(self.commentary)
+        self.bottom.addWidget(self.strong)
+
+        self.vsplit.addWidget(self.hsplit)
+        self.vsplit.addWidget(self.bottom)
+        self.vsplit.setStretchFactor(0, 4)
+        self.vsplit.setStretchFactor(1, 1)
+        layout.addWidget(self.vsplit, 1)
+
+        page = self.settings.bottom_page
+        self._set_bottom_page(page if page in ("commentary", "strong") else "commentary",
+                              show=self.settings.show_commentary_inline)
+
+    def _build_toolbar(self) -> QWidget:
         bar = QWidget()
         row = QHBoxLayout(bar)
         row.setContentsMargins(10, 6, 10, 6)
@@ -98,53 +152,47 @@ class BiblePane(QWidget):
 
         row.addStretch(1)
 
-        self.comments = QCheckBox(tr("bible.comments"))
-        self.comments.setChecked(self.settings.show_commentary_inline)
-        self.comments.toggled.connect(self._on_comments_toggle)
-        row.addWidget(self.comments)
+        self.btn_commentary = QToolButton()
+        self.btn_commentary.setText(tr("bible.bottom_commentary"))
+        self.btn_commentary.setCheckable(True)
+        self.btn_commentary.setToolTip(tr("bible.bottom_commentary"))
+        self.btn_commentary.clicked.connect(lambda: self._on_bottom_button("commentary"))
+        row.addWidget(self.btn_commentary)
+
+        self.btn_strong = QToolButton()
+        self.btn_strong.setText(tr("bible.bottom_strong"))
+        self.btn_strong.setCheckable(True)
+        self.btn_strong.setToolTip(tr("bible.bottom_strong"))
+        self.btn_strong.clicked.connect(lambda: self._on_bottom_button("strong"))
+        row.addWidget(self.btn_strong)
+
+        self.bottom_group = QButtonGroup(self)
+        self.bottom_group.setExclusive(True)
+        self.bottom_group.addButton(self.btn_commentary)
+        self.bottom_group.addButton(self.btn_strong)
+
+        self.btn_hide_bottom = QToolButton()
+        self.btn_hide_bottom.setText("▾")
+        self.btn_hide_bottom.setToolTip(tr("bible.bottom_hide"))
+        self.btn_hide_bottom.clicked.connect(lambda: self._set_bottom_page("", show=False))
+        row.addWidget(self.btn_hide_bottom)
 
         self.btn_search_sel = QPushButton("🔍")
         self.btn_search_sel.setToolTip(tr("bible.search_word"))
         self.btn_search_sel.clicked.connect(self._search_selection)
         row.addWidget(self.btn_search_sel)
+        return bar
 
-        layout.addWidget(bar)
-
-        self.vsplit = QSplitter(Qt.Vertical)
-        self.hsplit = QSplitter(Qt.Horizontal)
-        self.primary = self._make_browser()
-        self.second = self._make_browser()
-        for browser in (self.primary, self.second):
-            browser.setMaximumWidth(980)
-        self.host_primary = self._center(self.primary)
-        self.host_second = self._center(self.second)
-        self.hsplit.addWidget(self.host_primary)
-        self.hsplit.addWidget(self.host_second)
-        self.host_second.hide()
-
-        self.commentary = CommentaryPane(self.ctx)
-        self.commentary.open_module.connect(self.open_module)
-        self.commentary.setVisible(self.settings.show_commentary_inline)
-
-        self.vsplit.addWidget(self.hsplit)
-        self.vsplit.addWidget(self.commentary)
-        self.vsplit.setStretchFactor(0, 4)
-        self.vsplit.setStretchFactor(1, 1)
-        self.vsplit.setSizes([1000 - self.settings.commentary_split, self.settings.commentary_split])
-        layout.addWidget(self.vsplit, 1)
-
-    def _make_browser(self) -> QTextBrowser:
-        b = QTextBrowser()
+    def _make_browser(self) -> RichBrowser:
+        b = RichBrowser(resolver=self._resolve_tooltip)
         b.setOpenLinks(False)
         b.setOpenExternalLinks(False)
         b.anchorClicked.connect(self._on_anchor)
-        b.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
-        )
+        b.document().setDefaultStyleSheet(self._css())
         return b
 
     @staticmethod
-    def _center(browser: QTextBrowser) -> QWidget:
+    def _center(browser) -> QWidget:
         host = QWidget()
         row = QHBoxLayout(host)
         row.setContentsMargins(0, 0, 0, 0)
@@ -153,6 +201,41 @@ class BiblePane(QWidget):
         row.addWidget(browser, 10)
         row.addStretch(1)
         return host
+
+    def _css(self) -> str:
+        return document_css(self.settings.theme, self.settings.font_size,
+                            self.settings.font_family)
+
+    # ── panel inferior ───────────────────────────────────────────────────
+    def _set_bottom_page(self, page: str, show: bool = True) -> None:
+        self.bottom.setVisible(show and page in ("commentary", "strong"))
+        if page == "commentary":
+            self.bottom.setCurrentWidget(self.commentary)
+        elif page == "strong":
+            self.bottom.setCurrentWidget(self.strong)
+        self.bottom_group.setExclusive(False)
+        self.btn_commentary.setChecked(show and page == "commentary")
+        self.btn_strong.setChecked(show and page == "strong")
+        self.bottom_group.setExclusive(True)
+        self.settings.show_commentary_inline = show and bool(page)
+        if page:
+            self.settings.bottom_page = page
+        if show and page == "commentary":
+            self._refresh_commentary()
+
+    def _on_bottom_button(self, page: str) -> None:
+        if not self.bottom.isVisible() or self.bottom.currentWidget() is not (
+            self.commentary if page == "commentary" else self.strong
+        ):
+            self._set_bottom_page(page, show=True)
+        else:
+            self._set_bottom_page(page, show=True)
+
+    def _on_commentary_closed(self) -> None:
+        self._set_bottom_page("", show=False)
+
+    def _on_strong_closed(self) -> None:
+        self._set_bottom_page("", show=False)
 
     # ── módulos ──────────────────────────────────────────────────────────
     def reload_modules(self) -> None:
@@ -186,10 +269,10 @@ class BiblePane(QWidget):
         self._loading = False
         self._main_rel = self.translation.currentData() or ""
         self._rebuild_books()
+        self._apply_commentary_match()
         self.navigate(self._current)
 
     def load_module(self, row: dict) -> None:
-        """Carga una biblia como recurso principal de la pestaña."""
         self._loading = True
         self.reload_modules()
         idx = self.translation.findData(row["rel_path"])
@@ -198,16 +281,62 @@ class BiblePane(QWidget):
         self._loading = False
         self._main_rel = row["rel_path"]
         self._rebuild_books()
+        self._apply_commentary_match()
         self.navigate(self._current)
 
-    def commentary_rel(self) -> str:
-        return self.commentary.commentary_rel()
-
-    def set_commentary_rel(self, rel: str) -> None:
-        self.commentary.set_commentary_rel(rel)
+    def _apply_commentary_match(self) -> None:
+        """Empareja el comentario con la biblia activa (heurística visible)."""
+        bible = self._active_module()
+        if bible is None:
+            return
+        mod = self.ctx.module(bible)
+        matched = best_commentary(
+            bible, self.ctx.commentaries(),
+            bible_module=mod, open_module=self.ctx.module,
+        )
+        if matched is not None:
+            self.commentary.set_commentary_rel(matched["rel_path"])
+            self.commentary.set_match_badge(
+                tr("commentary.matched", bible=bible.get("abbreviation") or bible.get("title", ""))
+            )
+        else:
+            self.commentary.set_match_badge("")
+        self._comments_cache.clear()
 
     def _active_module(self) -> dict | None:
         return self.ctx.catalog.by_rel_path(self._main_rel)
+
+    def _commentary_mod_row(self) -> dict | None:
+        rel = self.commentary.commentary_rel()
+        return self.ctx.catalog.by_rel_path(rel) if rel else None
+
+    def _chapter_comments(self, book: int, chapter: int) -> dict:
+        row = self._commentary_mod_row()
+        if row is None:
+            return {}
+        key = (row["id"], book, chapter)
+        if key not in self._comments_cache:
+            mod = self.ctx.module(row)
+            self._comments_cache[key] = mod.chapter_comments(book, chapter) if mod else {}
+        return self._comments_cache[key]
+
+    # ── navegación ───────────────────────────────────────────────────────
+    def navigate(self, ref: Reference) -> None:
+        self._current = ref
+        row = self._active_module()
+        mod = self.ctx.module(row) if row else None
+        if mod is None:
+            self.primary.setHtml(f'<p class="muted">{tr("main.no_resource")}</p>')
+            return
+        self._loading = True
+        idx = self.book.findData(ref.book)
+        if idx >= 0:
+            self.book.setCurrentIndex(idx)
+        self._sync_chapter_bounds()
+        if ref.chapter:
+            self.chapter.setValue(ref.chapter)
+        self._loading = False
+        self.reload(anchor=ref.verse)
 
     def _rebuild_books(self) -> None:
         row = self._active_module()
@@ -233,24 +362,6 @@ class BiblePane(QWidget):
             self.chapter.setMaximum(total)
             self.chapter.setValue(max(1, min(self._current.chapter, total)))
         self._loading = False
-
-    # ── navegación ───────────────────────────────────────────────────────
-    def navigate(self, ref: Reference) -> None:
-        self._current = ref
-        row = self._active_module()
-        mod = self.ctx.module(row) if row else None
-        if mod is None:
-            self.primary.setHtml(f'<p class="muted">{tr("main.no_resource")}</p>')
-            return
-        self._loading = True
-        idx = self.book.findData(ref.book)
-        if idx >= 0:
-            self.book.setCurrentIndex(idx)
-        self._sync_chapter_bounds()
-        if ref.chapter:
-            self.chapter.setValue(ref.chapter)
-        self._loading = False
-        self.reload(anchor=ref.verse)
 
     def _step(self, delta: int) -> None:
         row = self._active_module()
@@ -292,7 +403,10 @@ class BiblePane(QWidget):
         self._current = Reference(int(book_id), int(chapter), anchor)
         label = self._current.label(self.settings.locale)
         chapter_label = f"{book_name(int(book_id), self.settings.locale)} {int(chapter)}"
+        self.primary.document().setDefaultStyleSheet(self._css())
+        self.second.document().setDefaultStyleSheet(self._css())
         self.primary.setHtml(self._render_chapter(mod, int(book_id), int(chapter)))
+        self.primary.clear_cache()
 
         if self.parallel.isChecked():
             srow = self.ctx.catalog.by_rel_path(self.secondary.currentData() or "")
@@ -300,8 +414,11 @@ class BiblePane(QWidget):
             if smod:
                 self.second.setHtml(self._render_chapter(smod, int(book_id), int(chapter)))
 
-        if self.comments.isChecked():
-            self.commentary.set_chapter(int(book_id), int(chapter), chapter_label)
+        if self.bottom.isVisible():
+            if self.bottom.currentWidget() is self.commentary:
+                self._refresh_commentary()
+            elif self.bottom.currentWidget() is self.strong and self.strong.code:
+                self.strong.show_code(self.strong.code)
 
         if anchor:
             self.primary.scrollToAnchor(f"v{anchor}")
@@ -309,19 +426,25 @@ class BiblePane(QWidget):
             self.primary.verticalScrollBar().setValue(0)
         self.reference_changed.emit(label)
 
+    def _refresh_commentary(self) -> None:
+        book = self._current.book
+        chapter = self._current.chapter
+        label = f"{book_name(book, self.settings.locale)} {chapter}"
+        self.commentary.set_chapter(book, chapter, label)
+
     def _render_chapter(self, mod, book: int, chapter: int) -> str:
         pages = mod.bible_chapter(book, chapter)
         name = book_name(book, self.settings.locale)
-        css = document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
         pal = palette(self.settings.theme)
-        out = [f"<style>{css}</style>"]
+        out = [f"<style>{self._css()}</style>"]
         out.append(f'<div class="chapter-title">{_html.escape(name)} {chapter}</div>')
         if not pages:
             out.append(f'<p class="muted">{tr("bible.not_available")}</p>')
             return "".join(out)
         for page in pages:
             out.append(f'<a name="v{page.verse}"></a>')
-            body = to_rich(page.raw)
+            body = to_rich(page.raw, hint=mod.stem)
+            body = self._enhance(body, book, chapter, page.verse or 0)
             out.append(
                 f'<p class="verse scripture">'
                 f'<a class="vnum" href="v:{page.verse}" style="text-decoration:none;">'
@@ -329,6 +452,122 @@ class BiblePane(QWidget):
                 f'&nbsp;{body}</p>'
             )
         return "".join(out)
+
+    # ── enriquecido: notas, Strong y referencias ─────────────────────────
+    def _enhance(self, html_text: str, book: int, chapter: int, verse: int) -> str:
+        """Convierte `<sup>`, `<ref>` y números Strong en anclas con burbuja."""
+        entries = self._chapter_comments(book, chapter).get(verse, []) if verse else []
+
+        def sup(match: re.Match) -> str:
+            inner = match.group(1)
+            if 'href="strong:' in inner:
+                return inner
+            plain = _TAGS_RE.sub("", inner).strip()
+            hit = _STRONG_IN_TEXT.search(plain)
+            if hit:
+                code = hit.group(1)
+                return (f'<a href="strong:{code}" style="{_STRONG_STYLE}">'
+                        f"<sup>{_html.escape(plain)}</sup></a>")
+            marker = plain.strip("()[]{} ").strip()
+            if not marker or len(marker) > 6 or not entries:
+                return match.group(0)
+            tip = self._note_text(entries, marker)
+            return (
+                f'<a href="note:{book}:{chapter}:{verse}:{_html.escape(marker, quote=True)}" '
+                f'title="{_html.escape(tip, quote=True)}"><sup>{_html.escape(plain)}</sup></a>'
+            )
+
+        html_text = _SUP_RE.sub(sup, html_text)
+
+        def ref(match: re.Match) -> str:
+            ref_text = match.group(1)
+            tip = self._verse_tooltip(ref_text)
+            if not tip:
+                return match.group(0)
+            return (f'<a href="ref:{ref_text}" '
+                    f'title="{_html.escape(tip, quote=True)}">')
+
+        return _REF_A_RE.sub(ref, html_text)
+
+    def _note_text(self, entries, marker: str) -> str:
+        row = self._commentary_mod_row()
+        mod = self.ctx.module(row) if row else None
+        hint = mod.stem if mod else ""
+        parts = [to_plain(e.raw, hint=hint) for e in entries]
+        text = " ".join(p for p in parts if p).strip()
+        if not text:
+            return tr("tooltip.no_note")
+        return snippet(text, 320)
+
+    # ── burbujas ─────────────────────────────────────────────────────────
+    def _resolve_tooltip(self, href: str) -> str:
+        try:
+            if href.startswith("strong:"):
+                return self.ctx.strong.tooltip(href[7:])
+            if href.startswith("note:"):
+                return self._note_tooltip(href[5:])
+            if href.startswith("ref:"):
+                return self._verse_tooltip(href[4:])
+        except Exception:
+            return ""
+        return ""
+
+    def _note_tooltip(self, payload: str) -> str:
+        parts = payload.split(":")
+        if len(parts) < 3:
+            return ""
+        try:
+            book, chapter, verse = int(parts[0]), int(parts[1]), int(parts[2])
+        except ValueError:
+            return ""
+        marker = parts[3] if len(parts) > 3 else ""
+        entries = self._chapter_comments(book, chapter).get(verse, [])
+        if not entries:
+            return ""
+        text = self._note_text(entries, marker)
+        ref = f"{book_name(book, self.settings.locale)} {chapter}:{verse}"
+        return f"{tr('tooltip.note', marker=marker, ref=ref)}\n{text}"
+
+    def _verse_tooltip(self, ref_text: str) -> str:
+        ref = parse_reference(ref_text)
+        if ref is None:
+            return ""
+        row = self._active_module()
+        mod = self.ctx.module(row) if row else None
+        if mod is None or mod.structure != "bible":
+            return ""
+        version = row.get("abbreviation") or ""
+        if ref.verse:
+            page = mod.bible_verse(ref.book, ref.chapter, ref.verse)
+            if page is None:
+                return ""
+            body = snippet(to_plain(page.raw, hint=mod.stem), 320)
+            return f"{tr('tooltip.verse', ref=page.title, version=version)}\n{body}"
+        pages = mod.bible_chapter(ref.book, ref.chapter)
+        if not pages:
+            return ""
+        body = " ".join(
+            f"{p.verse} {to_plain(p.raw, hint=mod.stem)}" for p in pages[:3]
+        )
+        label = f"{book_name(ref.book, self.settings.locale)} {ref.chapter}"
+        return f"{tr('tooltip.verse', ref=label, version=version)}\n{snippet(body, 320)}"
+
+    # ── navegación por recursos ──────────────────────────────────────────
+    def _jump_to_note(self, book: int, chapter: int, verse: int, marker: str) -> None:
+        if not self._commentary_mod_row():
+            self._apply_commentary_match()
+        if not self._commentary_mod_row():
+            return
+        self._set_bottom_page("commentary", show=True)
+        self.commentary.set_chapter(book, chapter,
+                                    f"{book_name(book, self.settings.locale)} {chapter}")
+        self.commentary.scroll_to_verse(verse)
+        self.primary.setFocus(Qt.OtherFocusReason)
+
+    def _show_strong(self, code: str) -> None:
+        self._set_bottom_page("strong", show=True)
+        self.strong.show_code(code)
+        self.primary.setFocus(Qt.OtherFocusReason)
 
     # ── eventos ──────────────────────────────────────────────────────────
     def _on_translation(self, _index: int) -> None:
@@ -340,6 +579,7 @@ class BiblePane(QWidget):
             self.settings.bible_module = rel
             self.main_changed.emit(rel)
         self._rebuild_books()
+        self._apply_commentary_match()
         self.navigate(self._current)
 
     def _on_book(self, _index: int) -> None:
@@ -365,15 +605,6 @@ class BiblePane(QWidget):
         if self.parallel.isChecked():
             self.reload()
 
-    def _on_comments_toggle(self, checked: bool) -> None:
-        self.settings.show_commentary_inline = checked
-        self.commentary.setVisible(checked)
-        if checked:
-            self.reload()
-
-    def _on_commentary_closed(self) -> None:
-        self.comments.setChecked(False)
-
     def _search_selection(self) -> None:
         text = self.primary.textCursor().selectedText().strip()
         if text:
@@ -384,11 +615,16 @@ class BiblePane(QWidget):
         text = url.toString()
         if scheme == "v":
             self._verse_menu(int(url.path() or 0))
-        elif scheme == "c":
-            rest = text[len("c:"):]
-            mod_id, _, ref = rest.partition(":")
-            if mod_id.isdigit():
-                self.open_module.emit(int(mod_id), ref)
+        elif scheme == "note":
+            parts = text[len("note:"):].split(":")
+            if len(parts) >= 3:
+                try:
+                    self._jump_to_note(int(parts[0]), int(parts[1]), int(parts[2]),
+                                       parts[3] if len(parts) > 3 else "")
+                except ValueError:
+                    pass
+        elif scheme == "strong":
+            self._show_strong(text[len("strong:"):])
         elif scheme == "ref":
             target = parse_reference(url.path() or text[4:])
             if target:
@@ -407,6 +643,11 @@ class BiblePane(QWidget):
             lambda: QGuiApplication.clipboard().setText(ref.label(self.settings.locale))
         )
         menu.addAction(act_ref)
+        note = QAction(tr("bible.note_jump"), self)
+        note.triggered.connect(
+            lambda: self._jump_to_note(ref.book, ref.chapter, verse, "")
+        )
+        menu.addAction(note)
         sel = self.primary.textCursor().selectedText().strip()
         if sel:
             act_search = QAction(f'{tr("bible.search_word")}: «{sel[:30]}»', self)
@@ -421,7 +662,9 @@ class BiblePane(QWidget):
             return
         page = mod.bible_verse(ref.book, ref.chapter, ref.verse or 1)
         if page:
-            QGuiApplication.clipboard().setText(f"{page.title} — {to_plain(page.raw)}")
+            QGuiApplication.clipboard().setText(
+                f"{page.title} — {to_plain(page.raw, hint=mod.stem)}"
+            )
 
     # ── estado / tema ────────────────────────────────────────────────────
     def is_parallel(self) -> bool:
@@ -431,10 +674,10 @@ class BiblePane(QWidget):
         self.parallel.setChecked(enabled)
 
     def is_commentary(self) -> bool:
-        return self.comments.isChecked()
+        return self.bottom.isVisible()
 
     def set_commentary(self, enabled: bool) -> None:
-        self.comments.setChecked(enabled)
+        self._set_bottom_page(self.settings.bottom_page or "commentary", show=enabled)
 
     def parallel_rel(self) -> str:
         return self.secondary.currentData() or ""
@@ -445,6 +688,12 @@ class BiblePane(QWidget):
             self.secondary.setCurrentIndex(idx)
             self._secondary_rel = rel
 
+    def commentary_rel(self) -> str:
+        return self.commentary.commentary_rel()
+
+    def set_commentary_rel(self, rel: str) -> None:
+        self.commentary.set_commentary_rel(rel)
+
     def split_sizes(self) -> tuple[int, int]:
         sizes = self.vsplit.sizes()
         return (sizes[0], sizes[1]) if len(sizes) == 2 else (800, 280)
@@ -454,8 +703,9 @@ class BiblePane(QWidget):
             self.vsplit.setSizes(list(sizes))
 
     def reload_theme(self) -> None:
-        css = document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+        css = self._css()
         for browser in (self.primary, self.second):
             browser.document().setDefaultStyleSheet(css)
         self.commentary.reload_theme()
+        self.strong.reload_theme()
         self.reload()

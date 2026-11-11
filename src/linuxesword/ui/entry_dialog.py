@@ -43,6 +43,6 @@ class EntryDialog(QDialog):
             return
         browser.setHtml(
             f'<div class="entry-title">{_html.escape(page.title)}</div>'
-            f"{to_rich(page.raw)}"
+            f"{to_rich(page.raw, hint=mod.stem if mod else '')}"
         )
         browser.setFocus(Qt.OtherFocusReason)

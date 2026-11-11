@@ -10,6 +10,7 @@ from .esword.module import EswordModule
 from .indexer import Indexer
 from .search import SearchEngine
 from .store import ContentStore
+from .strong import StrongIndex
 
 
 class AppContext:
@@ -21,6 +22,7 @@ class AppContext:
         self.store = ContentStore(settings.content_db)
         self.indexer = Indexer(self.catalog, self.store)
         self.search = SearchEngine(self.catalog, self.store)
+        self.strong = StrongIndex(self)
         self._open: "OrderedDict[int, EswordModule]" = OrderedDict()
 
     # ── módulos ──────────────────────────────────────────────────────────

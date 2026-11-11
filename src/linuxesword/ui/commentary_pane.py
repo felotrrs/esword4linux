@@ -48,6 +48,11 @@ class CommentaryPane(QWidget):
         title.setObjectName("sectionTitle")
         row.addWidget(title)
 
+        self.match_label = QLabel("")
+        self.match_label.setObjectName("matchBadge")
+        self.match_label.hide()
+        row.addWidget(self.match_label)
+
         self.combo = QComboBox()
         self.combo.setMinimumWidth(260)
         self.combo.currentIndexChanged.connect(self._on_module_changed)
@@ -126,6 +131,16 @@ class CommentaryPane(QWidget):
         self._book, self._chapter, self._label = book, chapter, label
         self.refresh()
 
+    def scroll_to_verse(self, verse: int) -> None:
+        """Lleva el panel a la nota del versículo indicado."""
+        if not verse:
+            return
+        self.browser.scrollToAnchor(f"cv{verse}")
+
+    def set_match_badge(self, text: str) -> None:
+        self.match_label.setText(text)
+        self.match_label.setVisible(bool(text))
+
     def refresh(self) -> None:
         self.browser.document().setDefaultStyleSheet(
             document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
@@ -158,8 +173,8 @@ class CommentaryPane(QWidget):
                     f'font-size:{max(10, self.settings.font_size - 3)}px; '
                     f'margin:14px 0 4px 0;">{_html.escape(caption)}</div>'
                 )
-                raw = to_rich(page.raw)
-                plain = to_plain(page.raw)
+                raw = to_rich(page.raw, hint=mod.stem)
+                plain = to_plain(page.raw, hint=mod.stem)
                 if len(plain) > MAX_CHARS:
                     out.append(
                         f'<div>{to_rich(snippet(plain, MAX_CHARS))} '

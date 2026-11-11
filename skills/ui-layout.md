@@ -94,3 +94,31 @@ Workspace
 - `processEvents()` no dispara un `QTimer` de 180 ms: en pruebas, esperar.
 - `QTabWidget.setMovable(True)` permite mover la pestaña fija; es inocuo
   (el cierre sigue bloqueado por índice).
+
+## Barra de pestañas propia (`ui/tab_bar.py`)
+
+QSS no permite color por pestaña (`QTabBar` no tiene `:nth-child`), así que
+`ColoredTabBar` pinta a mano:
+
+- **seleccionada**: color pleno + texto en **negrita** con contraste calculado
+  por luminancia; **no seleccionada**: tinte pálido (18 %) + texto atenuado.
+- botón de cierre con `CLOSE_MARGIN` derecho (no pegado al borde).
+- botón **＋** dibujado detrás de la última pestaña, con hit-testing propio
+  (`new_tab_requested`).
+- el color viaja con la pestaña porque se guarda en `setTabData()`.
+
+`QTabWidget.setTabsClosable(False)`: el cierre lo pinta la barra. La conexión
+`tabBar().tabCloseRequested → _close_tab` es explícita.
+
+## Panel lateral plegable
+
+`SidebarDock` = `[Sidebar][asa vertical de 15 px]`. El asa (`#sidebarHandle`)
+queda siempre visible en el borde: `‹` cuando está abierto, `›` cuando está
+plegado. `toggle_sidebar()` guarda el ancho previo en `_sidebar_width` y lo
+restaura al reabrir.
+
+## Panel inferior apilado
+
+`QStackedWidget{ CommentaryPane, StrongPane }` + dos `QToolButton` checkables
+en una `QButtonGroup` exclusiva (`Comentario`, `Strong`) y un `▾` para ocultar.
+El estado va a `Settings.bottom_page` y `show_commentary_inline`.

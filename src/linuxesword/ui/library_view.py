@@ -174,7 +174,7 @@ class LibraryView(QWidget):
                 f'<p class="muted"><a href="ref:'
                 f'{_html.escape(page.title, quote=True)}">{tr("common.open")} →</a></p>'
             )
-        parts.append(to_rich(page.raw))
+        parts.append(to_rich(page.raw, hint=self.mod.stem if self.mod else ""))
         if self.mod and self.mod.structure == "maps":
             pixmap = self.mod.map_picture(page.ref)
             if pixmap:

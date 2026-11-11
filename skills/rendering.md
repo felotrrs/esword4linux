@@ -65,3 +65,42 @@ No escribir hex sueltos en las vistas.
 4. Los enlaces internos usan esquemas propios (`v:`, `c:`, `ref:`, `hit:`,
    `goref:`) y `setOpenLinks(False)` + `anchorClicked`. Nunca `http` para
    navegación interna.
+
+## Pseudo-tags de e-Sword (no son HTML)
+
+`to_rich()` / `to_plain()` convierten 20 tags propios antes de sanear. Si se
+tratan como texto plano, se muestran literalmente (`</red>`).
+
+| Tag | Conversión |
+|---|---|
+| `<red>` | `<span style="color:#b03a2e">` |
+| `<blu>` | azul |
+| `<grk>`, `<gra>` | fuente con griego + itálica |
+| `<heb>`, `<H>`, `<h>`, `<Hebr>` | fuente con hebreo |
+| `<lat>`, `<trn>`, `<tvm>` | itálica |
+| `<num>H1</num>` | `<a href="strong:H1">` |
+| `<a href='#sG1645'>` | `<a href="strong:G1645">` |
+| `<Pg>`, `<T>`, `<ST>`, `<st>`, `<BDB>`, `<bdb>`, `<TWOT>`, `<twot>`, `<SHE####>` | se eliminan, se conserva el texto |
+
+`is_markup()` decide si un contenido es HTML real o pseudo-tag: sin ella,
+`<red>…</red>` cae en la rama de texto plano y se escapa.
+
+## Codepages y transliteraciones legacy
+
+`to_plain(raw, hint)` / `to_rich(raw, hint)` reciben el **stem del módulo**.
+Con él:
+
+- `font_codepages_for(hint)` → `\f1`/`\f2` como cp1253/cp1255 (Vine NT/AT).
+  Sin esto el griego sale `ἀðüèåóéò` en vez de `ἀπόθεσις`.
+- `transliteration_for(hint)` + `apply_transliteration()` → glifos Latin-1 de
+  Certeza.
+
+Los ficheros vendorizados **no se modifican** (los vigila `make drift`); el
+hint solo los activa.
+
+## Burbujas
+
+- Notas y referencias resuelven su texto **al pintar** y usan el atributo
+  `title` de `<a>` (tooltip nativo de Qt).
+- Los números Strong se resuelven **al pasar el ratón** (`RichBrowser`, 180 ms,
+  caché) porque cada uno es un `SELECT` al léxico.

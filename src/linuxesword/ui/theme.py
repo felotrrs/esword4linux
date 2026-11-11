@@ -96,6 +96,28 @@ QTabBar::tab:selected {{ background: {p.bg}; color: {p.text}; border-bottom: 2px
 QTabBar::tab:hover {{ color: {p.text}; }}
 QTabBar::close-button {{ subcontrol-position: right; }}
 
+QToolButton {{
+    background: {p.panel_alt}; border: 1px solid {p.border};
+    border-radius: 6px; padding: 5px 10px;
+}}
+QToolButton:hover {{ border-color: {p.accent}; }}
+QToolButton:checked {{ background: {p.accent}; color: {p.accent_text}; border-color: {p.accent}; }}
+
+QToolButton#sidebarHandle {{
+    background: {p.panel}; color: {p.muted};
+    border: 0; border-left: 1px solid {p.border}; border-right: 1px solid {p.border};
+    border-radius: 0; padding: 0; font-size: 14px; font-weight: 700;
+}}
+QToolButton#sidebarHandle:hover {{ color: {p.accent_text}; background: {p.accent}; }}
+
+QLabel#matchBadge {{
+    color: {p.muted}; background: {p.panel_alt};
+    border: 1px solid {p.border}; border-radius: 6px;
+    padding: 1px 8px; font-size: {max(9, font_size - 5)}px;
+}}
+QLabel#strongBadge {{ color: {p.accent_text}; background: {p.accent};
+    border-radius: 6px; padding: 1px 8px; font-weight: 700; }}
+
 QTreeWidget, QListWidget {{
     background: {p.panel}; border: 0; border-right: 1px solid {p.border};
     padding: 4px; alternate-background-color: {p.panel_alt};

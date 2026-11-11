@@ -115,5 +115,21 @@
   "bible.parallel_off": "Parallel view",
   "bible.comments_off": "Commentary",
   "main.resource": "Main resource",
-  "main.no_resource": "Pick a resource in the left panel."
+  "main.no_resource": "Pick a resource in the left panel.",
+  "strong.title": "Strong",
+  "strong.hint": "Click a Strong number in the text to see its entry.",
+  "strong.not_found": "Entry {code} not found in the lexicon.",
+  "strong.lexicon": "Lexicon",
+  "bible.bottom_commentary": "Commentary",
+  "bible.bottom_strong": "Strong",
+  "bible.bottom_hide": "Hide panel",
+  "bible.note_jump": "Go to commentary",
+  "commentary.matched": "matched with {bible}",
+  "commentary.no_match": "no matching commentary",
+  "tooltip.verse": "📖 {ref} ({version})",
+  "tooltip.note": "Note {marker} — {ref}",
+  "tooltip.no_note": "No note for this marker.",
+  "tooltip.strong": "{code} · {lexicon}",
+  "sidebar.hide": "Hide panel",
+  "sidebar.show": "Show panel"
 }

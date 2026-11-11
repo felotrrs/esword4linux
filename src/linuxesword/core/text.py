@@ -1,12 +1,17 @@
-"""Normalización de contenido e-Sword: RTF/HTML/texto → plano y enriquecido.
+"""Normalización de contenido e-Sword: RTF/HTML/pseudo-tags → plano y enriquecido.
 
 Dos representaciones con propósitos distintos:
 
 * **plano**  → se indexa en FTS5 (sin maquetación).
 * **rico**   → se renderiza en Qt (QTextDocument entiende un subconjunto HTML).
 
+e-Sword no solo usa RTF y HTML: muchos módulos traen **pseudo-tags propios**
+(`<red>`, `<blu>`, `<grk>`, `<heb>`, `<num>`, `<Pg>`…). No son HTML y si se
+tratan como texto plano acaban mostrándose literalmente (`</red>`), que es
+exactamente el defecto que corrige `_convert_pseudo()`.
+
 El texto de la fuente NUNCA se altera semánticamente: solo se decodifica la
-presentación (RTF/HTML) que e-Sword usa para mostrar.
+presentación que e-Sword usa para mostrar.
 """
 
 from __future__ import annotations
@@ -14,6 +19,8 @@ from __future__ import annotations
 import html as _html
 import re
 
+from .esword.font_codepages import font_codepages_for
+from .esword.legacy_translit import apply_transliteration, transliteration_for
 from .esword.rtf import _is_html, _is_rtf, _strip_html, rtf_to_rich_text, rtf_to_text
 
 # Tags que QTextDocument renderiza bien. El resto se descarta conservando
@@ -26,6 +33,72 @@ _ALLOWED = {
 _SELF_CLOSING = {"br", "hr"}
 
 _TAG_SPLIT = re.compile(r"(<[^>]{1,400}>)")
+
+# ── pseudo-tags de e-Sword ────────────────────────────────────────────────
+# Nombre → estilo CSS. `None` = se elimina el tag y se conserva el contenido.
+_PSEUDO_STYLE: dict[str, str | None] = {
+    "red": "color:#b03a2e;",
+    "blu": "color:#2f5d8a;",
+    "grk": "font-family:'DejaVu Sans','Noto Sans',serif;font-style:italic;",
+    "gra": "font-family:'DejaVu Sans','Noto Sans',serif;font-style:italic;",
+    "heb": "font-family:'DejaVu Sans','Noto Sans',serif;",
+    "H": "font-family:'DejaVu Sans','Noto Sans',serif;",
+    "h": "font-family:'DejaVu Sans','Noto Sans',serif;",
+    "Hebr": "font-family:'DejaVu Sans','Noto Sans',serif;",
+    "lat": "font-style:italic;",
+    "trn": "font-style:italic;",
+    "tvm": "font-style:italic;",
+    "Pg": None,
+    "T": None,
+    "ST": None,
+    "st": None,
+    "BDB": None,
+    "bdb": None,
+    "TWOT": None,
+    "twot": None,
+}
+
+_PSEUDO_NAMES = "|".join(sorted((k for k in _PSEUDO_STYLE), key=len, reverse=True))
+_PSEUDO_RE = re.compile(rf"(?is)<\s*(/?)\s*({_PSEUDO_NAMES})\s*>")
+_PSEUDO_SHE_RE = re.compile(r"(?is)</?\s*SHE\d{2,5}\s*>")
+_NUM_RE = re.compile(r"(?is)<num>\s*([GHgh]\d{1,5})\s*</num>")
+_STRONG_ANCHOR_RE = re.compile(
+    r"""(?is)<a\b[^>]*href\s*=\s*['"]#s([GHgh]\d{1,5})['"][^>]*>.*?</a>"""
+)
+_STRONG_COLOR = "#8f6bc4"
+_STRONG_STYLE = f"color:{_STRONG_COLOR};font-size:78%;text-decoration:none;"
+
+
+def _strong_anchor(code: str) -> str:
+    code = code.upper()
+    return f'<a href="strong:{code}" style="{_STRONG_STYLE}">{code}</a>'
+
+
+def _convert_pseudo(text: str) -> str:
+    """Pseudo-tags e-Sword → HTML semántico (o se eliminan conservando texto)."""
+    text = _NUM_RE.sub(lambda m: _strong_anchor(m.group(1)), text)
+    # Strong como enlace interno: <a href='#sG1645'>G1645</a>
+    text = _STRONG_ANCHOR_RE.sub(lambda m: _strong_anchor(m.group(1)), text)
+
+    def _span(match: re.Match) -> str:
+        closing, raw_name = match.group(1), match.group(2)
+        # los nombres pueden venir en distinta caja (Hb vs hb)
+        name = raw_name if raw_name in _PSEUDO_STYLE else raw_name.capitalize()
+        style = _PSEUDO_STYLE.get(name, None)
+        if style is None:
+            return ""
+        return "</span>" if closing else f'<span style="{style}">'
+
+    text = _PSEUDO_RE.sub(_span, text)
+    text = _PSEUDO_SHE_RE.sub("", text)
+    return text
+
+
+def is_markup(text: str) -> bool:
+    """True si el contenido trae HTML real o pseudo-tags de e-Sword."""
+    if not text:
+        return False
+    return bool(_is_html(text) or _PSEUDO_RE.search(text) or _NUM_RE.search(text))
 
 
 def decode_raw(raw) -> str:
@@ -47,16 +120,30 @@ def _collapse(text: str) -> str:
     return text.strip()
 
 
-def to_plain(raw) -> str:
-    """Texto plano para indexar (sin RTF, sin HTML, sin formato)."""
+def _codepages(hint: str) -> dict[int, str]:
+    return font_codepages_for(hint) if hint else {}
+
+
+def _legacy(text: str, hint: str) -> str:
+    """Transliteración legacy por fuente (p. ej. Certeza)."""
+    mapping = transliteration_for(hint) if hint else {}
+    return apply_transliteration(text, mapping) if mapping else text
+
+
+def to_plain(raw, hint: str = "") -> str:
+    """Texto plano para indexar (sin RTF, sin HTML, sin formato).
+
+    `hint` es el stem del módulo; activa los codepages legacy (cp1253/cp1255)
+    y las transliteraciones por fuente.
+    """
     s = decode_raw(raw)
     if not s.strip():
         return ""
     if _is_rtf(s):
-        return _collapse(rtf_to_text(s))
-    if _is_html(s):
-        return _collapse(_strip_html(s))
-    return _collapse(s)
+        return _collapse(_legacy(rtf_to_text(s, codepages=_codepages(hint)), hint))
+    if is_markup(s):
+        return _collapse(_strip_html(_convert_pseudo(_legacy(s, hint))))
+    return _collapse(_legacy(s, hint))
 
 
 def _filter_style(style: str) -> str:
@@ -74,6 +161,9 @@ def _filter_style(style: str) -> str:
         } and not re.search(r"url\(|expression|javascript", val, re.I):
             keep.append(f"{prop}:{val}")
     return ";".join(keep)
+
+
+_SAFE_SCHEMES = ("ref:", "strong:", "note:", "http://", "https://")
 
 
 def _sanitize(html: str) -> str:
@@ -108,15 +198,16 @@ def _sanitize(html: str) -> str:
             kept = _filter_style(style.group(1))
             if kept:
                 attrs += f' style="{kept}"'
-        href = re.search(r'href\s*=\s*"([^"]*)"', token, re.I)
-        if href and name == "a":
-            url = href.group(1)
-            if url.startswith(("ref:", "http://", "https://")):
-                attrs += f' href="{_html.escape(url, quote=True)}"'
-        if name in _SELF_CLOSING:
-            out.append(f"<{name}{attrs}>")
-        else:
-            out.append(f"<{name}{attrs}>")
+        if name == "a":
+            href = re.search(r'href\s*=\s*"([^"]*)"', token, re.I)
+            if href:
+                url = href.group(1)
+                if url.startswith(_SAFE_SCHEMES):
+                    attrs += f' href="{_html.escape(url, quote=True)}"'
+            title = re.search(r'title\s*=\s*"([^"]*)"', token, re.I)
+            if title:
+                attrs += f' title="{_html.escape(title.group(1), quote=True)}"'
+        out.append(f"<{name}{attrs}>")
     return "".join(out)
 
 
@@ -131,19 +222,20 @@ def _tidy(html: str) -> str:
     return html.strip()
 
 
-def to_rich(raw) -> str:
+def to_rich(raw, hint: str = "") -> str:
     """HTML para renderizar en la UI (conserva negritas, itálicas, colores)."""
     s = decode_raw(raw)
     if not s.strip():
         return ""
     if _is_rtf(s):
-        rich = rtf_to_rich_text(s)
+        rich = rtf_to_rich_text(s, codepages=_codepages(hint))
         if rich:
-            return _tidy(_sanitize(rich))
-        return _html.escape(_collapse(rtf_to_text(s))).replace("\n", "<br>")
-    if _is_html(s):
-        return _tidy(_sanitize(s))
-    return _html.escape(s).replace("\n", "<br>")
+            return _tidy(_sanitize(_convert_pseudo(rich)))
+        plain = _legacy(rtf_to_text(s, codepages=_codepages(hint)), hint)
+        return _html.escape(_collapse(plain)).replace("\n", "<br>")
+    if is_markup(s):
+        return _tidy(_sanitize(_convert_pseudo(_legacy(s, hint))))
+    return _html.escape(_legacy(s, hint)).replace("\n", "<br>")
 
 
 def snippet(plain: str, max_chars: int = 260) -> str:

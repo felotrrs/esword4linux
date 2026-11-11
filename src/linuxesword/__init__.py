@@ -5,5 +5,5 @@ una aplicación nativa (PySide6/Qt6) que abre cualquier módulo desde una única
 carpeta de recursos, clasificándolo por estructura SQL.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 APP_NAME = "linuxEsword"

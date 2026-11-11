@@ -115,5 +115,21 @@
   "bible.parallel_off": "Vista paralela",
   "bible.comments_off": "Comentario",
   "main.resource": "Recurso principal",
-  "main.no_resource": "Selecciona un recurso en el panel izquierdo."
+  "main.no_resource": "Selecciona un recurso en el panel izquierdo.",
+  "strong.title": "Strong",
+  "strong.hint": "Pulsa un número Strong en el texto para ver su entrada.",
+  "strong.not_found": "No se encontró la entrada {code} en el léxico.",
+  "strong.lexicon": "Léxico",
+  "bible.bottom_commentary": "Comentario",
+  "bible.bottom_strong": "Strong",
+  "bible.bottom_hide": "Ocultar panel",
+  "bible.note_jump": "Ir al comentario",
+  "commentary.matched": "emparejado con {bible}",
+  "commentary.no_match": "sin comentario emparejado",
+  "tooltip.verse": "📖 {ref} ({version})",
+  "tooltip.note": "Nota {marker} — {ref}",
+  "tooltip.no_note": "Sin nota para este marcador.",
+  "tooltip.strong": "{code} · {lexicon}",
+  "sidebar.hide": "Ocultar panel",
+  "sidebar.show": "Mostrar panel"
 }

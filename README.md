@@ -11,9 +11,13 @@ Windows y sin la UI de pestañas fijas del programa original.
   ocultable (`Ctrl+B`). **Un clic** carga el recurso.
 - **Pestañas-vista**: cada pestaña («Pestaña A», «Pestaña B»…) agrupa su propio
   recurso principal y, si es una biblia, su biblia paralela y su comentario.
-  Nombre y color configurables.
+  Pestaña coloreada completa, texto en negrita al seleccionar, tinte pálido en
+  las demás, botón ＋ estilo navegador y renombrado/color por menú contextual.
 - **Comentario en panel inferior** (división vertical, ~28 %), no dentro del
-  texto bíblico.
+  texto bíblico. El panel alterna **Comentario ⇄ Strong**.
+- **Notas y Strong navegables**: burbuja al pasar el ratón; al pulsar el
+  marcador `(B)` se abre el comentario emparejado con esa biblia y se salta a
+  la nota; al pulsar `G2316` se abre el léxico.
 - **Búsqueda unificada**: referencia (`Juan 3:16`), número Strong (`G2316`) o
   texto libre, con resaltado y salto directo al módulo.
 
@@ -26,7 +30,8 @@ Windows y sin la UI de pestañas fijas del programa original.
 | Catálogo por estructura + dedup | ✅ 970 archivos |
 | Índice FTS5 bajo demanda | ✅ |
 | Biblia + comentario en panel inferior + paralela | ✅ |
-| Pestañas-vista con nombre y color | ✅ |
+| Pestañas-vista con color pleno y botón ＋ | ✅ |
+| Notas/Strong con burbuja y navegación | ✅ |
 | Diccionarios / léxicos / mapas / devocionales | ✅ |
 | UI bilingüe es/en | ✅ |
 | Iconos de aplicación (hicolor 16–512) | ✅ |

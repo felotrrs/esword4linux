@@ -2,6 +2,14 @@
 
 Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
+## Resuelto en 0.3.0
+
+- Pseudo-tags de e-Sword (`</red>`, `</grk>`…) mostrados literalmente.
+- Griego cp1253/cp1255 sin decodificar (Vine NT/AT).
+- Referencias cruzadas y notas sin burbuja ni navegación.
+- Números Strong sin acceso al léxico.
+- Pestañas de un solo color (punto) y botón de cierre pegado al borde.
+
 ## Resuelto en 0.2.0
 
 - Comentarios en panel inferior propio (antes incrustados en el texto).
@@ -18,8 +26,8 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
 | # | Tema | Detalle | Impacto |
 |---|---|---|---|
-| 1 | **Codepages legacy** | `font_codepages.py` y `legacy_translit.py` están vendorizados pero **no conectados**. Los módulos que guardan griego/hebreo con fuentes de 8 bits (p. ej. "Certeza") muestran mojibake en el visor. | Medio |
-| 2 | **Strong's en el texto** | Los módulos con números Strong (`RV1960+`, `bible_rv1960_es_1.bblx`) los muestran como texto. No hay ventana emergente ni salto al léxico al pulsarlos. | Medio |
+| 1 | **Codepages legacy** | ✅ Resuelto en 0.3.0: conectados vía `hint` (stem) en `to_plain`/`to_rich`. | — |
+| 2 | **Strong's en el texto** | ✅ Resuelto en 0.3.0: ancla + burbuja + panel Strong inferior. | — |
 | 3 | **Deuterocanónicos** | Se muestran (libros 67–73) pero los nombres dependen de `core/books.py`; falta verificar edición por edición que la numeración coincida con el contenido. | Bajo |
 | 4 | **`.lanx` / `headings.*`** | Se catalogan como `unknown` y aparecen en "Sin clasificar". Podrían ocultarse o etiquetarse como "Recursos de e-Sword". | Bajo |
 | 5 | **Duplicados** | Se detectan por fingerprint (tamaño + 64 KiB) y se ocultan; no hay UI para revisarlos ni elegir cuál conservar. | Bajo |
