@@ -87,3 +87,8 @@ una letra.
 
 `--apply` mueve las sobrantes a `_duplicados/<fecha>/` y escribe manifiesto
 (ruta, sha256, copia conservada). Nunca borra por defecto.
+
+`Catalog.scan()` **excluye** `_duplicados/` (y VCS/ocultas) y purga las filas
+de módulos que ya no están en disco. El orden importa: **primero purgar,
+después `_mark_duplicates()`**; al revés quedan `duplicate_of` colgando de
+filas borradas y el módulo desaparece de la barra sin motivo.

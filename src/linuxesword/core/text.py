@@ -94,6 +94,22 @@ def _convert_pseudo(text: str) -> str:
     return text
 
 
+_HTML_START = re.compile(
+    r"\s*<(p|div|span|br|table|tr|td|th|b|i|u|font|sup|sub|ref|num|grk|heb|red|blu"
+    r"|h[1-6]|ul|ol|li|blockquote|center|a)\b",
+    re.I,
+)
+
+
+def starts_with_html(text: str) -> bool:
+    r"""True si el contenido empieza con una etiqueta de bloque/inline.
+
+    Desempata frente a `_is_rtf`: hay HTML que contiene `{\...}` más adelante
+    (p. ej. `{\Language:English}` en el léxico Strong) y se detectaba como RTF.
+    """
+    return bool(text) and bool(_HTML_START.match(text))
+
+
 def is_markup(text: str) -> bool:
     """True si el contenido trae HTML real o pseudo-tags de e-Sword."""
     if not text:
@@ -140,6 +156,8 @@ def to_plain(raw, hint: str = "", codepages: dict | None = None) -> str:
     if not s.strip():
         return ""
     cp = codepages if codepages is not None else _codepages(hint)
+    if starts_with_html(s):
+        return _collapse(_strip_html(_convert_pseudo(_legacy(s, hint))))
     if _is_rtf(s):
         return _collapse(_legacy(rtf_to_text(s, codepages=cp), hint))
     if is_markup(s):
@@ -229,6 +247,8 @@ def to_rich(raw, hint: str = "", codepages: dict | None = None) -> str:
     if not s.strip():
         return ""
     cp = codepages if codepages is not None else _codepages(hint)
+    if starts_with_html(s):
+        return _tidy(_sanitize(_convert_pseudo(_legacy(s, hint))))
     if _is_rtf(s):
         rich = rtf_to_rich_text(s, codepages=cp)
         if rich:

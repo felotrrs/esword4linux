@@ -10,6 +10,7 @@ Nunca se escribe en la carpeta de recursos.
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import sqlite3
 import time
@@ -61,6 +62,12 @@ KIND_LABELS = {
     "maps": ("Mapas", "Maps"),
     "twm": ("TWM", "TWM"),
     "unknown": ("Sin clasificar", "Unclassified"),
+}
+
+# Carpetas que nunca se indexan (cuarentena de duplicados, VCS, basura).
+EXCLUDED_DIRS = {
+    "_duplicados", ".git", "__pycache__", ".cache", ".trash", ".Trash-1000",
+    "System Volume Information", "$RECYCLE.BIN", "lost+found",
 }
 
 KIND_ORDER = [
@@ -142,6 +149,7 @@ class ScanResult:
     updated: int = 0
     skipped: int = 0
     errors: int = 0
+    removed: int = 0
     seconds: float = 0.0
 
 
@@ -169,10 +177,7 @@ class Catalog:
         if not root.is_dir():
             raise FileNotFoundError(f"carpeta de recursos inexistente: {root}")
 
-        files = sorted(
-            p for p in root.rglob("*")
-            if p.is_file() and p.suffix.lower() in ESWORD_EXTS
-        )
+        files = sorted(self._walk_modules(root))
         result.total = len(files)
         existing = {
             r["path"]: (r["size"], r["mtime"], r["index_status"])
@@ -206,12 +211,37 @@ class Catalog:
             else:
                 result.added += 1
 
+        result.removed = self._purge_missing({str(p) for p in files})
         self._mark_duplicates()
         self.conn.commit()
         result.seconds = time.time() - started
         self.set_meta("last_scan", time.strftime("%Y-%m-%dT%H:%M:%S"))
         self.set_meta("resources_dir", str(root))
         return result
+
+    def _walk_modules(self, root: Path) -> list[Path]:
+        """Recorre la carpeta saltando `_duplicados`, VCS y carpetas ocultas."""
+        out: list[Path] = []
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in EXCLUDED_DIRS and not d.startswith(".")
+            ]
+            for fn in filenames:
+                path = Path(dirpath) / fn
+                if path.suffix.lower() in ESWORD_EXTS and path.is_file():
+                    out.append(path)
+        return out
+
+    def _purge_missing(self, existing: set[str]) -> int:
+        """Elimina del catálogo los módulos que ya no están en disco."""
+        rows = self.conn.execute("SELECT id, path FROM module").fetchall()
+        removed = 0
+        for row in rows:
+            if row["path"] not in existing:
+                self.conn.execute("DELETE FROM module WHERE id=?", (row["id"],))
+                removed += 1
+        return removed
 
     def _probe(self, path: Path) -> dict:
         with EswordModule(path) as mod:

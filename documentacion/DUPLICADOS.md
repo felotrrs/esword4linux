@@ -9,6 +9,8 @@
 Dos archivos son duplicados si tienen **los mismos bytes** (`sha256`).
 El ✅ es el ejemplar que se conserva; el 🗑 pasaría a cuarentena.
 
+> **Estado**: las 23 copias sobrantes se movieron a `_duplicados/20261110-222311/` el 2026-11-10. Manifiesto: `manifest-20261110-222311.json`.
+
 ## Grupos duplicados
 
 ### 1. DE-VINE - DICCIONARIO EXPOSITIVO DE PALABRAS DEL AT Y NT (Merril F. Unger y William White Jr Y W.E. Vine) — 34.4 MB

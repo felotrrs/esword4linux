@@ -39,7 +39,9 @@
 ### Biblioteca
 
 - **23 copias duplicadas movidas a cuarentena** (113,9 MB) con manifiesto en
-  `_duplicados/manifest-*.json`. El catálogo pasó de 970 a 940 módulos.
+  `_duplicados/manifest-*.json`. El catálogo pasó de 969 a 946 módulos.
+- El escaneo **excluye `_duplicados/`**, VCS y carpetas ocultas, y **purga del
+  catálogo** los módulos que ya no existen en disco (`ScanResult.removed`).
 - Reindexados los 12 módulos cuyo texto tenía pseudo-tags literales o
   mojibake en el índice FTS5.
 
