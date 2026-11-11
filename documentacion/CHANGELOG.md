@@ -16,7 +16,10 @@
   `2Co 4:6`)— y muestran el versículo al pasar el ratón.
 - **Léxico Strong predeterminado elegible**: el combo del panel Strong lista
   los 15 léxicos Strong (★ = activo) y fija el de las burbujas; también en
-  **Ver → Léxico Strong predeterminado**.
+  **Ver → Léxico Strong predeterminado**. Si el léxico elegido no cubre ese
+  idioma (p. ej. uno solo de hebreo y se pide `G2316`), se resuelve con
+  **respaldo automático** al primer candidato que tenga la entrada, y la
+  burbuja indica de qué léxico sale.
 - **Detección automática de codepages legacy** (`core/legacy_scripts.py`):
   reconoce cp1253/cp1255 por rachas de escapes RTF y corrige el griego de
   módulos fuera del registro vendorizado (p. ej. `dicc_strong__esp_es.dctx`

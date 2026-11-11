@@ -92,3 +92,10 @@ una letra.
 de módulos que ya no están en disco. El orden importa: **primero purgar,
 después `_mark_duplicates()`**; al revés quedan `duplicate_of` colgando de
 filas borradas y el módulo desaparece de la barra sin motivo.
+
+## Léxico Strong con respaldo
+
+`StrongIndex._resolve_page(code)` prueba el léxico elegido y, si no tiene la
+entrada, recorre los candidatos. Así un léxico solo-hebreo no deja vacíos los
+números griegos (`G2316`). El tooltip muestra la abreviatura del léxico del que
+salió la entrada, no la del elegido.

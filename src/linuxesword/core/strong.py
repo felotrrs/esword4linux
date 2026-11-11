@@ -91,41 +91,57 @@ class StrongIndex:
             return ""
         return f"{row['abbreviation']} · {row['title']}"
 
+    def _resolve_page(self, code: str):
+        """(fila, módulo, página) del primer léxico que tenga la entrada.
+
+        Si el léxico elegido no cubre ese idioma (p. ej. uno solo de hebreo y
+        se pide `G2316`), se prueba el resto de candidatos en orden.
+        """
+        primary = self.module()
+        order = ([primary] if primary else []) + [
+            c for c in self.candidates()
+            if primary is None or c["id"] != primary["id"]
+        ]
+        for row in order:
+            mod = self.ctx.module(row)
+            if mod is None:
+                continue
+            page = mod.page_by_ref(code)
+            if page is not None and (page.raw or "").strip():
+                return row, mod, page
+        return None, None, None
+
     def lookup(self, code: str) -> str:
-        """Texto plano de la entrada Strong ('' si no existe)."""
+        """Texto plano de la entrada Strong ('' si no existe en ningún léxico)."""
         code = _COMPACT_RE.sub("", code or "").upper()
         if not _CODE_RE.match(code):
             return ""
         if code in self._cache:
             return self._cache[code]
-        row = self.module()
-        if row is None:
-            return ""
-        mod = self.ctx.module(row)
-        if mod is None:
-            return ""
-        page = mod.page_by_ref(code)
-        text = to_plain(page.raw, hint=mod.stem, codepages=mod.codepages) if page is not None else ""
+        _row, mod, page = self._resolve_page(code)
+        text = ""
+        if page is not None and mod is not None:
+            text = to_plain(page.raw, hint=mod.stem, codepages=mod.codepages)
         self._cache[code] = text
         return text
 
     def tooltip(self, code: str, max_chars: int = 320) -> str:
-        """Texto corto para la burbuja."""
-        code = code.upper()
+        """Texto corto para la burbuja (indica de qué léxico sale)."""
+        code = _COMPACT_RE.sub("", code or "").upper()
         body = self.lookup(code)
         if not body:
-            return f"{code}\n(entrada no encontrada en el léxico)"
+            return f"{code}\n(entrada no encontrada en ningún léxico)"
+        row, _mod, _page = self._resolve_page(code)
+        label = f"{row['abbreviation']} · {row['title']}" if row else self.label()
         body = _COMPACT_RE.sub(" ", body).strip()
         if len(body) > max_chars:
             body = body[:max_chars].rsplit(" ", 1)[0] + "…"
-        return f"{code} · {self.label()}\n{body}"
+        return f"{code} · {label}\n{body}"
 
     def entry(self, code: str) -> tuple[str, str]:
-        """(título de la entrada, texto completo)."""
-        code = code.upper()
-        row = self.module()
-        mod = self.ctx.module(row) if row else None
-        page = mod.page_by_ref(code) if mod else None
-        if page is None:
+        """(título de la entrada, texto completo) con respaldo entre léxicos."""
+        code = _COMPACT_RE.sub("", code or "").upper()
+        _row, mod, page = self._resolve_page(code)
+        if page is None or mod is None:
             return code, ""
         return page.title or code, to_plain(page.raw, hint=mod.stem, codepages=mod.codepages)
