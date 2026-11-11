@@ -104,3 +104,15 @@ hint solo los activa.
   `title` de `<a>` (tooltip nativo de Qt).
 - Los números Strong se resuelven **al pasar el ratón** (`RichBrowser`, 180 ms,
   caché) porque cada uno es un `SELECT` al léxico.
+
+## Codepages: registro + detección
+
+`font_codepages_for(stem)` cubre los módulos conocidos (Vine, Certeza). Para el
+resto, `EswordModule.codepages` **detecta** el codepage por contenido:
+`core/legacy_scripts.py` busca rachas de escapes `\'XX` (una palabra griega
+produce 4-10 seguidos; un acento español va suelto) y prueba cp1253/cp1255. Si
+la decodificación da letras griegas/hebreas ≥55 %, adopta el mapa.
+
+Es conservador a propósito: sin evidencia devuelve `{}` y no toca el texto.
+`to_plain`/`to_rich` aceptan `codepages=` explícito; los llamadores pasan
+`mod.codepages`.

@@ -74,3 +74,16 @@ una letra.
 | `ModuleError: no se pudo abrir` | archivo movido o corrupto | el catálogo lo marca `failed`; la UI sigue viva |
 | Entrada vacía tras descifrar | clave SQLitePlus distinta | se omite con warning; **nunca** se rellena |
 | `0` entradas | módulo vacío de origen (p. ej. `LXX/`) | se muestra `lib.empty` |
+
+## Duplicados
+
+`tools/deduplicate.py` agrupa por tamaño y confirma con **sha256**. El
+`keep_score` decide qué copia se conserva:
+
+1. carpeta canónica del tipo (`BIBLIAS`/`COMENTARIOS`/`DICCIONARIOS`/`LIBROS`) +30;
+2. nombre normalizado e-Sword (`bible_`, `comment_`, `dicc_`…) +20;
+3. similitud del nombre con el título interno ×12;
+4. nombre más descriptivo (longitud) como desempate.
+
+`--apply` mueve las sobrantes a `_duplicados/<fecha>/` y escribe manifiesto
+(ruta, sha256, copia conservada). Nunca borra por defecto.

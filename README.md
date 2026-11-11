@@ -7,17 +7,21 @@ Windows y sin la UI de pestañas fijas del programa original.
 - **Clasifica automáticamente** cada módulo por su estructura SQL (no por la
   extensión: en el corpus real hay `.refx` que son tópicos y `.cmtx` con el
   esquema antiguo de comentarios).
-- **Panel lateral** con las bibliografías agrupadas por categoría, plegables y
-  ocultable (`Ctrl+B`). **Un clic** carga el recurso.
+- **Panel lateral** con dos vistas: **Por tipo** (categorías) y **Por obra**
+  (la misma obra con su texto, notas y léxico juntos). Plegable con `Ctrl+B`;
+  **un clic** carga el recurso.
 - **Pestañas-vista**: cada pestaña («Pestaña A», «Pestaña B»…) agrupa su propio
   recurso principal y, si es una biblia, su biblia paralela y su comentario.
   Pestaña coloreada completa, texto en negrita al seleccionar, tinte pálido en
   las demás, botón ＋ estilo navegador y renombrado/color por menú contextual.
 - **Comentario en panel inferior** (división vertical, ~28 %), no dentro del
   texto bíblico. El panel alterna **Comentario ⇄ Strong**.
-- **Notas y Strong navegables**: burbuja al pasar el ratón; al pulsar el
-  marcador `(B)` se abre el comentario emparejado con esa biblia y se salta a
-  la nota; al pulsar `G2316` se abre el léxico.
+- **Notas y Strong navegables**: burbuja propia (ancho limitado, color
+  distinto) al pasar el ratón; al pulsar `(B)` se abre el comentario emparejado
+  con esa biblia y se salta a la nota; al pulsar `G2316` se abre el léxico
+  Strong elegido.
+- **Burbujas también en la bibliografía**: diccionarios y comentarios enlazan
+  sus citas (incluidas las de texto plano) y muestran el versículo.
 - **Búsqueda unificada**: referencia (`Juan 3:16`), número Strong (`G2316`) o
   texto libre, con resaltado y salto directo al módulo.
 

@@ -1,19 +1,31 @@
-"""QTextBrowser con burbujas perezosas para anclas internas.
+"""QTextBrowser con burbujas propias para anclas internas.
 
-Qt ya muestra el atributo `title` de un `<a>` como tooltip nativo. Cuando el
-ancla no trae `title` (porque resolverlo al pintar sería caro), este widget lo
-resuelve al pasar el ratón —con 180 ms de retardo y caché— y lo muestra con
-`QToolTip`, igual que hace el admin de `bible`.
+El `title` de un `<a>` lo mostraría Qt con su tooltip nativo (mismo fondo que
+los paneles y sin límite de ancho). Aquí se **extrae** el `title` a un mapa
+interno, se quita del HTML y se muestra con `TipBubble`, que sí tiene ancho
+máximo y color propio.
+
+Las anclas sin texto precalculado (los números Strong) se resuelven al pasar
+el ratón, con 150 ms de retardo y caché.
 """
 
 from __future__ import annotations
 
+import html as _html
+import re
+
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import QTextBrowser, QToolTip
+from PySide6.QtWidgets import QTextBrowser
 
-RESOLVABLE = ("strong:", "ref:", "note:")
-HOVER_MS = 180
+from .tooltip import TipBubble
+
+RESOLVABLE = ("strong:", "ref:", "note:", "#")
+HOVER_MS = 150
+
+_ANCHOR_RE = re.compile(r"(<a\b[^>]*>)", re.I)
+_HREF_RE = re.compile(r'href="([^"]*)"', re.I)
+_TITLE_RE = re.compile(r'\s+title="([^"]*)"', re.I)
 
 
 class RichBrowser(QTextBrowser):
@@ -21,17 +33,41 @@ class RichBrowser(QTextBrowser):
         super().__init__(parent)
         self._resolver = resolver
         self._cache: dict[str, str] = {}
+        self._titles: dict[str, str] = {}
         self._hover_href = ""
         self._hover_pos = QPoint()
+        self._bubble = TipBubble()
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.setInterval(HOVER_MS)
         self._timer.timeout.connect(self._show_tooltip)
         self.setMouseTracking(True)
 
+    # ── HTML ─────────────────────────────────────────────────────────────
+    def setHtml(self, html: str) -> None:  # noqa: N802
+        if not html:
+            super().setHtml(html)
+            return
+        super().setHtml(self._harvest_titles(html))
+
+    def _harvest_titles(self, html: str) -> str:
+        """Extrae `title=` de cada `<a>` al mapa interno y lo quita del HTML."""
+        self._titles.clear()
+
+        def fix(match: re.Match) -> str:
+            tag = match.group(1)
+            href = _HREF_RE.search(tag)
+            title = _TITLE_RE.search(tag)
+            if href and title:
+                key = _html.unescape(href.group(1))
+                self._titles.setdefault(key, _html.unescape(title.group(1)))
+                return _TITLE_RE.sub("", tag)
+            return tag
+
+        return _ANCHOR_RE.sub(fix, html)
+
     # ── introspección ────────────────────────────────────────────────────
     def anchor_info(self, pos: QPoint) -> tuple[str, str]:
-        """(href, title) del carácter bajo el punto."""
         cursor = self.cursorForPosition(pos)
         fmt = cursor.charFormat()
         href = fmt.anchorHref()
@@ -43,46 +79,54 @@ class RichBrowser(QTextBrowser):
                 fmt = probe.charFormat()
         return href or "", fmt.toolTip() or ""
 
+    def title_for(self, href: str) -> str:
+        return self._titles.get(href, "")
+
     # ── eventos ──────────────────────────────────────────────────────────
     def mouseMoveEvent(self, event) -> None:  # noqa: N802
         super().mouseMoveEvent(event)
         pos = event.position().toPoint()
-        href, title = self.anchor_info(pos)
+        href, _title = self.anchor_info(pos)
+        self._hover_pos = event.globalPosition().toPoint()
         if href != self._hover_href:
             self._hover_href = href
             self._timer.stop()
-            QToolTip.hideText()
-            if href and not title and href.startswith(RESOLVABLE) and self._resolver:
-                self._hover_pos = event.globalPosition().toPoint()
+            self._bubble.hide()
+            if href and href.startswith(RESOLVABLE):
                 self._timer.start()
-        elif href:
-            self._hover_pos = event.globalPosition().toPoint()
 
     def leaveEvent(self, event) -> None:  # noqa: N802
         self._timer.stop()
         self._hover_href = ""
-        QToolTip.hideText()
+        self._bubble.hide()
         super().leaveEvent(event)
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
         self._timer.stop()
-        QToolTip.hideText()
+        self._bubble.hide()
         super().mousePressEvent(event)
+
+    def wheelEvent(self, event) -> None:  # noqa: N802
+        self._bubble.hide()
+        super().wheelEvent(event)
 
     # ── resolución ───────────────────────────────────────────────────────
     def _show_tooltip(self) -> None:
         href = self._hover_href
-        if not href or self._resolver is None:
+        if not href:
             return
-        text = self._cache.get(href)
-        if text is None:
+        text = self._titles.get(href) or self._cache.get(href)
+        if not text:
+            if self._resolver is None:
+                return
             try:
                 text = self._resolver(href) or ""
             except Exception:
                 text = ""
             self._cache[href] = text
         if text:
-            QToolTip.showText(self._hover_pos, text, self)
+            self._bubble.show_html(self._hover_pos, text)
 
     def clear_cache(self) -> None:
         self._cache.clear()
+        self._bubble.hide()

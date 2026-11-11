@@ -131,5 +131,20 @@
   "tooltip.no_note": "No note for this marker.",
   "tooltip.strong": "{code} · {lexicon}",
   "sidebar.hide": "Hide panel",
-  "sidebar.show": "Show panel"
+  "sidebar.show": "Show panel",
+  "sidebar.by_kind": "By type",
+  "sidebar.by_work": "By work",
+  "role.bible": "Text",
+  "role.commentary": "Notes",
+  "role.dictionary": "Dictionary",
+  "role.lexicon": "Lexicon",
+  "role.reference": "Reference",
+  "role.devotion": "Devotional",
+  "role.harmony": "Harmony",
+  "role.topic": "Topics",
+  "role.maps": "Maps",
+  "role.twm": "TWM",
+  "role.unknown": "Other",
+  "strong.default_label": "Default lexicon for bubbles",
+  "menu.view.strong": "Default Strong lexicon"
 }

@@ -6,12 +6,14 @@ import html as _html
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox, QHBoxLayout, QLabel, QPushButton, QTextBrowser, QVBoxLayout, QWidget,
+    QComboBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
 )
 
 from ..core.context import AppContext
+from ..core.refs import link_references
 from ..core.text import snippet, to_plain, to_rich
 from ..i18n import tr
+from .rich_browser import RichBrowser
 from .theme import document_css, palette
 
 MAX_CHARS = 9000
@@ -72,7 +74,7 @@ class CommentaryPane(QWidget):
 
         layout.addWidget(head)
 
-        self.browser = QTextBrowser()
+        self.browser = RichBrowser(resolver=self.ctx.refs.tooltip)
         self.browser.setOpenLinks(False)
         self.browser.setOpenExternalLinks(False)
         self.browser.anchorClicked.connect(self._on_anchor)
@@ -173,8 +175,8 @@ class CommentaryPane(QWidget):
                     f'font-size:{max(10, self.settings.font_size - 3)}px; '
                     f'margin:14px 0 4px 0;">{_html.escape(caption)}</div>'
                 )
-                raw = to_rich(page.raw, hint=mod.stem)
-                plain = to_plain(page.raw, hint=mod.stem)
+                raw = link_references(to_rich(page.raw, hint=mod.stem, codepages=mod.codepages))
+                plain = to_plain(page.raw, hint=mod.stem, codepages=mod.codepages)
                 if len(plain) > MAX_CHARS:
                     out.append(
                         f'<div>{to_rich(snippet(plain, MAX_CHARS))} '

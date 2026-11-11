@@ -8,12 +8,14 @@ from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QSplitter, QTextBrowser, QVBoxLayout, QWidget,
+    QSplitter, QVBoxLayout, QWidget,
 )
 
 from ..core.context import AppContext
+from ..core.refs import link_references
 from ..core.text import to_rich
 from ..i18n import tr
+from .rich_browser import RichBrowser
 from .theme import document_css
 
 MAX_ENTRIES = 3000
@@ -99,7 +101,7 @@ class LibraryView(QWidget):
         self.count_label.setContentsMargins(10, 4, 10, 4)
         left_layout.addWidget(self.count_label)
 
-        self.detail = QTextBrowser()
+        self.detail = RichBrowser(resolver=self.ctx.refs.tooltip)
         self.detail.setOpenLinks(False)
         self.detail.setOpenExternalLinks(False)
         self.detail.anchorClicked.connect(self._on_anchor)
@@ -174,7 +176,7 @@ class LibraryView(QWidget):
                 f'<p class="muted"><a href="ref:'
                 f'{_html.escape(page.title, quote=True)}">{tr("common.open")} →</a></p>'
             )
-        parts.append(to_rich(page.raw, hint=self.mod.stem if self.mod else ""))
+        parts.append(link_references(to_rich(page.raw, hint=self.mod.stem if self.mod else "", codepages=self.mod.codepages if self.mod else None)))
         if self.mod and self.mod.structure == "maps":
             pixmap = self.mod.map_picture(page.ref)
             if pixmap:

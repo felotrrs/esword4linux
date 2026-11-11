@@ -93,7 +93,9 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.search, tr("search.tab"))
 
         self.sidebar_dock = self._build_sidebar_dock()
-        self.sidebar_dock.setVisible(self.settings.sidebar_visible)
+        self.sidebar.setVisible(self.settings.sidebar_visible)
+        if not self.settings.sidebar_visible:
+            self.sidebar_dock.setMaximumWidth(16)
         self._apply_tab_palette()
 
         split = QSplitter(Qt.Horizontal)
@@ -115,7 +117,7 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(self.progress)
 
     def _build_sidebar_dock(self) -> QWidget:
-        """Panel lateral + asa vertical para plegarlo desde su propio borde."""
+        """Panel lateral + asa vertical en su borde superior para plegarlo."""
         dock = QWidget()
         row = QHBoxLayout(dock)
         row.setContentsMargins(0, 0, 0, 0)
@@ -125,12 +127,13 @@ class MainWindow(QMainWindow):
         self.sidebar_handle = QToolButton()
         self.sidebar_handle.setObjectName("sidebarHandle")
         self.sidebar_handle.setText("‹" if self.settings.sidebar_visible else "›")
-        self.sidebar_handle.setFixedWidth(15)
-        self.sidebar_handle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.sidebar_handle.setFixedSize(15, 26)
+        self.sidebar_handle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.sidebar_handle.setToolTip(tr("sidebar.hide") + "  (Ctrl+B)")
         self.sidebar_handle.setCursor(Qt.PointingHandCursor)
         self.sidebar_handle.clicked.connect(self.toggle_sidebar)
-        row.addWidget(self.sidebar_handle)
+        row.addWidget(self.sidebar_handle, 0, Qt.AlignTop)
+        dock.setMinimumWidth(15)
         return dock
 
     def _apply_tab_palette(self) -> None:
@@ -177,6 +180,8 @@ class MainWindow(QMainWindow):
             group.addAction(act)
             m_view.addAction(act)
         m_view.addSeparator()
+        self.menu_strong = m_view.addMenu(tr("menu.view.strong"))
+        self.menu_strong.aboutToShow.connect(self._fill_strong_menu)
         lang_menu = m_view.addMenu(tr("menu.view.language"))
         glang = QActionGroup(self)
         glang.setExclusive(True)
@@ -341,18 +346,22 @@ class MainWindow(QMainWindow):
 
     def toggle_sidebar(self) -> None:
         visible = not self.sidebar.isVisible()
-        self.sidebar.setVisible(visible)
+        sizes = self._split.sizes()
+        total = max(sum(sizes), 400)
+        if visible:
+            self.sidebar.show()
+            self.sidebar_dock.setMaximumWidth(16777215)
+            width = min(self._sidebar_width or 290, max(240, total - 240))
+            self._split.setSizes([width, max(240, total - width)])
+        else:
+            self._sidebar_width = max(240, self.sidebar.width())
+            self.sidebar.hide()
+            self.sidebar_dock.setMaximumWidth(16)
+            self._split.setSizes([16, max(240, total - 16)])
         self.sidebar_handle.setText("‹" if visible else "›")
         self.sidebar_handle.setToolTip(
             tr("sidebar.hide" if visible else "sidebar.show") + "  (Ctrl+B)"
         )
-        if visible:
-            sizes = self._split.sizes()
-            width = self._sidebar_width or 290
-            total = max(sum(sizes), width + 200)
-            self._split.setSizes([width, total - width])
-        else:
-            self._sidebar_width = max(200, self.sidebar.width())
         self.settings.sidebar_visible = visible
         self.settings.save()
         if hasattr(self, "act_sidebar"):
@@ -510,6 +519,34 @@ class MainWindow(QMainWindow):
         for ws in self._workspaces:
             ws.reload_theme()
         self.search.run_search()
+
+    def _fill_strong_menu(self) -> None:
+        menu = self.menu_strong
+        menu.clear()
+        act_auto = QAction("Automático (detectado)", self)
+        act_auto.setCheckable(True)
+        act_auto.setChecked(not self.settings.strong_rel)
+        act_auto.triggered.connect(lambda: self._set_strong_default(""))
+        menu.addAction(act_auto)
+        menu.addSeparator()
+        for mod in self.ctx.strong.candidates():
+            act = QAction(f"{mod['abbreviation']} — {mod['title'][:60]}", self)
+            act.setCheckable(True)
+            act.setChecked(self.settings.strong_rel == mod["rel_path"])
+            act.triggered.connect(
+                lambda _=False, rel=mod["rel_path"]: self._set_strong_default(rel)
+            )
+            menu.addAction(act)
+
+    def _set_strong_default(self, rel_path: str) -> None:
+        self.ctx.strong.set_default(rel_path)
+        for ws in self._workspaces:
+            ws.bible.strong.refresh_lexicons()
+            ws.bible.primary.clear_cache()
+            ws.bible.second.clear_cache()
+        row = self.ctx.strong.module()
+        label = f"{row['abbreviation']} — {row['title'][:60]}" if row else "Automático"
+        self.statusBar().showMessage(f"Léxico Strong de las burbujas: {label}", 8000)
 
     def _set_locale(self, code: str) -> None:
         self.settings.locale = code

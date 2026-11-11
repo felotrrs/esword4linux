@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from .books import _ALIAS, book_name, normalize
 
 MAX_CHARS = 400
+SCAN_CHARS = 20000
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ def find_reference_spans(text: str, limit: int = 60) -> list[RefSpan]:
     """Devuelve las referencias detectadas, en orden y sin solapes."""
     if not text or len(text) < 4:
         return []
-    text = text[:MAX_CHARS * 8]
+    text = text[:SCAN_CHARS]
     spans: list[RefSpan] = []
     for match in _SPAN_RE.finditer(text):
         if len(spans) >= limit:

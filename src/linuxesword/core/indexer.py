@@ -54,11 +54,11 @@ def _parallel_decrypt(blobs: list, key: str, workers: int | None = None) -> list
         return _decrypt_chunk((blobs, key))
 
 
-def _page_dict(page, plain: str | None = None, hint: str = "") -> dict:
+def _page_dict(page, plain: str | None = None, hint: str = "", codepages=None) -> dict:
     return {
         "ref": page.ref,
         "title": page.title,
-        "body": plain if plain is not None else to_plain(page.raw, hint=hint),
+        "body": plain if plain is not None else to_plain(page.raw, hint=hint, codepages=codepages),
         "book": page.book,
         "chapter": page.chapter,
         "verse": page.verse,
@@ -106,7 +106,7 @@ class Indexer:
         out: list[dict] = []
         total = 0
         for i, page in enumerate(mod.iter_pages(), 1):
-            out.append(_page_dict(page, hint=mod.stem))
+            out.append(_page_dict(page, hint=mod.stem, codepages=mod.codepages))
             if progress and i % 500 == 0:
                 progress(i, 0, page.title)
         return out
@@ -129,7 +129,7 @@ class Indexer:
             out.append({
                 "ref": f"{b}:{c}:{v}",
                 "title": f"{book_name(b)} {c}:{v}",
-                "body": to_plain(raw, hint=mod.stem),
+                "body": to_plain(raw, hint=mod.stem, codepages=mod.codepages),
                 "book": b, "chapter": c, "verse": v,
                 "ord": b * 1_000_000 + c * 1_000 + v,
             })

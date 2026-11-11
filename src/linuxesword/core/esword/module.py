@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
+from ..legacy_scripts import codepages_from_samples
+from .font_codepages import font_codepages_for
 from .sqliteplus import DEFAULT_SQLITEPLUS_KEY, SQLitePlusError, decrypt_payload
 
 # kind → (tabla principal, columna de contenido)
@@ -74,6 +76,7 @@ class EswordModule:
         self.crypt_key = crypt_key or DEFAULT_SQLITEPLUS_KEY
         self.warnings: list[str] = []
         self._details: dict | None = None
+        self._codepages: dict[int, str] | None = None
         if not self.path.is_file():
             raise ModuleError(f"no existe: {self.path}")
         try:
@@ -154,6 +157,40 @@ class EswordModule:
                 pass
         self._details = out
         return out
+
+    @property
+    def codepages(self) -> dict[int, str]:
+        """Codepages legacy del módulo: registro vendorizado o detección."""
+        if self._codepages is not None:
+            return self._codepages
+        known = font_codepages_for(self.stem)
+        self._codepages = known if known else self._detect_codepages()
+        return self._codepages
+
+    def _detect_codepages(self) -> dict[int, str]:
+        table = {
+            "bible": "Bible", "commentary": None, "dictionary": "Dictionary",
+            "lexicon": "Lexicon", "devotion": None, "topic": "Topics",
+            "reference": "Reference", "maps": "Graphics", "harmony": "Parts",
+        }.get(self.structure)
+        if self.structure == "commentary":
+            specs = self._comment_specs()
+            table = specs[0][0] if specs else None
+        if not table:
+            return {}
+        col = CONTENT_COLUMNS.get(table)
+        if not col:
+            return {}
+        samples: list[str] = []
+        try:
+            rows = self.conn.execute(
+                f'SELECT "{col}" FROM "{table}" WHERE "{col}" IS NOT NULL LIMIT 60'
+            )
+            for (value,) in rows:
+                samples.append(self._decode(value, table, "?"))
+        except sqlite3.Error:
+            return {}
+        return codepages_from_samples(samples)
 
     @property
     def stem(self) -> str:

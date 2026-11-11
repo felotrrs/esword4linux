@@ -2,7 +2,7 @@ VENV := .venv
 PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: help install run scan test clean deps drift desktop encrypted
+.PHONY: help install run scan test clean deps drift desktop encrypted dedup
 
 help:
 	@echo "linuxEsword — objetivos:"
@@ -10,6 +10,7 @@ help:
 	@echo "  make run       Arranca la aplicación"
 	@echo "  make scan      Escanea la carpeta de recursos y pre-indexa la base"
 	@echo "  make encrypted Descifra e indexa todos los módulos cifrados"
+	@echo "  make dedup     Informe de duplicados (--apply los mueve a _duplicados/)"
 	@echo "  make test      Ejecuta la suite de pruebas"
 	@echo "  make deps      Reinstala dependencias"
 	@echo "  make drift     Comprueba deriva del núcleo vendorizado vs ~/StorageC/bible"
@@ -33,6 +34,9 @@ scan:
 
 encrypted:
 	$(PY) tools/prepare_encrypted.py
+
+dedup:
+	$(PY) tools/deduplicate.py --write-report
 
 test:
 	$(PY) -m pytest -q

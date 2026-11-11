@@ -62,12 +62,14 @@ class Settings:
 
     # ── paneles y pestañas-vista ────────────────────────────────────────
     sidebar_visible: bool = True
+    sidebar_mode: str = "kind"          # kind | work
     workspaces: list[dict] = field(default_factory=list)
     workspace_active: int = 0
     commentary_split: int = 280          # alto del panel de comentario (px)
     parallel_split: int = 640            # ancho relativo de la biblia principal
     encrypted_ready: bool = False
     strong_rel: str = ""                 # léxico Strong elegido (autodetectado)
+    reference_bible: str = ""            # biblia para burbujas ("" = la activa)
     bottom_page: str = "commentary"      # commentary | strong
 
     # ── persistencia ────────────────────────────────────────────────────

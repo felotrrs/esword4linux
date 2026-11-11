@@ -100,6 +100,8 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 | `core/esword/rtf.py` | RTF → texto plano / HTML enriquecido (vendorizado). |
 | `core/text.py` | `to_plain` / `to_rich` / `snippet`. Pseudo-tags e-Sword + codepages legacy. |
 | `core/refs.py` | Detección de citas bíblicas (`find_reference_spans`, `link_references`). |
+| `core/refresolver.py` | `RefResolver`: burbuja de versículo con la biblia de referencia. |
+| `core/legacy_scripts.py` | Detección automática de codepages legacy (cp1253/cp1255). |
 | `core/strong.py` | `StrongIndex`: autodetecta el léxico Strong y resuelve `G2316`. |
 | `core/commentary.py` | Emparejamiento biblia↔comentario por identidad + cobertura real. |
 | `core/catalog.py` | Escaneo incremental, clasificación, fingerprint y duplicados, estado de índice. |
@@ -113,11 +115,12 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 | `ui/strong_pane.py` | `StrongPane`: entrada del léxico Strong. |
 | `ui/rich_browser.py` | `RichBrowser`: burbujas perezosas al pasar el ratón. |
 | `ui/tab_bar.py` | `ColoredTabBar`: pestañas con color pleno, negrita y botón ＋. |
+| `ui/tooltip.py` | `TipBubble`: burbuja propia (ancho máx. 380 px, tarjeta oscura). |
 | `ui/workspace.py` | `Workspace`: pestaña-vista (recurso principal + biblia/paralela/comentario). |
 | `ui/entry_dialog.py` | `EntryDialog`: lectura completa de una entrada sin crear pestaña. |
 | `ui/library_view.py` | Visor genérico (diccionario, léxico, referencia, mapa, devocional...). |
 | `ui/search_view.py` | Caja única con intención y resultados agrupados. |
-| `ui/sidebar.py` | Árbol de categorías/módulos; un clic carga el recurso. |
+| `ui/sidebar.py` | Árbol con dos vistas (**Por tipo** / **Por obra**); un clic carga. |
 | `ui/main_window.py` | Pestañas-vista, nombres/colores, menús, workers, persistencia. |
 | `ui/theme.py` | Paletas claro/oscuro, QSS y CSS de documento. |
 | `i18n/` | `tr(key, **kwargs)` sobre catálogos JSON `es`/`en`. |
@@ -129,6 +132,7 @@ make install     # venv + dependencias
 make run         # arranca la app
 make scan        # escanea la carpeta y pre-indexa la base (CLI)
 make encrypted   # descifra e indexa todos los módulos cifrados (una vez)
+make dedup       # informe de duplicados (--apply los mueve a _duplicados/)
 make test        # pytest
 make drift       # compara el núcleo vendorizado con ~/StorageC/bible/shared/esword
 make desktop     # instala app + iconos hicolor (16–512 px)
@@ -152,7 +156,7 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 
 ## Definición de "terminado"
 
-- `make test` en verde (70 pruebas).
+- `make test` en verde (74 pruebas).
 - `make drift` sin deriva inesperada del núcleo vendorizado.
 - La app arranca con `./run.sh` y muestra la Biblia sin índice.
 - Cambio de comportamiento → una línea en `documentacion/CHANGELOG.md`.

@@ -18,6 +18,7 @@ class StrongIndex:
         self._row: dict | None = None
         self._resolved = False
         self._cache: dict[str, str] = {}
+        self._probed: list[dict] | None = None
 
     # ── detección ────────────────────────────────────────────────────────
     def _probe(self, row: dict) -> bool:
@@ -48,6 +49,20 @@ class StrongIndex:
             return (strong, kind, -(m["entries"] or 0))
 
         return sorted(lexicon + dictionaries, key=score)
+
+    def candidates(self) -> list[dict]:
+        """Léxicos que de verdad indexan por número Strong (cacheado)."""
+        if self._probed is None:
+            self._probed = [row for row in self._candidates()[:24] if self._probe(row)]
+        return list(self._probed)
+
+    def set_default(self, rel_path: str) -> None:
+        """Fija el léxico de las burbujas y descarta la caché."""
+        self.ctx.settings.strong_rel = rel_path
+        self.ctx.settings.save()
+        self._row = None
+        self._resolved = False
+        self._cache.clear()
 
     def module(self) -> dict | None:
         if self._resolved:
@@ -90,7 +105,7 @@ class StrongIndex:
         if mod is None:
             return ""
         page = mod.page_by_ref(code)
-        text = to_plain(page.raw, hint=mod.stem) if page is not None else ""
+        text = to_plain(page.raw, hint=mod.stem, codepages=mod.codepages) if page is not None else ""
         self._cache[code] = text
         return text
 
@@ -113,4 +128,4 @@ class StrongIndex:
         page = mod.page_by_ref(code) if mod else None
         if page is None:
             return code, ""
-        return page.title or code, to_plain(page.raw, hint=mod.stem)
+        return page.title or code, to_plain(page.raw, hint=mod.stem, codepages=mod.codepages)

@@ -130,7 +130,7 @@ def _legacy(text: str, hint: str) -> str:
     return apply_transliteration(text, mapping) if mapping else text
 
 
-def to_plain(raw, hint: str = "") -> str:
+def to_plain(raw, hint: str = "", codepages: dict | None = None) -> str:
     """Texto plano para indexar (sin RTF, sin HTML, sin formato).
 
     `hint` es el stem del módulo; activa los codepages legacy (cp1253/cp1255)
@@ -139,8 +139,9 @@ def to_plain(raw, hint: str = "") -> str:
     s = decode_raw(raw)
     if not s.strip():
         return ""
+    cp = codepages if codepages is not None else _codepages(hint)
     if _is_rtf(s):
-        return _collapse(_legacy(rtf_to_text(s, codepages=_codepages(hint)), hint))
+        return _collapse(_legacy(rtf_to_text(s, codepages=cp), hint))
     if is_markup(s):
         return _collapse(_strip_html(_convert_pseudo(_legacy(s, hint))))
     return _collapse(_legacy(s, hint))
@@ -222,16 +223,17 @@ def _tidy(html: str) -> str:
     return html.strip()
 
 
-def to_rich(raw, hint: str = "") -> str:
+def to_rich(raw, hint: str = "", codepages: dict | None = None) -> str:
     """HTML para renderizar en la UI (conserva negritas, itálicas, colores)."""
     s = decode_raw(raw)
     if not s.strip():
         return ""
+    cp = codepages if codepages is not None else _codepages(hint)
     if _is_rtf(s):
-        rich = rtf_to_rich_text(s, codepages=_codepages(hint))
+        rich = rtf_to_rich_text(s, codepages=cp)
         if rich:
             return _tidy(_sanitize(_convert_pseudo(rich)))
-        plain = _legacy(rtf_to_text(s, codepages=_codepages(hint)), hint)
+        plain = _legacy(rtf_to_text(s, codepages=cp), hint)
         return _html.escape(_collapse(plain)).replace("\n", "<br>")
     if is_markup(s):
         return _tidy(_sanitize(_convert_pseudo(_legacy(s, hint))))

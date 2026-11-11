@@ -131,5 +131,20 @@
   "tooltip.no_note": "Sin nota para este marcador.",
   "tooltip.strong": "{code} · {lexicon}",
   "sidebar.hide": "Ocultar panel",
-  "sidebar.show": "Mostrar panel"
+  "sidebar.show": "Mostrar panel",
+  "sidebar.by_kind": "Por tipo",
+  "sidebar.by_work": "Por obra",
+  "role.bible": "Texto",
+  "role.commentary": "Notas",
+  "role.dictionary": "Diccionario",
+  "role.lexicon": "Léxico",
+  "role.reference": "Referencia",
+  "role.devotion": "Devocional",
+  "role.harmony": "Armonía",
+  "role.topic": "Tópicos",
+  "role.maps": "Mapas",
+  "role.twm": "TWM",
+  "role.unknown": "Otro",
+  "strong.default_label": "Léxico predeterminado de las burbujas",
+  "menu.view.strong": "Léxico Strong predeterminado"
 }

@@ -77,8 +77,6 @@ class BiblePane(QWidget):
         self.hsplit = QSplitter(Qt.Horizontal)
         self.primary = self._make_browser()
         self.second = self._make_browser()
-        for browser in (self.primary, self.second):
-            browser.setMaximumWidth(980)
         self.host_primary = self._center(self.primary)
         self.host_second = self._center(self.second)
         self.hsplit.addWidget(self.host_primary)
@@ -280,6 +278,7 @@ class BiblePane(QWidget):
             self.translation.setCurrentIndex(idx)
         self._loading = False
         self._main_rel = row["rel_path"]
+        self.ctx.refs.set_bible(self._main_rel)
         self._rebuild_books()
         self._apply_commentary_match()
         self.navigate(self._current)
@@ -443,7 +442,7 @@ class BiblePane(QWidget):
             return "".join(out)
         for page in pages:
             out.append(f'<a name="v{page.verse}"></a>')
-            body = to_rich(page.raw, hint=mod.stem)
+            body = to_rich(page.raw, hint=mod.stem, codepages=mod.codepages)
             body = self._enhance(body, book, chapter, page.verse or 0)
             out.append(
                 f'<p class="verse scripture">'
@@ -493,7 +492,8 @@ class BiblePane(QWidget):
         row = self._commentary_mod_row()
         mod = self.ctx.module(row) if row else None
         hint = mod.stem if mod else ""
-        parts = [to_plain(e.raw, hint=hint) for e in entries]
+        cps = mod.codepages if mod else None
+        parts = [to_plain(e.raw, hint=hint, codepages=cps) for e in entries]
         text = " ".join(p for p in parts if p).strip()
         if not text:
             return tr("tooltip.no_note")
@@ -541,13 +541,13 @@ class BiblePane(QWidget):
             page = mod.bible_verse(ref.book, ref.chapter, ref.verse)
             if page is None:
                 return ""
-            body = snippet(to_plain(page.raw, hint=mod.stem), 320)
+            body = snippet(to_plain(page.raw, hint=mod.stem, codepages=mod.codepages), 320)
             return f"{tr('tooltip.verse', ref=page.title, version=version)}\n{body}"
         pages = mod.bible_chapter(ref.book, ref.chapter)
         if not pages:
             return ""
         body = " ".join(
-            f"{p.verse} {to_plain(p.raw, hint=mod.stem)}" for p in pages[:3]
+            f"{p.verse} {to_plain(p.raw, hint=mod.stem, codepages=mod.codepages)}" for p in pages[:3]
         )
         label = f"{book_name(ref.book, self.settings.locale)} {ref.chapter}"
         return f"{tr('tooltip.verse', ref=label, version=version)}\n{snippet(body, 320)}"
@@ -577,6 +577,7 @@ class BiblePane(QWidget):
         if rel:
             self._main_rel = rel
             self.settings.bible_module = rel
+            self.ctx.refs.set_bible(rel)
             self.main_changed.emit(rel)
         self._rebuild_books()
         self._apply_commentary_match()
@@ -663,7 +664,7 @@ class BiblePane(QWidget):
         page = mod.bible_verse(ref.book, ref.chapter, ref.verse or 1)
         if page:
             QGuiApplication.clipboard().setText(
-                f"{page.title} — {to_plain(page.raw, hint=mod.stem)}"
+                f"{page.title} — {to_plain(page.raw, hint=mod.stem, codepages=mod.codepages)}"
             )
 
     # ── estado / tema ────────────────────────────────────────────────────

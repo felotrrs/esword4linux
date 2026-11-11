@@ -2,6 +2,17 @@
 
 Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
+## Resuelto en 0.4.0
+
+- Panel lateral sin tope de ancho y con asa arriba.
+- Las pestañas no crecían al plegar el panel.
+- La Biblia no crecía horizontalmente.
+- Tooltip nativo ancho y del color de los paneles → burbuja propia.
+- Sin burbujas en diccionarios/léxicos/comentarios.
+- Léxico Strong no elegible.
+- Griego legacy en módulos fuera del registro vendorizado.
+- Duplicados sin listado ni herramienta.
+
 ## Resuelto en 0.3.0
 
 - Pseudo-tags de e-Sword (`</red>`, `</grk>`…) mostrados literalmente.
@@ -26,11 +37,11 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
 | # | Tema | Detalle | Impacto |
 |---|---|---|---|
-| 1 | **Codepages legacy** | ✅ Resuelto en 0.3.0: conectados vía `hint` (stem) en `to_plain`/`to_rich`. | — |
+| 1 | **Codepages legacy** | ✅ Resuelto: registro + detección automática por contenido (0.4.0). | — |
 | 2 | **Strong's en el texto** | ✅ Resuelto en 0.3.0: ancla + burbuja + panel Strong inferior. | — |
 | 3 | **Deuterocanónicos** | Se muestran (libros 67–73) pero los nombres dependen de `core/books.py`; falta verificar edición por edición que la numeración coincida con el contenido. | Bajo |
 | 4 | **`.lanx` / `headings.*`** | Se catalogan como `unknown` y aparecen en "Sin clasificar". Podrían ocultarse o etiquetarse como "Recursos de e-Sword". | Bajo |
-| 5 | **Duplicados** | Se detectan por fingerprint (tamaño + 64 KiB) y se ocultan; no hay UI para revisarlos ni elegir cuál conservar. | Bajo |
+| 5 | **Duplicados** | ✅ Resuelto en 0.4.0: `tools/deduplicate.py` (sha256) + cuarentena con manifiesto. | — |
 | 6 | **Imágenes de mapas** | Se muestran a ancho fijo 760 px; falta zoom y ajuste a ventana. | Bajo |
 
 ## Índice / búsqueda

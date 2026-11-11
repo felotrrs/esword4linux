@@ -68,6 +68,36 @@ KIND_ORDER = [
     "reference", "harmony", "maps", "twm", "unknown",
 ]
 
+# Rol de un módulo dentro de una obra (para la vista «Por obra»).
+ROLE_LABELS = {
+    "bible": ("Texto", "Text"),
+    "commentary": ("Notas", "Notes"),
+    "dictionary": ("Diccionario", "Dictionary"),
+    "lexicon": ("Léxico", "Lexicon"),
+    "devotion": ("Devocional", "Devotional"),
+    "topic": ("Tópicos", "Topics"),
+    "reference": ("Referencia", "Reference"),
+    "harmony": ("Armonía", "Harmony"),
+    "maps": ("Mapas", "Maps"),
+    "twm": ("TWM", "TWM"),
+    "unknown": ("Otro", "Other"),
+}
+
+
+def work_key(title: str) -> str:
+    """Clave base de agrupación por obra (título normalizado, sin año ni acentos)."""
+    text = unicodedata.normalize("NFD", (title or "").lower())
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = re.sub(r"\(\s*\d{4}\s*\)", " ", text)
+    text = re.sub(r"\b(1[89]\d{2}|20\d{2})\b", " ", text)
+    text = re.sub(r"[^a-z0-9ñ]+", " ", text).strip()
+    return re.sub(r"\s+", " ", text)
+
+
+def work_year(title: str) -> str:
+    match = re.search(r"\b(1[89]\d{2}|20\d{2})\b", title or "")
+    return match.group(1) if match else ""
+
 _EN_HINTS = re.compile(
     r"\b(holy bible|king james|english|new international|new american|"
     r"new living|amplified|standard version|good news|world english|"
@@ -265,6 +295,46 @@ class Catalog:
                 f"SELECT kind, COUNT(*) AS n FROM module{where} GROUP BY kind"
             )
         }
+
+    def works(self) -> list[dict]:
+        """Agrupa los módulos visibles por obra.
+
+        Una obra puede tener varios módulos: la biblia y sus notas, el
+        diccionario y su léxico, dos ediciones del mismo texto…
+
+        El año del título se usa para **separar ediciones** (RV1960 ≠ RV1995)
+        solo cuando dentro del mismo título base conviven varios años.
+        """
+        base_groups: dict[str, list[dict]] = {}
+        for mod in self.modules():
+            base_groups.setdefault(work_key(mod["title"]), []).append(mod)
+
+        order = {kind: i for i, kind in enumerate(KIND_ORDER)}
+        out: list[dict] = []
+
+        def emit(key: str, items: list[dict]) -> None:
+            items.sort(key=lambda m: (order.get(m["kind"], 99), m["title"].lower()))
+            kinds = sorted({m["kind"] for m in items}, key=lambda k: order.get(k, 99))
+            out.append({
+                "key": key,
+                "title": items[0]["title"],
+                "modules": items,
+                "kinds": kinds,
+            })
+
+        for base, items in base_groups.items():
+            years = {work_year(m["title"]) for m in items if work_year(m["title"])}
+            if len(years) <= 1:
+                emit(base, items)
+                continue
+            subgroups: dict[str, list[dict]] = {}
+            for mod in items:
+                subgroups.setdefault(work_year(mod["title"]), []).append(mod)
+            for year, sub in subgroups.items():
+                emit(f"{base}#{year}" if year else base, sub)
+
+        out.sort(key=lambda w: w["title"].lower())
+        return out
 
     def status_counts(self) -> dict[str, int]:
         return {

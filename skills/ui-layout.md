@@ -122,3 +122,33 @@ restaura al reabrir.
 `QStackedWidget{ CommentaryPane, StrongPane }` + dos `QToolButton` checkables
 en una `QButtonGroup` exclusiva (`Comentario`, `Strong`) y un `▾` para ocultar.
 El estado va a `Settings.bottom_page` y `show_commentary_inline`.
+
+## Panel lateral: dos vistas
+
+`Sidebar` tiene un interruptor `Por tipo | Por obra` (persistido en
+`Settings.sidebar_mode`):
+
+- **kind** — categorías (`KIND_ORDER`) → módulos. Para *encontrar* por
+  naturaleza sin saber de qué obra es.
+- **work** — `Catalog.works()` agrupa por título normalizado. Una obra con
+  texto + notas + léxico aparece una vez; sus piezas son sub-elementos con el
+  rol delante (`Texto · RV1960`, `Notas · RVR1960x`).
+  El año del título **separa ediciones** solo si dentro del mismo título base
+  conviven varios años (RV1960 ≠ RV1995); si solo uno lo lleva, se agrupan.
+
+Un clic en una obra la despliega; un clic en el submódulo carga ese módulo.
+Las obras con un solo módulo se muestran planas (un clic carga).
+
+## Burbujas (`ui/tooltip.py`)
+
+`TipBubble` sustituye al tooltip nativo por una tarjeta:
+fondo `#23262e`, borde izquierdo de acento, **ancho máx. 380 px** con ajuste de
+línea y cabecera en dorado. `RichBrowser` extrae los `title=` del HTML a su
+mapa interno (para que Qt no muestre el suyo) y resuelve los Strong al vuelo.
+
+## Léxico Strong predeterminado
+
+El combo del panel Strong lista los 15 léxicos que indexan por `G####`/`H####`
+(★ = activo). Cambiarlo llama a `StrongIndex.set_default()`, que persiste
+`settings.strong_rel`, invalida la caché y refresca las burbujas. También está
+en **Ver → Léxico Strong predeterminado**.

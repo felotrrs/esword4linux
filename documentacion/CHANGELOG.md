@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.4.0 — 2026-11-10
+
+### Añadido
+
+- **Panel lateral con dos vistas** (`Por tipo` / `Por obra`), persistidas:
+  la vista por tipo para encontrar un léxico sin saber de qué obra es; la
+  vista por obra agrupa 947 módulos en **846 obras** (85 con varios módulos:
+  texto + notas + léxico). El año separa ediciones (RV1960 ≠ RV1995).
+- **Burbuja propia** (`TipBubble`): tarjeta oscura independiente del tema,
+  borde de acento, **ancho máximo 380 px** y cabecera en dorado. Sustituye al
+  tooltip nativo, que heredaba el color de los paneles y no limitaba el ancho.
+- **Burbujas en toda la bibliografía**: diccionarios, léxicos y comentarios
+  enlazan sus citas —tanto `<ref>` como **texto plano** (`Neh. 8:15`,
+  `2Co 4:6`)— y muestran el versículo al pasar el ratón.
+- **Léxico Strong predeterminado elegible**: el combo del panel Strong lista
+  los 15 léxicos Strong (★ = activo) y fija el de las burbujas; también en
+  **Ver → Léxico Strong predeterminado**.
+- **Detección automática de codepages legacy** (`core/legacy_scripts.py`):
+  reconoce cp1253/cp1255 por rachas de escapes RTF y corrige el griego de
+  módulos fuera del registro vendorizado (p. ej. `dicc_strong__esp_es.dctx`
+  pasa de `èåïäßäáêôïò` a `θεοδίδακτος`).
+- **`tools/deduplicate.py`** + **`documentacion/DUPLICADOS.md`**: informe
+  completo de duplicados exactos (sha256) y de «misma obra, archivos
+  distintos», con política de conservación y cuarentena reversible.
+- **`make dedup`**.
+
+### Corregido
+
+- **El panel lateral no crecía**: tenía `setMaximumWidth(460)`; ahora el árbol
+  ocupa todo el ancho que se le dé.
+- **Las pestañas no crecían al ocultar el panel**: el dock conservaba sus
+  290 px. Ahora se acota a 16 px y el contenido recupera el espacio.
+- **Asa del panel a media altura**: pasa a altura fija (15×26) alineada arriba.
+- **La Biblia no crecía horizontalmente**: se quitó el tope de 980 px; ahora
+  ocupa el ancho como la zona de comentario.
+
+### Biblioteca
+
+- **23 copias duplicadas movidas a cuarentena** (113,9 MB) con manifiesto en
+  `_duplicados/manifest-*.json`. El catálogo pasó de 970 a 940 módulos.
+- Reindexados los 12 módulos cuyo texto tenía pseudo-tags literales o
+  mojibake en el índice FTS5.
+
 ## 0.3.0 — 2026-11-10
 
 ### Añadido

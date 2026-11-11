@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linuxesword"
-version = "0.3.0"
+version = "0.4.0"
 description = "Lector nativo de módulos e-Sword para Linux (sin Wine)"
 readme = "README.md"
 requires-python = ">=3.10"

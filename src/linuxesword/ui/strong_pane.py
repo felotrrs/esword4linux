@@ -49,8 +49,9 @@ class StrongPane(QWidget):
         row.addStretch(1)
 
         self.lexicon = QComboBox()
-        self.lexicon.setMinimumWidth(240)
-        self.lexicon.currentIndexChanged.connect(lambda _=0: self._rerender())
+        self.lexicon.setMinimumWidth(260)
+        self.lexicon.setToolTip(tr("strong.default_label"))
+        self.lexicon.currentIndexChanged.connect(self._on_lexicon_changed)
         row.addWidget(self.lexicon)
 
         self.btn_open = QPushButton(tr("common.open"))
@@ -74,6 +75,11 @@ class StrongPane(QWidget):
         layout.addWidget(self.browser, 1)
 
     # ── API ──────────────────────────────────────────────────────────────
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        if self.lexicon.count() == 0:
+            self._fill_lexicons()
+
     def show_code(self, code: str) -> None:
         self._code = (code or "").upper()
         self._fill_lexicons()
@@ -91,16 +97,32 @@ class StrongPane(QWidget):
 
     # ── interno ──────────────────────────────────────────────────────────
     def _fill_lexicons(self) -> None:
-        if self.lexicon.count():
-            return
+        """Lista todos los léxicos Strong; la elección fija el predeterminado."""
         row = self.ctx.strong.module()
+        current = row["rel_path"] if row else ""
         self.lexicon.blockSignals(True)
-        for mod in self.ctx.catalog.modules(kind="lexicon"):
-            if row and mod["id"] == row["id"]:
-                self.lexicon.addItem(mod["title"][:70], mod["rel_path"])
-        if self.lexicon.count() == 0 and row:
-            self.lexicon.addItem(row["title"][:70], row["rel_path"])
+        self.lexicon.clear()
+        self.lexicon.addItem("Automático (detectado)", "__auto__")
+        for mod in self.ctx.strong.candidates():
+            mark = "★ " if mod["rel_path"] == current else ""
+            label = f"{mark}{mod['abbreviation']} — {mod['title'][:48]}"
+            self.lexicon.addItem(label, mod["rel_path"])
+        idx = self.lexicon.findData(current)
+        self.lexicon.setCurrentIndex(idx if idx >= 0 else 0)
         self.lexicon.blockSignals(False)
+
+    def refresh_lexicons(self) -> None:
+        self._fill_lexicons()
+        self._rerender()
+
+    def _on_lexicon_changed(self, _index: int) -> None:
+        rel = self.lexicon.currentData() or ""
+        if rel == "__auto__":
+            self.ctx.strong.set_default("")
+        elif rel:
+            self.ctx.strong.set_default(rel)
+        self._fill_lexicons()
+        self._rerender()
 
     def _rerender(self) -> None:
         self.browser.document().setDefaultStyleSheet(

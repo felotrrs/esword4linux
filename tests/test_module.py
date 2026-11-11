@@ -14,7 +14,7 @@ CASES = [
     ("BIBLIAS/bible_rv1960_es_2.bblx", "bible"),
     ("COMENTARIOS/comment_rvr1960x_es.cmti", "commentary"),
     ("DICCIONARIOS/dicc_camr_es.dctx", "dictionary"),
-    ("04-Vine.lexi", "lexicon"),
+    ("lexicon_de_vine_es.lexi", "lexicon"),
     ("devotion_afc_es.devx", "devotion"),
     ("harmony_bdv_es.harx", "harmony"),
     ("map_nasa_es.mapx", "maps"),
@@ -96,7 +96,7 @@ def test_commentary_old_cmti_schema():
 
 
 def test_page_by_ref_dictionary():
-    path = CORPUS / "04-Vine.lexi"
+    path = CORPUS / "lexicon_de_vine_es.lexi"
     if not path.is_file():
         pytest.skip("módulo ausente")
     with EswordModule(path) as mod:
