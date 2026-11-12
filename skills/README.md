@@ -12,6 +12,7 @@ antes de crear o modificar código ahí.
 | [`search-index.md`](search-index.md) | Tocas FTS5, `build_match`, el indexador, el alcance o los estados de índice. |
 | [`ui-layout.md`](ui-layout.md) | Tocas ventana, pestañas, panel lateral, vistas o persistencia de layout. |
 | [`rendering.md`](rendering.md) | Tocas RTF/HTML, `to_rich`, tipografía, temas o el CSS del documento. |
+| [`book-aliases.md`](book-aliases.md) | Tocas libros, alias, detección de referencias o burbujas de pasajes/Strong. |
 | [`i18n.md`](i18n.md) | Añades cadenas de UI, un idioma o tocas `tr()`. |
 | [`performance.md`](performance.md) | Mides rendimiento, cambias el pool o el tamaño de caché. |
 

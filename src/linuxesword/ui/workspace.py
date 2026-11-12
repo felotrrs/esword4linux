@@ -7,6 +7,8 @@ visor del módulo y no ofrece controles de biblia.
 
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 
@@ -28,6 +30,8 @@ class Workspace(QWidget):
         self.settings = ctx.settings
         self.name = name
         self.color = color
+        self.name_auto = False
+        self.auto_letter = ""
         self.main_rel = ""
         self.main_kind = ""
         self._library: LibraryView | None = None
@@ -79,6 +83,8 @@ class Workspace(QWidget):
         data = {
             "name": self.name,
             "color": self.color,
+            "name_auto": self.name_auto,
+            "auto_letter": self.auto_letter,
             "main_rel": self.main_rel,
         }
         if self.is_bible():
@@ -96,6 +102,16 @@ class Workspace(QWidget):
             return
         self.name = data.get("name") or self.name
         self.color = data.get("color") or self.color
+        auto = data.get("name_auto")
+        letter = data.get("auto_letter") or ""
+        if auto is None:
+            match = re.match(r"^(?:Pestaña|Tab)\s+([A-Z])$", self.name)
+            auto = bool(match)
+            letter = match.group(1) if match else letter
+        self.name_auto = bool(auto)
+        self.auto_letter = letter
+        if self.name_auto and self.auto_letter:
+            self.name = tr("workspace.default_name", letter=self.auto_letter)
         rel = data.get("main_rel") or ""
         row = self.ctx.catalog.by_rel_path(rel) if rel else None
         if row is None:
@@ -117,6 +133,13 @@ class Workspace(QWidget):
         self.bible.reload_theme()
         if self._library is not None:
             self._library.reload_theme()
+
+    def retranslate(self) -> None:
+        if self.name_auto and self.auto_letter:
+            self.name = tr("workspace.default_name", letter=self.auto_letter)
+        self.bible.retranslate()
+        if self._library is not None:
+            self._library.retranslate()
 
     def label(self) -> str:
         return self.name

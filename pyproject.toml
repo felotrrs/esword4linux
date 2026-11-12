@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "linuxesword"
-version = "0.4.0"
+version = "0.4.4"
 description = "Lector nativo de módulos e-Sword para Linux (sin Wine)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +12,7 @@ license = "GPL-3.0-only"
 authors = [{ name = "linuxEsword" }]
 dependencies = [
     "PySide6-Essentials>=6.6",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +26,8 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "linuxesword.i18n" = ["*.json"]
-"linuxesword" = ["assets/*.png"]
+"linuxesword.core" = ["*.yaml"]
+"linuxesword" = ["assets/*.png", "assets/*.webp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -7,19 +7,25 @@ Windows y sin la UI de pestañas fijas del programa original.
 - **Clasifica automáticamente** cada módulo por su estructura SQL (no por la
   extensión: en el corpus real hay `.refx` que son tópicos y `.cmtx` con el
   esquema antiguo de comentarios).
-- **Panel lateral** con dos vistas: **Por tipo** (categorías) y **Por obra**
-  (la misma obra con su texto, notas y léxico juntos). Plegable con `Ctrl+B`;
-  **un clic** carga el recurso.
+- **Panel lateral organizable**: agrupa hasta en tres niveles
+  (**tipo → idioma → obra**) y permite filtrar por varios tipos e idiomas a la
+  vez. Plegable con `Ctrl+B`; conserva un ancho mínimo cuando está visible.
+- **Combo de traducción agrupado por idioma**, igual que el combo de la vista
+  paralela; al desplegarlo se ven todas las versiones ordenadas. La lista de términos de diccionarios se
+  puede ocultar/mostrar con un asa, sin perder el acceso al texto.
+- **Caja de citas múltiples** en la Biblia: `Gn23:1-6, 2:5-7; Mar 2:1; Jn3:16`
+  sustituye la vista del capítulo por la colección de versículos (también en la
+  vista paralela) y permite volver con ↩.
 - **Pestañas-vista**: cada pestaña («Pestaña A», «Pestaña B»…) agrupa su propio
   recurso principal y, si es una biblia, su biblia paralela y su comentario.
   Pestaña coloreada completa, texto en negrita al seleccionar, tinte pálido en
   las demás, botón ＋ estilo navegador y renombrado/color por menú contextual.
 - **Comentario en panel inferior** (división vertical, ~28 %), no dentro del
-  texto bíblico. El panel alterna **Comentario ⇄ Strong**.
-- **Notas y Strong navegables**: burbuja propia (ancho limitado, color
+  texto bíblico. El panel alterna **Comentario ⇄ Léxico**.
+- **Notas y Léxico navegables**: burbuja propia (ancho adaptable, color
   distinto) al pasar el ratón; al pulsar `(B)` se abre el comentario emparejado
   con esa biblia y se salta a la nota; al pulsar `G2316` se abre el léxico
-  Strong elegido.
+  elegido.
 - **Burbujas también en la bibliografía**: diccionarios y comentarios enlazan
   sus citas (incluidas las de texto plano) y muestran el versículo.
 - **Búsqueda unificada**: referencia (`Juan 3:16`), número Strong (`G2316`) o
@@ -35,9 +41,11 @@ Windows y sin la UI de pestañas fijas del programa original.
 | Índice FTS5 bajo demanda | ✅ |
 | Biblia + comentario en panel inferior + paralela | ✅ |
 | Pestañas-vista con color pleno y botón ＋ | ✅ |
-| Notas/Strong con burbuja y navegación | ✅ |
+| Notas/Léxico con burbuja y navegación | ✅ |
 | Diccionarios / léxicos / mapas / devocionales | ✅ |
 | UI bilingüe es/en | ✅ |
+| Bibliografía agrupada/filtrada por tipo e idioma | ✅ |
+| Citas múltiples con vista de colección | ✅ |
 | Iconos de aplicación (hicolor 16–512) | ✅ |
 | Empaquetado `.desktop` | ✅ |
 
@@ -65,7 +73,7 @@ siga en curso.
 Por defecto:
 
 ```
-/home/felipe/StorageA/Biblias/Biblias_bblx
+/home/felipe/StorageA/Biblias/Biblias_esword
 ```
 
 Se puede cambiar desde **Archivo → Cambiar carpeta de recursos**. linuxEsword
@@ -86,7 +94,7 @@ al 81% de uso; StorageC tiene 136 GB libres).
 ```
 src/linuxesword/
   core/esword/   lector SQLite, Twofish/SQLitePlus, RTF (vendorizado)
-  core/          catálogo, índice FTS5, búsqueda, libros, i18n
+  core/          catálogo, índice FTS5, búsqueda, libros (books.yaml), i18n
   ui/            PySide6: ventana, panel lateral, biblia, biblioteca, búsqueda
 skills/          convenciones del proyecto (leer antes de tocar cada área)
 documentacion/   arquitectura, formato e-Sword, changelog, deuda técnica

@@ -1,5 +1,134 @@
 # Changelog
 
+## 0.4.4 — 2026-11-12
+
+### Corregido
+
+- **Burbujas**: se sustituye el `QTextBrowser` interno por un widget que pinta
+  directamente un `QTextDocument`. El padding global del QSS ya no recorta el
+  viewport, el alto se mide sobre el ancho real y hay un margen inferior de
+  seguridad: la última línea (incluidos descendentes) nunca queda cortada ni a
+  medias.
+- **Hebreo en las burbujas del léxico**: `StrongIndex.tooltip()` conserva los
+  saltos de línea del módulo (palabra hebrea, transliteración y definición).
+  Cada línea es un bloque independiente y la palabra hebrea se muestra con
+  tamaño de cabeza, sin que el RTL arrastre al resto del texto.
+- **Citas**: activar la colección ya no oculta los combos de libro/capítulo ni
+  las flechas de navegación. Siempre se puede volver a la Biblia con ellos o
+  con ↩.
+- **Vista paralela**: el checkbox muestra una marca de verificación dibujada
+  por `CheckMarkStyle`, además del color de acento al marcarse.
+- **Icono por defecto**: se usa el icono del diálogo «Acerca de»
+  (`linuxesword-about.png`) y se regeneran `linuxesword.png` y hicolor 16–512.
+
+### Cambiado
+
+- El botón y el panel **Strong** pasan a llamarse **Léxico**.
+- **Recursos**: «Filtrar» es ahora un título de sección a todo el ancho, como
+  «Agrupar», con un espacio vertical que separa ambos bloques de controles.
+- **Carpeta de recursos por defecto**: se actualiza a
+  `/home/felipe/StorageA/Biblias/Biblias_esword` (el corpus renombró la carpeta
+  `Biblias_bblx`). Afecta al valor inicial de `Settings` y a las pruebas que
+  dependen del corpus.
+
+### Pruebas
+
+- 175 pruebas recogidas: 169 en verde y 6 omitidas porque el corpus actual no
+  incluye esos módulos. Se añade cobertura de widgets en modo `offscreen` para
+  burbujas (alto, hebreo, líneas), checkmark, organizador de Recursos y modo
+  citas, sin depender de `pytest-qt`.
+
+## 0.4.3 — 2026-11-11
+
+### Corregido
+
+- **Burbujas estandarizadas**: cuerpo sin líneas vacías ni restos de HTML, una
+  línea por versículo, altura medida del layout real y último renglón sin
+  cortes. Se eliminaron los tooltips nativos residuales.
+- **Tags huérfanos**: `</p>` sueltos en módulos como RVR1960x ya no parten un
+  versículo en dos bloques (causaban el hueco vertical).
+- **Paneles recuperables**: la lista de términos de diccionarios usa un asa
+  vertical `‹/›` como Recursos, con mínimo de ancho y estado persistido.
+- **Strong/comentarios** aplican el cambio de material al instante, sin pulsar
+  «Abrir».
+- **Búsqueda**: Enter sobre una referencia navega directamente a la Biblia.
+- **Biblia**: sin flechas verticales de capítulo; el combo paralelo se oculta
+  si la vista paralela está desmarcada; checkbox con contraste en oscuro.
+  Se retiraron el botón «Citas» y la flecha de ocultar panel; la búsqueda usa
+  la selección o, si no hay, la referencia actual.
+- **Combo de traducción**: desplegable no editable; al abrirlo se ven todas las
+  versiones agrupadas por idioma.
+- **«Pestaña A»**: los nombres automáticos se recalculan al cambiar de idioma
+  y los menús se retraducen en caliente.
+- **Icono**: se elimina el damero/tarjeta de fondo del WebP y se genera un PNG
+  con transparencia real; hicolor se regenera desde el icono limpio.
+
+### Añadido
+
+- **Organizador de Recursos**: hasta tres niveles de agrupación
+  (tipo/idioma/obra) y filtros múltiples por tipo e idioma, persistidos.
+- **Caja de citas múltiples** en la propia barra de la Biblia: al pulsar
+  Enter, la colección sustituye la vista del capítulo (también en la paralela)
+  y se puede volver a la Biblia con ↩.
+- Tooltips de ayuda en los controles principales.
+
+## 0.4.2 — 2026-11-11
+
+### Corregido
+
+- **Alto de las burbujas**: se calcula desde el layout real del documento y
+  los márgenes/bordes del marco; la última línea ya no queda cortada.
+- **Paneles laterales irrecuperables**: el panel de recursos tiene mínimo de
+  240 px + asa y su splitter no es colapsable. La lista de términos de
+  diccionarios/léxicos tiene mínimo de 220 px y un botón `☰` siempre visible
+  para ocultarla/recuperarla (estado y ancho persistidos).
+- **Burbujas Strong/comentarios desactualizadas**: al cambiar de léxico o de
+  comentario se invalidan las cachés de `RichBrowser` y `_comments_cache`, se
+  regeneran las notas del capítulo y el cambio se aplica sin pulsar «Abrir».
+- **Detección de idioma**: se priorizan título/abreviatura, marcador de archivo,
+  muestra de contenido y alfabetos originales; se eliminaron los nombres de
+  autores que confundían español con inglés. `METADATA_VERSION` fuerza un
+  re-escaneo de metadatos para actualizar el catálogo existente.
+- **Contraste del tema oscuro**: escalones de fondo más marcados, bordes más
+  visibles y filas alternas en los árboles/listas.
+
+### Añadido
+
+- **Tercera vista «Por idioma»** en Recursos, con etiquetas i18n y grupos por
+  `module.language`.
+- **Combo de traducción agrupado por idioma y ordenado**; al desplegarlo se
+  ven todas las versiones. La vista paralela usa el mismo agrupado.
+- **Nuevo icono por defecto** `linuxesword2.webp`; `make desktop` genera los
+  PNG de hicolor desde ese WebP. El diálogo «Acerca de» conserva su logo.
+- Pruebas de alto de burbuja, contraste, idiomas, filtro de traducciones y
+  paneles recuperables.
+
+## 0.4.1 — 2026-11-11
+
+### Corregido
+
+- **Burbujas de bibliografía**: el ancho ya se adapta al texto (hasta 600 px) y
+  la cabecera solo muestra la referencia o la abreviatura del léxico, no el
+  título largo de la obra. Los pasajes muestran el texto completo (sin
+  `snippet`) y los capítulos/rangos se capan a **10 versículos** con aviso de
+  los restantes. Las entradas Strong se capan a 2500 caracteres, con aviso
+  para abrir la entrada completa en el panel Strong.
+- **La Biblia ocupa todo el ancho horizontal**: se quitaron los `stretch`
+  laterales que dejaban ~17 % del panel como margen.
+- **Normalización de libros y pasajes**: la tabla de libros y alias pasa a
+  `core/books.yaml` (nombres es/en/fr/pt). Se reconocen prefijos `I/II/III`,
+  `Primera/Segunda/Tercera`, `1ª/1a/1ra`, abreviaturas como `Luk`, `Jhn`,
+  `Deu`, `Pro`, `Amo`, `Rth`, `Ezk`, `Mrk`, separadores `Jn 3,16` y listas
+  `Ex. 4:14, 27-30` / `He. 5.4; 7.11`. Los `<ref>` con listas se dividen en
+  enlaces por sub-referencia. Los libros ausentes de la numeración 1–73
+  (`1 Esdras`, `3 Macc`) no se enlazan a otro libro.
+
+### Añadido
+
+- `PyYAML>=6` y ADR-0002; `skills/book-aliases.md` documenta el esquema.
+- Pruebas de formatos, continuaciones, nombres multi-palabra, tope de
+  versículos y ancho de burbuja.
+
 ## 0.4.0 — 2026-11-10
 
 ### Añadido

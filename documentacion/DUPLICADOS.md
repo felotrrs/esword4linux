@@ -1,6 +1,6 @@
 # Duplicados en la biblioteca e-Sword
 
-- **Carpeta de recursos**: `/home/felipe/StorageA/Biblias/Biblias_bblx`
+- **Carpeta de recursos**: `/home/felipe/StorageA/Biblias/Biblias_esword`
 - **Generado**: 2026-11-10 22:22
 - **Grupos duplicados exactos**: 23
 - **Copias sobrantes**: 23

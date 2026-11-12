@@ -31,9 +31,9 @@ LIGHT = Palette(
 )
 
 DARK = Palette(
-    bg="#1c1b18", panel="#24231f", panel_alt="#2d2b26", border="#3d3a32",
-    text="#e8e2d4", muted="#a89f8c", accent="#d9a066", accent_text="#1c1b18",
-    link="#8fb8e0", highlight="#5a4a28", comment_bg="#242118", verse_num="#d9a066",
+    bg="#12110f", panel="#201e1a", panel_alt="#302c25", border="#574f40",
+    text="#f0e9db", muted="#b9ae9b", accent="#e0a96b", accent_text="#17130e",
+    link="#9cc4e8", highlight="#6a5328", comment_bg="#2a2419", verse_num="#e0a96b",
 )
 
 
@@ -66,7 +66,8 @@ QStatusBar {{ background: {p.panel}; border-top: 1px solid {p.border}; color: {p
 QStatusBar QLabel {{ color: {p.muted}; padding: 0 4px; }}
 
 QLineEdit, QComboBox, QSpinBox {{
-    background: {p.bg}; border: 1px solid {p.border}; border-radius: 6px;
+    background: {p.panel}; color: {p.text};
+    border: 1px solid {p.border}; border-radius: 6px;
     padding: 5px 8px; selection-background-color: {p.accent};
     selection-color: {p.accent_text};
 }}
@@ -86,6 +87,8 @@ QPushButton:pressed {{ background: {p.border}; }}
 QPushButton#primary {{ background: {p.accent}; color: {p.accent_text}; border: 0; }}
 QPushButton#primary:hover {{ background: {p.accent}; }}
 
+QCheckBox {{ spacing: 6px; }}
+
 QTabWidget::pane {{ border: 0; background: {p.bg}; }}
 QTabBar::tab {{
     background: {p.panel}; color: {p.muted}; padding: 7px 16px;
@@ -102,6 +105,22 @@ QToolButton {{
 }}
 QToolButton:hover {{ border-color: {p.accent}; }}
 QToolButton:checked {{ background: {p.accent}; color: {p.accent_text}; border-color: {p.accent}; }}
+QToolButton#sidebarMode, QToolButton#organizerFilter {{ padding: 4px 3px; }}
+QFrame#sidebarOrganizer {{
+    background: {p.panel_alt}; border: 1px solid {p.border};
+    border-radius: 8px;
+}}
+QLabel#organizerLabel {{
+    color: {p.muted}; font-size: {max(9, font_size - 5)}px;
+    font-weight: 700;
+}}
+QLabel#organizerSep {{ color: {p.muted}; padding: 0 1px; }}
+QComboBox#organizerCombo {{
+    padding: 2px 2px; background: {p.panel}; border-radius: 5px;
+    font-size: {max(9, font_size - 5)}px;
+}}
+QComboBox#organizerCombo::drop-down {{ width: 12px; }}
+QToolButton#organizerFilter {{ font-size: {max(9, font_size - 4)}px; }}
 
 QToolButton#sidebarHandle {{
     background: {p.panel}; color: {p.muted};

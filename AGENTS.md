@@ -30,7 +30,8 @@ reglas doradas + el mapa del sistema + los comandos. El detalle vive en
    listos para consulta y búsqueda sin esperas.
 
 5. **Una sola fuente por concepto.** Categorías → `core/catalog.py:KIND_ORDER` /
-   `KIND_LABELS`. Libros y alias → `core/books.py:BOOKS`. Cadenas de UI →
+   `KIND_LABELS`. Libros, nombres y alias → `core/books.yaml` (lo carga
+   `core/books.py`; `BOOKS` se deriva de ahí). Cadenas de UI →
    `i18n/es.json` + `i18n/en.json` (mismas claves en ambos). Colores y
    tipografía → `ui/theme.py`. No duplicar listas en otros archivos.
 
@@ -104,23 +105,27 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 | `core/legacy_scripts.py` | Detección automática de codepages legacy (cp1253/cp1255). |
 | `core/strong.py` | `StrongIndex`: autodetecta el léxico Strong y resuelve `G2316`. |
 | `core/commentary.py` | Emparejamiento biblia↔comentario por identidad + cobertura real. |
-| `core/catalog.py` | Escaneo incremental, clasificación, fingerprint y duplicados, estado de índice. |
+| `core/refchain.py` | Cadenas de citas múltiples (`Gn23:1-6, 2:5-7; Jn3:16`) → referencias. |
+| `core/catalog.py` | Escaneo incremental, clasificación, idioma, fingerprint, duplicados y estado de índice. |
 | `core/store.py` | Esquema `page` + `page_fts` FTS5, triggers, `build_match`. |
 | `core/indexer.py` | Módulo → páginas → FTS5. Pool de procesos para biblias cifradas. |
 | `core/search.py` | Detección de intención y consulta al store. |
-| `core/books.py` | IDs e-Sword 1–73, nombres es/en, alias y `parse_reference`. |
+| `core/books.py` | Carga `core/books.yaml` (IDs 1–73, nombres es/en/fr/pt, alias) y expone `parse_reference`. |
 | `core/context.py` | `AppContext`: catálogo, store, motor y cache LRU de módulos abiertos. |
-| `ui/bible_view.py` | `BiblePane`: navegación, paralela y panel inferior apilado (Comentario\|Strong). |
+| `ui/bible_view.py` | `BiblePane`: navegación, paralela, caja de citas (sustituye la vista principal) y panel inferior (Comentario\|Léxico). |
 | `ui/commentary_pane.py` | `CommentaryPane`: comentarios del capítulo, salto a la nota. |
 | `ui/strong_pane.py` | `StrongPane`: entrada del léxico Strong. |
 | `ui/rich_browser.py` | `RichBrowser`: burbujas perezosas al pasar el ratón. |
+| `ui/checkstyle.py` | `CheckMarkStyle`: indicador de checkbox con checkmark según el tema. |
+| `ui/language.py` | Etiquetas (`lang.*`) y orden de idiomas para la UI. |
 | `ui/tab_bar.py` | `ColoredTabBar`: pestañas con color pleno, negrita y botón ＋. |
-| `ui/tooltip.py` | `TipBubble`: burbuja propia (ancho máx. 380 px, tarjeta oscura). |
+| `ui/tooltip.py` | `TipBubble`: burbuja propia pintada desde `QTextDocument` (ancho máx. 600 px, una línea por bloque). |
 | `ui/workspace.py` | `Workspace`: pestaña-vista (recurso principal + biblia/paralela/comentario). |
 | `ui/entry_dialog.py` | `EntryDialog`: lectura completa de una entrada sin crear pestaña. |
-| `ui/library_view.py` | Visor genérico (diccionario, léxico, referencia, mapa, devocional...). |
+| `ui/library_view.py` | Visor genérico; lista de términos con asa de ocultar/mostrar. |
 | `ui/search_view.py` | Caja única con intención y resultados agrupados. |
-| `ui/sidebar.py` | Árbol con dos vistas (**Por tipo** / **Por obra**); un clic carga. |
+| `ui/sidebar.py` | Árbol con agrupaciones combinables (tipo/idioma/obra) y filtros múltiples. |
+| `ui/citation_pane.py` | Colección de versículos de una cadena de citas. |
 | `ui/main_window.py` | Pestañas-vista, nombres/colores, menús, workers, persistencia. |
 | `ui/theme.py` | Paletas claro/oscuro, QSS y CSS de documento. |
 | `i18n/` | `tr(key, **kwargs)` sobre catálogos JSON `es`/`en`. |
@@ -156,7 +161,7 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 
 ## Definición de "terminado"
 
-- `make test` en verde (74 pruebas).
+- `make test` en verde (175 pruebas).
 - `make drift` sin deriva inesperada del núcleo vendorizado.
 - La app arranca con `./run.sh` y muestra la Biblia sin índice.
 - Cambio de comportamiento → una línea en `documentacion/CHANGELOG.md`.
@@ -172,5 +177,6 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 | Tocas FTS5, el indexador o la búsqueda | `skills/search-index.md` |
 | Tocas la ventana, pestañas, panel lateral o vistas | `skills/ui-layout.md` |
 | Tocas RTF/HTML, tipografía o temas | `skills/rendering.md` |
+| Tocas libros, alias, referencias o burbujas de pasajes | `skills/book-aliases.md` |
 | Añades cadenas de UI o un idioma | `skills/i18n.md` |
 | Mides rendimiento o cambias el pool | `skills/performance.md` |

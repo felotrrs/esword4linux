@@ -43,9 +43,10 @@ class SearchView(QWidget):
 
         self.query = QLineEdit()
         self.query.setPlaceholderText(tr("search.placeholder"))
+        self.query.setToolTip(tr("search.query_help"))
         self.query.setClearButtonEnabled(True)
         self.query.textChanged.connect(lambda _=0: self._timer.start())
-        self.query.returnPressed.connect(self.run_search)
+        self.query.returnPressed.connect(lambda: self.run_search(explicit=True))
         row.addWidget(self.query, 1)
 
         self.scope = QComboBox()
@@ -56,11 +57,13 @@ class SearchView(QWidget):
             self.scope.addItem(tr(f"kind.{kind}"), kind)
         self.scope.currentIndexChanged.connect(lambda _=0: self.run_search())
         self.scope.setMinimumWidth(170)
+        self.scope.setToolTip(tr("search.scope_help"))
         row.addWidget(self.scope)
 
         self.btn = QPushButton(tr("search.tab"))
+        self.btn.setToolTip(tr("search.query_help"))
         self.btn.setObjectName("primary")
-        self.btn.clicked.connect(self.run_search)
+        self.btn.clicked.connect(lambda: self.run_search(explicit=True))
         row.addWidget(self.btn)
 
         layout.addWidget(bar)
@@ -79,13 +82,30 @@ class SearchView(QWidget):
         )
         layout.addWidget(self.results, 1)
 
+    def retranslate(self) -> None:
+        self.query.setPlaceholderText(tr("search.placeholder"))
+        self.query.setToolTip(tr("search.query_help"))
+        current = self.scope.currentData()
+        self.scope.blockSignals(True)
+        self.scope.clear()
+        self.scope.addItem(tr("search.scope_all"), "")
+        for kind in KIND_ORDER:
+            if kind != "unknown":
+                self.scope.addItem(tr(f"kind.{kind}"), kind)
+        idx = self.scope.findData(current)
+        if idx >= 0:
+            self.scope.setCurrentIndex(idx)
+        self.scope.blockSignals(False)
+        self.btn.setText(tr("search.tab"))
+        self.run_search()
+
     # ── búsqueda ─────────────────────────────────────────────────────────
     def set_query(self, text: str) -> None:
         self.query.setText(text)
         self.query.setFocus()
         self.run_search()
 
-    def run_search(self) -> None:
+    def run_search(self, explicit: bool = False) -> None:
         query = self.query.text().strip()
         self.results.document().setDefaultStyleSheet(
             document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
@@ -103,6 +123,9 @@ class SearchView(QWidget):
             ref = result.reference
             self.info.setText(f'{tr("search.intent_reference")} · {ref.label(self.settings.locale)}')
             self.results.setHtml(self._render_reference(ref))
+            if explicit:
+                # Enter/acción explícita: ir directo, sin exigir clic en el enlace.
+                self.go_reference.emit(ref.label(self.settings.locale))
             return
 
         if result.note == "sin_indice":

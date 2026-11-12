@@ -23,6 +23,7 @@ class CommentaryPane(QWidget):
     """Comentarios del capítulo actual, agrupados por versículo."""
 
     open_module = Signal(int, str)
+    module_changed = Signal(str)
 
     def __init__(self, ctx: AppContext, parent=None):
         super().__init__(parent)
@@ -46,9 +47,9 @@ class CommentaryPane(QWidget):
         row.setContentsMargins(12, 5, 10, 5)
         row.setSpacing(8)
 
-        title = QLabel(tr("commentary.title"))
-        title.setObjectName("sectionTitle")
-        row.addWidget(title)
+        self.title_label = QLabel(tr("commentary.title"))
+        self.title_label.setObjectName("sectionTitle")
+        row.addWidget(self.title_label)
 
         self.match_label = QLabel("")
         self.match_label.setObjectName("matchBadge")
@@ -57,6 +58,7 @@ class CommentaryPane(QWidget):
 
         self.combo = QComboBox()
         self.combo.setMinimumWidth(260)
+        self.combo.setToolTip(tr("commentary.pick_help"))
         self.combo.currentIndexChanged.connect(self._on_module_changed)
         row.addWidget(self.combo, 1)
 
@@ -127,6 +129,7 @@ class CommentaryPane(QWidget):
 
     def _on_module_changed(self, _index: int) -> None:
         self.refresh()
+        self.module_changed.emit(self.commentary_rel())
 
     # ── contenido ────────────────────────────────────────────────────────
     def set_chapter(self, book: int, chapter: int, label: str = "") -> None:
@@ -188,6 +191,13 @@ class CommentaryPane(QWidget):
         self.browser.verticalScrollBar().setValue(0)
 
     def reload_theme(self) -> None:
+        self.refresh()
+
+    def retranslate(self) -> None:
+        self.title_label.setText(tr("commentary.title"))
+        self.btn_open.setText(tr("common.open"))
+        self.btn_open.setToolTip(tr("commentary.title"))
+        self.btn_hide.setToolTip(tr("bible.comments_off"))
         self.refresh()
 
     # ── eventos ──────────────────────────────────────────────────────────

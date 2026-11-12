@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from . import APP_NAME, __version__, i18n
 from .config import Settings, asset
 from .core.context import AppContext
+from .ui.checkstyle import install as install_check_style
 from .ui.main_window import MainWindow
 from .ui.theme import stylesheet
 
@@ -31,6 +32,9 @@ def main(argv: list[str] | None = None) -> int:
     app.setOrganizationName("linuxEsword")
     app.setStyle("Fusion")
     app.setFont(QFont("Noto Sans", max(9, settings.font_size - 2)))
+    # El proxy debe instalarse antes de la hoja de estilo para que dibuje el
+    # indicador (caja + check) en lugar de que el QSS lo sustituya.
+    install_check_style(app, settings.theme)
     app.setStyleSheet(stylesheet(settings.theme, settings.font_size))
 
     try:

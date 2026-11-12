@@ -67,6 +67,9 @@ Workspace
 - `itemActivated` (Enter) también carga, para teclado.
 - Se oculta con **Ver → Panel de recursos** (Ctrl+B) o el botón ☰ de la
   esquina de las pestañas; el estado se guarda en `Settings.sidebar_visible`.
+- Con el panel **visible** el `QSplitter` no es colapsable y el dock tiene
+  mínimo `SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH` (240 + 15 px). Arrastrar
+  el divisor nunca lo deja desaparecer; al ocultarlo queda solo el asa de 15 px.
 
 ## BiblePane
 
@@ -76,7 +79,21 @@ Workspace
 - Anclas `<a name="v16">` + `scrollToAnchor`.
 - Enlaces: `v:N` (menú de versículo), `ref:<texto>` (navegar), `c:<id>:<ref>`
   (entrada completa en diálogo).
-- Columna de lectura centrada con `setMaximumWidth(980)`.
+- **Sin tope lateral**: el `QTextBrowser` ocupa todo el ancho del panel; el
+  margen de lectura lo da el padding (`8px 18px`) del QSS. Los `stretch`
+  laterales se eliminaron porque dejaban ~17 % de ancho sin usar.
+- **Combo de traducción** (`fill_bible_combo`): desplegable, agrupado por
+  idioma y ordenado por abreviatura/título. Conserva la selección por
+  `rel_path`; el combo de la vista paralela usa el mismo agrupado y se oculta
+  si la paralela está desmarcada.
+- **Caja de citas** (`core/refchain.py` + `ui/citation_pane.py`): acepta
+  `Gn23:1-6, 2:5-7; Mar 2:1; Jn3:16`, hereda libro/capítulo y **sustituye la
+  vista principal** por la colección agrupada por capítulo. El botón ↩ vuelve
+  al capítulo. Libro, capítulo y flechas ◀ ▶ siguen siempre visibles en modo
+  citas: ocultarlos dejaba la barra sin forma de volver a la navegación normal.
+  La vista paralela muestra la misma colección en la traducción secundaria.
+- La barra no usa flechas verticales de capítulo: el capítulo es editable sin
+  botones y se navega con ◀ ▶.
 
 ## CommentaryPane
 
@@ -120,35 +137,64 @@ restaura al reabrir.
 ## Panel inferior apilado
 
 `QStackedWidget{ CommentaryPane, StrongPane }` + dos `QToolButton` checkables
-en una `QButtonGroup` exclusiva (`Comentario`, `Strong`) y un `▾` para ocultar.
-El estado va a `Settings.bottom_page` y `show_commentary_inline`.
+en una `QButtonGroup` exclusiva (`Comentario`, `Léxico`). El estado va a
+`Settings.bottom_page` y `show_commentary_inline`; al pulsar de nuevo el botón
+activo se oculta el panel.
 
-## Panel lateral: dos vistas
+## Panel lateral: organizador de filtros y agrupaciones
 
-`Sidebar` tiene un interruptor `Por tipo | Por obra` (persistido en
-`Settings.sidebar_mode`):
+`Sidebar` combina hasta **tres niveles de agrupación** (`kind`, `language`,
+`work`) en orden, más **filtros múltiples** por tipo e idioma y el filtro de
+texto. Se persiste en `Settings.sidebar_grouping`, `sidebar_kind_filters` y
+`sidebar_language_filters`. Los títulos «Agrupar» y «Filtrar» ocupan una línea
+completa cada uno, con un espacio vertical entre ambos bloques.
 
-- **kind** — categorías (`KIND_ORDER`) → módulos. Para *encontrar* por
-  naturaleza sin saber de qué obra es.
-- **work** — `Catalog.works()` agrupa por título normalizado. Una obra con
-  texto + notas + léxico aparece una vez; sus piezas son sub-elementos con el
-  rol delante (`Texto · RV1960`, `Notas · RVR1960x`).
-  El año del título **separa ediciones** solo si dentro del mismo título base
-  conviven varios años (RV1960 ≠ RV1995); si solo uno lo lleva, se agrupan.
+- **kind** — categorías (`KIND_ORDER`).
+- **work** — `Catalog.works()` agrupa por título normalizado; el año separa
+  ediciones cuando conviven varios dentro del mismo título base.
+- **language** — `module.language` (`es`, `en`, `fr`, `pt`, `de`, `it`, `la`,
+  `grc`, `hbo`, `und`) con etiquetas `lang.*`.
+  `detect_language()` combina título/abreviatura, marcador de archivo, muestra
+  corta de contenido y alfabetos originales; `METADATA_VERSION` fuerza un
+  re-escaneo de metadatos cuando cambia la heurística.
 
-Un clic en una obra la despliega; un clic en el submódulo carga ese módulo.
-Las obras con un solo módulo se muestran planas (un clic carga).
+El árbol se construye de forma anidada y el filtro de texto es recursivo:
+si coincide con un grupo, muestra todos sus descendientes.
+
+## Panel de términos de LibraryView
+
+`LibraryView` (diccionarios, léxicos, referencias…) tiene su propio
+`QSplitter` entre la lista de términos y el detalle:
+
+- lista con mínimo `LIST_MIN_WIDTH` (220 px) y detalle con
+  `DETAIL_MIN_WIDTH` (240 px); `setChildrenCollapsible(False)`;
+- botón `☰` **siempre visible en la cabecera** para ocultar/mostrar la lista;
+- estado en `Settings.library_list_visible` y ancho en
+  `Settings.library_list_width`;
+- stretch `0` para la lista y `1` para el detalle: al ensanchar la ventana
+  crece el texto, no la lista.
 
 ## Burbujas (`ui/tooltip.py`)
 
-`TipBubble` sustituye al tooltip nativo por una tarjeta:
-fondo `#23262e`, borde izquierdo de acento, **ancho máx. 380 px** con ajuste de
-línea y cabecera en dorado. `RichBrowser` extrae los `title=` del HTML a su
-mapa interno (para que Qt no muestre el suyo) y resuelve los Strong al vuelo.
+`TipBubble` sustituye al tooltip nativo por una tarjeta pintada directamente
+desde un `QTextDocument` (sin `QTextBrowser`, viewport ni scrollbars): fondo
+`#23262e`, borde izquierdo de acento, **ancho adaptable hasta 600 px** y
+cabecera en dorado. La cabecera es compacta (referencia o abreviatura del
+léxico, nunca el título largo de la obra). Cada línea del cuerpo es un bloque
+independiente, de modo que las palabras hebreas conservan su dirección RTL.
+El alto es `documentLayout().documentSize()` + padding + un margen inferior de
+5 px: la última línea y sus descendentes nunca quedan cortados. Los pasajes
+muestran hasta 10 versículos completos (`RefResolver.MAX_VERSES`); las entradas
+del léxico se capan a 2500 caracteres (con aviso para abrir la entrada completa
+en el panel Léxico).
+`RichBrowser` extrae los `title=` del HTML a su mapa interno (para que Qt no
+muestre el suyo) y resuelve los Strong al vuelo. Al cambiar de léxico o de
+comentario se invalidan las cachés con `RichBrowser.clear_all_caches()`.
 
 ## Léxico Strong predeterminado
 
-El combo del panel Strong lista los 15 léxicos que indexan por `G####`/`H####`
+El combo del panel Léxico lista los 15 léxicos que indexan por `G####`/`H####`
 (★ = activo). Cambiarlo llama a `StrongIndex.set_default()`, que persiste
-`settings.strong_rel`, invalida la caché y refresca las burbujas. También está
-en **Ver → Léxico Strong predeterminado**.
+`settings.strong_rel`, invalida la caché y refresca las burbujas al instante
+(igual que el combo de comentarios actualiza las notas del capítulo). También
+está en **Ver → Léxico Strong predeterminado**.

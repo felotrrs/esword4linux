@@ -1,8 +1,10 @@
 """Libros bíblicos (IDs e-Sword) y parser de referencias.
 
-e-Sword numera los libros 1..66 (Génesis..Apocalipsis) y 67..73 para los
-deuterocanónicos que traen algunas ediciones. La numeración es la del módulo,
-no la de la UI: aquí solo se traduce ID → nombre.
+La tabla canónica vive en ``books.yaml``: IDs 1–73, nombres en varios idiomas y
+alias de distintas tradiciones editoriales. Este módulo solo carga, normaliza y
+resuelve; no define listas propias (regla dorada #5).
+
+La numeración es la del módulo, no la de la UI: aquí solo se traduce ID → nombre.
 """
 
 from __future__ import annotations
@@ -10,139 +12,215 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from pathlib import Path
 
-# (id, nombre_es, abrev_es, nombre_en, abrev_en)
-BOOKS: list[tuple[int, str, tuple[str, ...], str, tuple[str, ...]]] = [
-    (1, "Génesis", ("gn", "gen", "génesis", "genesis"), "Genesis", ("gen", "ge")),
-    (2, "Éxodo", ("ex", "éxodo", "exodo"), "Exodus", ("exod", "exo")),
-    (3, "Levítico", ("lv", "lev", "levítico", "levitico"), "Leviticus", ("lev", "lv")),
-    (4, "Números", ("nm", "num", "números", "numeros"), "Numbers", ("num", "nu")),
-    (5, "Deuteronomio", ("dt", "deut", "deuteronomio"), "Deuteronomy", ("deut", "dt")),
-    (6, "Josué", ("jos", "josué", "josue"), "Joshua", ("josh", "jos")),
-    (7, "Jueces", ("jue", "jueces", "jdg"), "Judges", ("judg", "jdg")),
-    (8, "Rut", ("rt", "rut", "ruth"), "Ruth", ("ruth", "ru")),
-    (9, "1 Samuel", ("1s", "1sa", "1sam", "1 samuel"), "1 Samuel", ("1sam", "1sa")),
-    (10, "2 Samuel", ("2s", "2sa", "2sam", "2 samuel"), "2 Samuel", ("2sam", "2sa")),
-    (11, "1 Reyes", ("1r", "1re", "1reyes", "1 reyes"), "1 Kings", ("1kgs", "1ki")),
-    (12, "2 Reyes", ("2r", "2re", "2reyes", "2 reyes"), "2 Kings", ("2kgs", "2ki")),
-    (13, "1 Crónicas", ("1cr", "1cro", "1crónicas", "1cronicas"), "1 Chronicles", ("1chr", "1ch")),
-    (14, "2 Crónicas", ("2cr", "2cro", "2crónicas", "2cronicas"), "2 Chronicles", ("2chr", "2ch")),
-    (15, "Esdras", ("esd", "ezra"), "Ezra", ("ezra", "ezr")),
-    (16, "Nehemías", ("neh", "nehemías", "nehemias"), "Nehemiah", ("neh", "ne")),
-    (17, "Ester", ("est", "ester", "esth"), "Esther", ("esth", "est")),
-    (18, "Job", ("job",), "Job", ("job", "jb")),
-    (19, "Salmos", ("sal", "salmo", "ps", "psa", "salmos"), "Psalms", ("ps", "psa", "psalm")),
-    (20, "Proverbios", ("pr", "prov", "proverbios"), "Proverbs", ("prov", "pr")),
-    (21, "Eclesiastés", ("ec", "ecl", "eclesiastés", "eclesiastes", "eccl"), "Ecclesiastes", ("eccl", "ecc")),
-    (22, "Cantares", ("cnt", "cant", "cantares", "song"), "Song of Solomon", ("song", "sos")),
-    (23, "Isaías", ("is", "isa", "isaías", "isaias"), "Isaiah", ("isa", "is")),
-    (24, "Jeremías", ("jer", "jeremías", "jeremias"), "Jeremiah", ("jer", "je")),
-    (25, "Lamentaciones", ("lm", "lam", "lamentaciones"), "Lamentations", ("lam", "la")),
-    (26, "Ezequiel", ("ez", "eze", "ezequiel"), "Ezekiel", ("ezek", "eze")),
-    (27, "Daniel", ("dn", "dan", "daniel"), "Daniel", ("dan", "da")),
-    (28, "Oseas", ("os", "ose", "oseas"), "Hosea", ("hos", "ho")),
-    (29, "Joel", ("jl", "joel"), "Joel", ("joel", "joe")),
-    (30, "Amós", ("am", "amos", "amós"), "Amos", ("amos", "am")),
-    (31, "Obadías", ("ob", "oba", "obadías", "obadias"), "Obadiah", ("obad", "ob")),
-    (32, "Jonás", ("jon", "jonás", "jonas"), "Jonah", ("jonah", "jon")),
-    (33, "Miqueas", ("mi", "miq", "miqueas"), "Micah", ("mic", "mi")),
-    (34, "Nahúm", ("nah", "nahúm", "nahum", "na"), "Nahum", ("nah", "na")),
-    (35, "Habacuc", ("hab", "habacuc", "hb"), "Habakkuk", ("hab", "hb")),
-    (36, "Sofonías", ("sof", "sofonías", "sofonias", "zep"), "Zephaniah", ("zeph", "zep")),
-    (37, "Hageo", ("hag", "hageo"), "Haggai", ("hag", "hg")),
-    (38, "Zacarías", ("zac", "zacarías", "zacarias", "zec"), "Zechariah", ("zech", "zec")),
-    (39, "Malaquías", ("mal", "malaquías", "malaquias"), "Malachi", ("mal", "ml")),
-    (40, "Mateo", ("mt", "mat", "mateo"), "Matthew", ("matt", "mt")),
-    (41, "Marcos", ("mr", "mar", "marcos", "mc"), "Mark", ("mark", "mk")),
-    (42, "Lucas", ("lc", "luc", "lucas"), "Luke", ("luke", "lk")),
-    (43, "Juan", ("jn", "juan", "john"), "John", ("john", "jn")),
-    (44, "Hechos", ("hch", "hech", "hechos", "acts"), "Acts", ("acts", "ac")),
-    (45, "Romanos", ("ro", "rom", "romanos"), "Romans", ("rom", "ro")),
-    (46, "1 Corintios", ("1co", "1cor", "1 corintios"), "1 Corinthians", ("1cor", "1co")),
-    (47, "2 Corintios", ("2co", "2cor", "2 corintios"), "2 Corinthians", ("2cor", "2co")),
-    (48, "Gálatas", ("ga", "gal", "gálatas", "galatas"), "Galatians", ("gal", "ga")),
-    (49, "Efesios", ("ef", "efe", "efesios"), "Ephesians", ("eph", "ep")),
-    (50, "Filipenses", ("fil", "flp", "filipenses"), "Philippians", ("phil", "php")),
-    (51, "Colosenses", ("col", "colosenses"), "Colossians", ("col", "co")),
-    (52, "1 Tesalonicenses", ("1ts", "1tes", "1 tesalonicenses"), "1 Thessalonians", ("1thess", "1th")),
-    (53, "2 Tesalonicenses", ("2ts", "2tes", "2 tesalonicenses"), "2 Thessalonians", ("2thess", "2th")),
-    (54, "1 Timoteo", ("1ti", "1tim", "1 timoteo"), "1 Timothy", ("1tim", "1ti")),
-    (55, "2 Timoteo", ("2ti", "2tim", "2 timoteo"), "2 Timothy", ("2tim", "2ti")),
-    (56, "Tito", ("tit", "tito"), "Titus", ("titus", "tit")),
-    (57, "Filemón", ("flm", "filemón", "filemon", "phlm"), "Philemon", ("phlm", "phm")),
-    (58, "Hebreos", ("he", "heb", "hebreos"), "Hebrews", ("heb", "he")),
-    (59, "Santiago", ("stg", "sant", "santiago", "jas"), "James", ("jas", "jm")),
-    (60, "1 Pedro", ("1p", "1pe", "1ped", "1 pedro"), "1 Peter", ("1pet", "1pe")),
-    (61, "2 Pedro", ("2p", "2pe", "2ped", "2 pedro"), "2 Peter", ("2pet", "2pe")),
-    (62, "1 Juan", ("1jn", "1juan", "1 juan"), "1 John", ("1john", "1jn")),
-    (63, "2 Juan", ("2jn", "2juan", "2 juan"), "2 John", ("2john", "2jn")),
-    (64, "3 Juan", ("3jn", "3juan", "3 juan"), "3 John", ("3john", "3jn")),
-    (65, "Judas", ("jud", "judas", "jude"), "Jude", ("jude", "jud")),
-    (66, "Apocalipsis", ("ap", "apo", "apoc", "apocalipsis", "rev"), "Revelation", ("rev", "re")),
-    # Deuterocanónicos (solo presentes en algunas ediciones)
-    (67, "Tobit", ("tob", "tobit", "tb"), "Tobit", ("tob", "tb")),
-    (68, "Judit", ("jdt", "judit", "judith"), "Judith", ("jdt",)),
-    (69, "Sabiduría", ("sab", "sabiduría", "sabiduria", "wis"), "Wisdom", ("wis", "ws")),
-    (70, "Eclesiástico", ("eclo", "sir", "sirácide", "siracide"), "Sirach", ("sir", "ecclus")),
-    (71, "Baruc", ("bar", "baruc"), "Baruch", ("bar",)),
-    (72, "1 Macabeos", ("1mac", "1m", "1 macabeos"), "1 Maccabees", ("1macc", "1ma")),
-    (73, "2 Macabeos", ("2mac", "2m", "2 macabeos"), "2 Maccabees", ("2macc", "2ma")),
-]
+_BOOKS_YAML = Path(__file__).with_name("books.yaml")
 
-_BY_ID = {b[0]: b for b in BOOKS}
+_PREFIX_WORDS = {
+    "primera": 1, "primer": 1, "first": 1, "premier": 1, "premiere": 1,
+    "primeira": 1, "primeiro": 1,
+    "segunda": 2, "segundo": 2, "second": 2, "deuxieme": 2, "seconde": 2,
+    "tercera": 3, "tercer": 3, "third": 3, "troisieme": 3,
+    "terceira": 3, "terceiro": 3,
+}
+_ROMAN = {"i": 1, "ii": 2, "iii": 3}
 
 
 def normalize(text: str) -> str:
     """minúsculas, sin acentos, sin puntuación de referencia."""
-    text = unicodedata.normalize("NFD", text.lower())
+    text = unicodedata.normalize("NFD", str(text).lower())
     text = "".join(c for c in text if unicodedata.category(c) != "Mn")
-    return re.sub(r"[.\s]+", " ", text).strip()
+    return re.sub(r"[.\s_]+", " ", text).strip()
+
+
+def _clean(text: str) -> str:
+    """Alias normalizado: además quita puntos y espacios sobrantes."""
+    return normalize(text).strip(" .,;:")
+
+
+def _add_alias(alias: str, book_id: int) -> None:
+    key = _clean(alias)
+    if not key:
+        return
+    # Con y sin espacios: "1 corintios" y "1corintios".
+    _ALIAS.setdefault(key, book_id)
+    _ALIAS.setdefault(key.replace(" ", ""), book_id)
+
+
+def _load_yaml() -> dict:
+    try:
+        import yaml
+    except ImportError as exc:  # pragma: no cover - depende del empaquetado
+        raise RuntimeError(
+            "Falta PyYAML: instala las dependencias con «pip install -e .»"
+        ) from exc
+    try:
+        with _BOOKS_YAML.open(encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except OSError as exc:
+        raise RuntimeError(f"No se pudo leer {_BOOKS_YAML}: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("books"), dict):
+        raise ValueError(f"{_BOOKS_YAML}: falta la clave «books»")
+    return data
+
+
+_NAMES: dict[int, dict[str, str]] = {}
+_ABBREV: dict[int, dict[str, tuple[str, ...]]] = {}
+_ALIAS: dict[str, int] = {}
+_FAMILY_ALIAS: dict[str, str] = {}
+_FAMILY_BOOKS: dict[str, dict[int, int]] = {}
+
+
+def _load() -> None:
+    data = _load_yaml()
+
+    for family, spec in (data.get("families") or {}).items():
+        if not isinstance(spec, dict):
+            continue
+        books = {
+            int(number): int(book_id)
+            for number, book_id in (spec.get("books") or {}).items()
+        }
+        if not books:
+            continue
+        _FAMILY_BOOKS[str(family)] = books
+        default = spec.get("default")
+        for alias in spec.get("aliases") or []:
+            key = _clean(alias)
+            if not key:
+                continue
+            _FAMILY_ALIAS.setdefault(key, str(family))
+            _FAMILY_ALIAS.setdefault(key.replace(" ", ""), str(family))
+            # La forma sin número resuelve al primer libro de la serie,
+            # salvo en familias donde colisiona con otro libro (cartas de Juan).
+            if default is not None:
+                _add_alias(alias, int(default))
+
+    for key, entry in data["books"].items():
+        if not isinstance(entry, dict) or "id" not in entry:
+            continue
+        book_id = int(entry["id"])
+        names = {
+            str(lang): str(value)
+            for lang, value in (entry.get("names") or {}).items()
+        }
+        abbrevs = {
+            str(lang): tuple(str(value) for value in values if value)
+            for lang, values in (entry.get("abbreviations") or {}).items()
+        }
+        _NAMES[book_id] = names
+        _ABBREV[book_id] = abbrevs
+
+        # El nombre canónico y las abreviaturas también son alias válidos.
+        for value in names.values():
+            _add_alias(value, book_id)
+        for values in abbrevs.values():
+            for value in values:
+                _add_alias(value, book_id)
+        for values in (entry.get("aliases") or {}).values():
+            for value in values:
+                _add_alias(value, book_id)
+        _add_alias(str(key), book_id)
+
+
+_load()
+
+# (id, nombre_es, abreviaturas_es, nombre_en, abreviaturas_en)
+BOOKS: list[tuple[int, str, tuple[str, ...], str, tuple[str, ...]]] = [
+    (
+        book_id,
+        _NAMES[book_id].get("es") or _NAMES[book_id].get("en") or f"Libro {book_id}",
+        _ABBREV.get(book_id, {}).get("es", ()),
+        _NAMES[book_id].get("en") or _NAMES[book_id].get("es") or f"Book {book_id}",
+        _ABBREV.get(book_id, {}).get("en", ()),
+    )
+    for book_id in sorted(_NAMES)
+]
 
 
 def book_name(book_id: int, lang: str = "es") -> str:
-    b = _BY_ID.get(book_id)
-    if not b:
+    names = _NAMES.get(book_id)
+    if not names:
         return f"Libro {book_id}"
-    return b[1] if lang == "es" else b[3]
+    return names.get(lang) or names.get("es") or names.get("en") or f"Libro {book_id}"
 
 
 def book_abbrev(book_id: int, lang: str = "es") -> str:
-    b = _BY_ID.get(book_id)
-    if not b:
-        return str(book_id)
-    return b[2][0] if lang == "es" else b[4][0]
+    abbrevs = _ABBREV.get(book_id, {})
+    values = abbrevs.get(lang) or abbrevs.get("es") or abbrevs.get("en") or ()
+    return values[0] if values else str(book_id)
 
 
 def all_books() -> list[dict]:
     return [
-        {"id": b[0], "es": b[1], "en": b[3], "abbrev_es": b[2][0], "abbrev_en": b[4][0]}
+        {
+            "id": b[0], "es": b[1], "en": b[3],
+            "abbrev_es": b[2][0] if b[2] else b[1],
+            "abbrev_en": b[4][0] if b[4] else b[3],
+        }
         for b in BOOKS
     ]
 
 
-# Índice alias → id (se construye una vez; cubre nombres y abreviaturas es/en)
-_ALIAS: dict[str, int] = {}
-for _b in BOOKS:
-    _ALIAS.setdefault(normalize(_b[1]), _b[0])
-    _ALIAS.setdefault(normalize(_b[3]), _b[0])
-    for _a in _b[2] + _b[4]:
-        _ALIAS.setdefault(normalize(_a), _b[0])
-# Alias frecuentes que no salen del nombre canónico
-_ALIAS.update({
-    "salmo": 19, "salmos": 19, "psalm": 19, "psalms": 19,
-    "cantar de los cantares": 22, "cantares": 22, "song of songs": 22,
-    "hechos de los apostoles": 44, "apocalipsis de juan": 66,
-    # formas inglesas cortas que aparecen en citas de módulos
-    "act": 44, "exo": 2, "deut": 5, "josh": 6, "judg": 7, "prov": 20,
-    "eccl": 21, "isa": 23, "jer": 24, "lam": 25, "ezek": 26, "dan": 27,
-    "hos": 28, "obad": 31, "jonah": 32, "mic": 33, "zech": 38, "mal": 39,
-    "matt": 40, "rom": 45, "gal": 48, "eph": 49, "col": 51, "thess": 52,
-    "tim": 54, "titus": 56, "phlm": 57, "jas": 59, "pet": 60, "rev": 66,
-    "1a corintios": 46, "2a corintios": 47, "1a de corintios": 46,
-    "1a pedro": 60, "2a pedro": 61, "1a juan": 62, "2a juan": 63, "3a juan": 64,
-    "1a tesalonicenses": 52, "2a tesalonicenses": 53,
-    "1a timoteo": 54, "2a timoteo": 55,
-})
+def _split_prefix(text: str) -> tuple[int | None, str]:
+    """Separa «1», «1a», «1ra», «I», «Primera de»… del nombre del libro."""
+    value = _clean(text)
+
+    # 1 Samuel / 1a Corintios / 1ra Timoteo / 1st John / 2º Reyes
+    match = re.match(
+        r"^([1-3])\s*(?:ª|º|°|ra|ro|era|er|st|nd|rd|th|a|o)?\.?\s*(.+)$",
+        value,
+    )
+    if match and match.group(2).strip():
+        rest = re.sub(r"^(?:de|del)\s+", "", match.group(2).strip())
+        return int(match.group(1)), rest
+
+    # I Samuel / II Reyes / III Juan
+    match = re.match(r"^(i{1,3})\.?\s+(.+)$", value)
+    if match and match.group(1) in _ROMAN:
+        return _ROMAN[match.group(1)], match.group(2).strip()
+
+    # Primera de Corintios / Second Peter / Deuxième Épître…
+    match = re.match(
+        r"^(primera|primer|segunda|segundo|tercera|tercer|first|second|third|"
+        r"premier|premiere|deuxieme|seconde|troisieme|primeiro|primeira|"
+        r"segundo|segunda|terceiro|terceira)\s+"
+        r"(?:de\s+|del\s+|of\s+|the\s+)?(.+)$",
+        value,
+    )
+    if match:
+        return _PREFIX_WORDS[match.group(1)], match.group(2).strip()
+
+    return None, value
+
+
+def resolve_book(text: str) -> int | None:
+    """Alias de libro (en cualquier idioma/abreviatura) → ID e-Sword."""
+    if not text:
+        return None
+    key = _clean(text)
+    book_id = _ALIAS.get(key)
+    if book_id is None:
+        book_id = _ALIAS.get(key.replace(" ", ""))
+    if book_id is not None:
+        return book_id
+
+    prefix, rest = _split_prefix(key)
+    if prefix is not None:
+        rest_key = _clean(rest)
+        family = _FAMILY_ALIAS.get(rest_key) or _FAMILY_ALIAS.get(
+            rest_key.replace(" ", "")
+        )
+        if family:
+            book_id = _FAMILY_BOOKS.get(family, {}).get(prefix)
+            if book_id is not None:
+                return book_id
+
+    # Honoríficos frecuentes en español: «S. Juan», «San Juan», «Santa…».
+    match = re.match(r"^(?:san|santa|santo|s)\.?\s+(.+)$", key)
+    if match:
+        return resolve_book(match.group(1))
+    return None
 
 
 @dataclass(frozen=True)
@@ -151,10 +229,13 @@ class Reference:
     chapter: int
     verse: int | None = None
     verse_end: int | None = None
+    chapter_end: int | None = None
 
     def label(self, lang: str = "es") -> str:
         name = book_name(self.book, lang)
         if self.verse is None:
+            if self.chapter_end and self.chapter_end != self.chapter:
+                return f"{name} {self.chapter}-{self.chapter_end}"
             return f"{name} {self.chapter}"
         if self.verse_end and self.verse_end != self.verse:
             return f"{name} {self.chapter}:{self.verse}-{self.verse_end}"
@@ -162,37 +243,36 @@ class Reference:
 
 
 _REF_RE = re.compile(
-    r"^\s*(?P<book>(?:[1-3]\s*)?[^\d:]+?)\s*"
+    r"^\s*(?P<book>.*?)\s*"
     r"(?P<chapter>\d{1,3})"
-    r"(?:\s*[:.,]\s*(?P<verse>\d{1,3})(?:\s*[-–]\s*(?P<vend>\d{1,3}))?)?"
-    r"\s*$",
+    r"(?:\s*[-–—]\s*(?P<chend>\d{1,3}))?"
+    r"(?:\s*(?:[:.,]|\s)\s*(?P<verse>\d{1,3})"
+    r"(?:\s*[-–—]\s*(?P<vend>\d{1,3}))?"
+    r")?"
+    r"\s*(?:ss|ff|s|f|[a-c])?\s*$",
     re.IGNORECASE,
 )
 
 
 def parse_reference(text: str) -> Reference | None:
-    """Parsea 'Juan 3:16', '1 Cor 13:4-7', 'Sal 23', 'Jn 3.16'."""
+    """Parsea «Juan 3:16», «1 Cor 13:4-7», «Jn 3,16», «Génesis 1-3»…"""
     if not text:
         return None
-    m = _REF_RE.match(text.strip())
-    if not m:
+    match = _REF_RE.match(str(text).strip())
+    if not match:
         return None
-    book_key = normalize(m.group("book")).replace(" ", "")
-    book_id = _ALIAS.get(book_key)
-    if book_id is None:
-        # fallback: quitar espacios también en el alias normalizado
-        for alias, bid in _ALIAS.items():
-            if alias.replace(" ", "") == book_key:
-                book_id = bid
-                break
+    book_id = resolve_book(match.group("book"))
     if book_id is None:
         return None
-    chapter = int(m.group("chapter"))
-    if chapter < 1 or chapter > 200:
+    chapter = int(match.group("chapter"))
+    if not 1 <= chapter <= 200:
         return None
-    verse = int(m.group("verse")) if m.group("verse") else None
-    vend = int(m.group("vend")) if m.group("vend") else None
-    return Reference(book_id, chapter, verse, vend)
+    chapter_end = int(match.group("chend")) if match.group("chend") else None
+    verse = int(match.group("verse")) if match.group("verse") else None
+    verse_end = int(match.group("vend")) if match.group("vend") else None
+    if verse is not None:
+        chapter_end = None
+    return Reference(book_id, chapter, verse, verse_end, chapter_end)
 
 
 def looks_like_reference(text: str) -> bool:

@@ -8,7 +8,7 @@ import pytest
 
 from linuxesword.core.text import is_markup, to_plain, to_rich
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 
 # ── pseudo-tags ──────────────────────────────────────────────────────────
@@ -38,6 +38,20 @@ def test_num_tag_becomes_strong_anchor():
 def test_strong_hash_link_is_converted():
     rich = to_rich("<a class=nd href='#sG1645'>G1645</a>")
     assert 'href="strong:G1645"' in rich
+
+
+def test_ref_tag_with_list_splits_into_anchors():
+    rich = to_rich("<ref>Ex. 4:14, 27-30</ref>")
+    assert rich.count('href="ref:') == 2
+    assert 'href="ref:Éxodo 4:14"' in rich
+    assert 'href="ref:Éxodo 4:27-30"' in rich
+    assert ">Ex. 4:14</a>" in rich and ">27-30</a>" in rich
+
+
+def test_ref_tag_with_comma_verse():
+    rich = to_rich("<ref>Jn 3,16</ref>")
+    assert 'href="ref:Juan 3:16"' in rich
+    assert ">Jn 3,16</a>" in rich
 
 
 def test_drop_tags_keep_content():
@@ -77,3 +91,18 @@ def test_vine_codepage_fixes_greek():
 
 def test_plain_untouched_when_no_hint():
     assert to_plain("Texto normal con acentos: áéíóú ñ") == "Texto normal con acentos: áéíóú ñ"
+
+
+def test_orphan_closing_block_tag_becomes_break():
+    # Regresión RVR1960x: un </p> suelto partía el versículo en dos bloques
+    # y dejaba un hueco vertical.
+    rich = to_rich("La insensatez del hombre tuerce su camino,</p>Y luego se irrita.")
+    assert "</p>" not in rich
+    assert "<br>" in rich
+    assert "camino,Y luego" not in rich
+
+
+def test_malformed_nesting_is_balanced():
+    rich = to_rich("<b>uno <i>dos</b> tres</i>")
+    assert rich.count("<b>") == rich.count("</b>") == 1
+    assert rich.count("<i>") == rich.count("</i>") == 1

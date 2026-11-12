@@ -21,8 +21,10 @@ from ..core.context import AppContext
 from ..core.indexer import Indexer
 from ..core.store import ContentStore
 from ..i18n import tr
+from .checkstyle import set_theme as set_check_style_theme
 from .search_view import SearchView
 from .sidebar import Sidebar
+from .rich_browser import RichBrowser
 from .tab_bar import ColoredTabBar
 from .tasks import Worker
 from .theme import palette, stylesheet
@@ -31,6 +33,8 @@ from .entry_dialog import EntryDialog
 
 # La pestaña 0 es «Buscar» (fija). Las pestañas-vista empiezan en 1.
 FIXED_TABS = 1
+SIDEBAR_MIN_WIDTH = 240
+SIDEBAR_HANDLE_WIDTH = 15
 
 TAB_COLORS = [
     "#c9973f", "#4a7fb5", "#5f9a6b", "#b5564a",
@@ -94,18 +98,18 @@ class MainWindow(QMainWindow):
 
         self.sidebar_dock = self._build_sidebar_dock()
         self.sidebar.setVisible(self.settings.sidebar_visible)
-        if not self.settings.sidebar_visible:
-            self.sidebar_dock.setMaximumWidth(16)
         self._apply_tab_palette()
 
         split = QSplitter(Qt.Horizontal)
         split.addWidget(self.sidebar_dock)
         split.addWidget(self.tabs)
+        split.setChildrenCollapsible(False)
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 1)
         split.setSizes([290, 1110])
         self._split = split
         self.setCentralWidget(split)
+        self._apply_sidebar_constraints(self.settings.sidebar_visible)
 
         self.lbl_status = QLabel("")
         self.progress = QProgressBar()
@@ -133,8 +137,19 @@ class MainWindow(QMainWindow):
         self.sidebar_handle.setCursor(Qt.PointingHandCursor)
         self.sidebar_handle.clicked.connect(self.toggle_sidebar)
         row.addWidget(self.sidebar_handle, 0, Qt.AlignTop)
-        dock.setMinimumWidth(15)
+        dock.setMinimumWidth(SIDEBAR_HANDLE_WIDTH)
         return dock
+
+    def _apply_sidebar_constraints(self, visible: bool) -> None:
+        """Con el panel visible, el splitter no puede reducirlo a la nada."""
+        if visible:
+            self.sidebar_dock.setMinimumWidth(
+                SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH
+            )
+            self.sidebar_dock.setMaximumWidth(16777215)
+        else:
+            self.sidebar_dock.setMinimumWidth(SIDEBAR_HANDLE_WIDTH)
+            self.sidebar_dock.setMaximumWidth(16)
 
     def _apply_tab_palette(self) -> None:
         bar = self.tabs.tabBar()
@@ -146,6 +161,10 @@ class MainWindow(QMainWindow):
             )
 
     def _build_menus(self) -> None:
+        for name in ("act_find", "act_new"):
+            old = getattr(self, name, None)
+            if old is not None:
+                self.removeAction(old)
         bar = self.menuBar()
 
         m_file = bar.addMenu(tr("menu.file"))
@@ -218,29 +237,34 @@ class MainWindow(QMainWindow):
         act_about.triggered.connect(self._about)
         m_help.addAction(act_about)
 
-        act_find = QAction(self)
-        act_find.setShortcut(QKeySequence("Ctrl+F"))
-        act_find.triggered.connect(self._focus_search)
-        self.addAction(act_find)
-        act_new = QAction(self)
-        act_new.setShortcut(QKeySequence("Ctrl+T"))
-        act_new.triggered.connect(lambda: self._add_workspace())
-        self.addAction(act_new)
+        self.act_find = QAction(self)
+        self.act_find.setShortcut(QKeySequence("Ctrl+F"))
+        self.act_find.triggered.connect(self._focus_search)
+        self.addAction(self.act_find)
+        self.act_new = QAction(self)
+        self.act_new.setShortcut(QKeySequence("Ctrl+T"))
+        self.act_new.triggered.connect(lambda: self._add_workspace())
+        self.addAction(self.act_new)
 
     # ── pestañas-vista ───────────────────────────────────────────────────
-    def _next_name(self) -> str:
+    def _next_name(self) -> tuple[str, str]:
         used = {ws.name for ws in self._workspaces}
         for letter in string.ascii_uppercase:
             name = tr("workspace.default_name", letter=letter)
             if name not in used:
-                return name
-        return tr("workspace.default_name", letter=str(len(self._workspaces) + 1))
+                return letter, name
+        letter = str(len(self._workspaces) + 1)
+        return letter, tr("workspace.default_name", letter=letter)
 
     def _add_workspace(self, name: str | None = None, color: str | None = None,
                        state: dict | None = None, activate: bool = True) -> Workspace:
-        name = name or self._next_name()
+        auto_letter = ""
+        if name is None:
+            auto_letter, name = self._next_name()
         color = color or TAB_COLORS[len(self._workspaces) % len(TAB_COLORS)]
         ws = Workspace(self.ctx, name, color)
+        ws.name_auto = bool(auto_letter)
+        ws.auto_letter = auto_letter
         ws.reference_changed.connect(self._on_reference_changed)
         ws.search_requested.connect(self._search_for)
         ws.open_module.connect(self._open_entry_dialog)
@@ -348,16 +372,18 @@ class MainWindow(QMainWindow):
         visible = not self.sidebar.isVisible()
         sizes = self._split.sizes()
         total = max(sum(sizes), 400)
+        self._apply_sidebar_constraints(visible)
         if visible:
             self.sidebar.show()
-            self.sidebar_dock.setMaximumWidth(16777215)
-            width = min(self._sidebar_width or 290, max(240, total - 240))
+            width = min(
+                self._sidebar_width or 290,
+                max(SIDEBAR_MIN_WIDTH, total - 240),
+            )
             self._split.setSizes([width, max(240, total - width)])
         else:
-            self._sidebar_width = max(240, self.sidebar.width())
+            self._sidebar_width = max(SIDEBAR_MIN_WIDTH, self.sidebar.width())
             self.sidebar.hide()
-            self.sidebar_dock.setMaximumWidth(16)
-            self._split.setSizes([16, max(240, total - 16)])
+            self._split.setSizes([SIDEBAR_HANDLE_WIDTH, max(240, total - SIDEBAR_HANDLE_WIDTH)])
         self.sidebar_handle.setText("‹" if visible else "›")
         self.sidebar_handle.setToolTip(
             tr("sidebar.hide" if visible else "sidebar.show") + "  (Ctrl+B)"
@@ -514,6 +540,7 @@ class MainWindow(QMainWindow):
     def _set_theme(self, theme: str) -> None:
         self.settings.theme = theme
         self.settings.save()
+        set_check_style_theme(theme)
         self.setStyleSheet(stylesheet(theme, self.settings.font_size))
         self._apply_tab_palette()
         for ws in self._workspaces:
@@ -523,7 +550,7 @@ class MainWindow(QMainWindow):
     def _fill_strong_menu(self) -> None:
         menu = self.menu_strong
         menu.clear()
-        act_auto = QAction("Automático (detectado)", self)
+        act_auto = QAction(tr("strong.auto"), self)
         act_auto.setCheckable(True)
         act_auto.setChecked(not self.settings.strong_rel)
         act_auto.triggered.connect(lambda: self._set_strong_default(""))
@@ -540,23 +567,37 @@ class MainWindow(QMainWindow):
 
     def _set_strong_default(self, rel_path: str) -> None:
         self.ctx.strong.set_default(rel_path)
+        RichBrowser.clear_all_caches()
+        self.ctx.refs.clear()
         for ws in self._workspaces:
             ws.bible.strong.refresh_lexicons()
-            ws.bible.primary.clear_cache()
-            ws.bible.second.clear_cache()
         row = self.ctx.strong.module()
-        label = f"{row['abbreviation']} — {row['title'][:60]}" if row else "Automático"
-        self.statusBar().showMessage(f"Léxico Strong de las burbujas: {label}", 8000)
+        label = (f"{row['abbreviation']} — {row['title'][:60]}"
+                 if row else tr("strong.bubble_auto"))
+        self.statusBar().showMessage(
+            tr("strong.bubble_status", label=label), 8000
+        )
 
     def _set_locale(self, code: str) -> None:
         self.settings.locale = code
         self.settings.save()
-        QMessageBox.information(
-            self, tr("app.title"),
-            "Idioma guardado. Reinicia linuxEsword para aplicarlo por completo."
-            if code == "es" else
-            "Language saved. Restart linuxEsword to apply it fully.",
-        )
+        i18n.set_locale(code)
+        self._retranslate_ui()
+
+    def _retranslate_ui(self) -> None:
+        self.setWindowTitle(tr("app.title"))
+        self.menuBar().clear()
+        self._build_menus()
+        self.sidebar.retranslate()
+        for ws in self._workspaces:
+            ws.retranslate()
+            idx = self._workspace_index(ws)
+            if idx >= 0:
+                self.tabs.setTabText(idx, ws.name)
+                self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
+        self.tabs.setTabText(0, tr("search.tab"))
+        self.search.retranslate()
+        self._refresh_status()
 
     # ── escaneo ──────────────────────────────────────────────────────────
     def _bootstrap(self) -> None:
@@ -568,6 +609,10 @@ class MainWindow(QMainWindow):
             self._choose_folder(first_run=True)
             return
         if self.ctx.catalog.is_empty():
+            self._start_scan(auto_index=True)
+        elif self.ctx.catalog.needs_metadata_refresh():
+            # Actualiza metadatos (idioma incluido) sin tocar los índices;
+            # después sigue el arranque normal (preindexado pendiente).
             self._start_scan(auto_index=True)
         else:
             self._auto_index()

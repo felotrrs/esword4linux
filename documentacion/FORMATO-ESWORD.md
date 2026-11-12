@@ -1,7 +1,7 @@
 # Formato de módulos e-Sword — notas de ingeniería inversa
 
 Documento de referencia. Todo lo aquí descrito se verificó contra el corpus real
-de `/home/felipe/StorageA/Biblias/Biblias_bblx` (970 archivos, 4,95 GB).
+de `/home/felipe/StorageA/Biblias/Biblias_esword` (970 archivos, 4,95 GB).
 
 ## 1. Contenedor
 

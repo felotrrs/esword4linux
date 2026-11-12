@@ -83,6 +83,6 @@ assert t() and self_test(); print('vectores OK')"
 
 .venv/bin/python -c "
 from linuxesword.core.esword.module import EswordModule
-m = EswordModule('/home/felipe/StorageA/Biblias/Biblias_bblx/BIBLIAS/bible_lbla_es.bblx')
+m = EswordModule('/home/felipe/StorageA/Biblias/Biblias_esword/BIBLIAS/bible_lbla_es.bblx')
 print(m.encrypted, m.bible_verse(1,1,1).raw)"
 ```

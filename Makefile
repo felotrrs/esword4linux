@@ -49,11 +49,7 @@ desktop:
 	@sed "s|@ROOT@|$(CURDIR)|g" packaging/linuxesword.desktop.in \
 		> ~/.local/share/applications/linuxesword.desktop
 	@chmod +x "$(CURDIR)/run.sh"
-	@for s in 16 22 24 32 48 64 128 256 512; do \
-		mkdir -p "$$HOME/.local/share/icons/hicolor/$${s}x$${s}/apps"; \
-		cp "packaging/icons/hicolor/$${s}x$${s}/apps/linuxesword.png" \
-		   "$$HOME/.local/share/icons/hicolor/$${s}x$${s}/apps/linuxesword.png"; \
-	done
+	@$(PY) tools/make_icons.py "$$HOME/.local/share/icons/hicolor"
 	@gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor >/dev/null 2>&1 || true
 	@update-desktop-database ~/.local/share/applications >/dev/null 2>&1 || true
 	@echo "Instalado: aplicación + iconos hicolor (16–512 px)"

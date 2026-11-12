@@ -12,7 +12,7 @@ SQLite 3.x database ... UTF-16 little endian
 
 ## La extensión miente
 
-El corpus real (`/home/felipe/StorageA/Biblias/Biblias_bblx`, 970 archivos)
+El corpus real (`/home/felipe/StorageA/Biblias/Biblias_esword`, 970 archivos)
 contiene:
 
 - `.refx` con tabla `Topics` → son **Tópicos**, no Referencias.

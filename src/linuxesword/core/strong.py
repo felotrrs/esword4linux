@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from ..i18n import tr
 from .text import to_plain
 
 _CODE_RE = re.compile(r"^[GH]\d{1,5}$")
@@ -125,17 +126,40 @@ class StrongIndex:
         self._cache[code] = text
         return text
 
-    def tooltip(self, code: str, max_chars: int = 320) -> str:
-        """Texto corto para la burbuja (indica de qué léxico sale)."""
+    def tooltip(self, code: str, max_chars: int = 2500) -> str:
+        """Texto de la burbuja: fuente abreviada y entrada completa (con tope).
+
+        El nombre largo de la obra no va en la cabecera: allí solo se muestra la
+        abreviatura del léxico. Así el espacio vertical se dedica al texto.
+        """
         code = _COMPACT_RE.sub("", code or "").upper()
         body = self.lookup(code)
         if not body:
             return f"{code}\n(entrada no encontrada en ningún léxico)"
         row, _mod, _page = self._resolve_page(code)
-        label = f"{row['abbreviation']} · {row['title']}" if row else self.label()
-        body = _COMPACT_RE.sub(" ", body).strip()
+        if row:
+            label = (row.get("abbreviation") or row.get("title") or "").strip()
+        else:
+            label = ""
+        if not label:
+            label = self.label().split(" · ", 1)[-1]
+        if len(label) > 36:
+            label = label[:36].rsplit(" ", 1)[0] + "…"
+        # Se conserva una línea por párrafo del módulo (palabra hebrea,
+        # transliteración, definición...). Aplanarlas en un solo párrafo hacía
+        # que el hebreo (primer carácter fuerte RTL) arrastrara el resto.
+        lines = [
+            re.sub(r"[ \t]+", " ", line).strip()
+            for line in body.splitlines()
+        ]
+        body = "\n".join(line for line in lines if line)
         if len(body) > max_chars:
-            body = body[:max_chars].rsplit(" ", 1)[0] + "…"
+            cut = body[:max_chars]
+            if "\n" in cut:
+                cut = cut.rsplit("\n", 1)[0]
+            else:
+                cut = cut.rsplit(" ", 1)[0]
+            body = cut.rstrip() + "…\n" + tr("tooltip.strong_more")
         return f"{code} · {label}\n{body}"
 
     def entry(self, code: str) -> tuple[str, str]:

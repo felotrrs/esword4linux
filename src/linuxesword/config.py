@@ -29,7 +29,7 @@ SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
 # Cache pesada (catálogo + índice FTS5). Debe vivir en StorageC.
 DEFAULT_CACHE_DIR = Path("/home/felipe/StorageC/linuxEsword/.cache")
-DEFAULT_RESOURCES_DIR = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+DEFAULT_RESOURCES_DIR = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 # Módulos que se indexan al primer arranque para que la app sea usable de
 # inmediato: dos biblias base + el comentario RV1960 que las acompaña.
@@ -62,7 +62,12 @@ class Settings:
 
     # ── paneles y pestañas-vista ────────────────────────────────────────
     sidebar_visible: bool = True
-    sidebar_mode: str = "kind"          # kind | work
+    sidebar_mode: str = "kind"          # compatibilidad; usar sidebar_grouping
+    sidebar_grouping: list[str] = field(default_factory=lambda: ["kind"])
+    sidebar_kind_filters: list[str] = field(default_factory=list)
+    sidebar_language_filters: list[str] = field(default_factory=list)
+    library_list_visible: bool = True   # panel de términos de diccionarios
+    library_list_width: int = 300
     workspaces: list[dict] = field(default_factory=list)
     workspace_active: int = 0
     commentary_split: int = 280          # alto del panel de comentario (px)
@@ -70,7 +75,7 @@ class Settings:
     encrypted_ready: bool = False
     strong_rel: str = ""                 # léxico Strong elegido (autodetectado)
     reference_bible: str = ""            # biblia para burbujas ("" = la activa)
-    bottom_page: str = "commentary"      # commentary | strong
+    bottom_page: str = "commentary"      # commentary | strong | citations
 
     # ── persistencia ────────────────────────────────────────────────────
     @classmethod

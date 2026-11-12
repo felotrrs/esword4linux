@@ -10,6 +10,7 @@ Nunca se escribe en la carpeta de recursos.
 from __future__ import annotations
 
 import hashlib
+import html as _html
 import os
 import re
 import sqlite3
@@ -105,31 +106,181 @@ def work_year(title: str) -> str:
     match = re.search(r"\b(1[89]\d{2}|20\d{2})\b", title or "")
     return match.group(1) if match else ""
 
-_EN_HINTS = re.compile(
-    r"\b(holy bible|king james|english|new international|new american|"
-    r"new living|amplified|standard version|good news|world english|"
-    r"webster|darby|young|american standard|revised standard|wycliffe|"
-    r"tyndale|coverdale|geneva bible|bishops|douay|rheims|challoner|knox|"
-    r"weymouth|moffatt|goodspeed|fausset|ellicott|pulpit|expositor|keil|"
-    r"delitzsch|tregelles|tischendorf|westcott|smith|strong's|vine's|thayer|"
-    r"gesenius|brown-driver|briggs|josephus|antiquities|wars of the jews|"
-    r"treasury of david|morning and evening|bible dictionary|bible atlas)\b",
-    re.I,
-)
-_ES_HINTS = re.compile(r"[áéíóúñ¿¡ÁÉÍÓÚÑ]", re.UNICODE)
+# Versión del bloque de metadatos que depende de la detección de idioma.
+# Al cambiarla, el próximo escaneo re-procesa todos los módulos (sin tocar
+# los índices de contenido).
+METADATA_VERSION = "2026-11-11"
+
+LANGUAGE_ORDER = ["es", "en", "fr", "pt", "de", "it", "la", "grc", "hbo", "und"]
+
+_FILENAME_LANG = {
+    "es": "es", "spa": "es",
+    "en": "en", "eng": "en",
+    "fr": "fr", "fra": "fr",
+    "pt": "pt", "por": "pt",
+    "grc": "grc", "greek": "grc",
+    "hbo": "hbo", "hebrew": "hbo",
+}
+
+_LANG_WORDS = {
+    # Palabras funcionales y vocabulario editorial distintivo. Se excluyen
+    # nombres de libros y autores: son nombres propios compartidos y metían
+    # ruido (p. ej. «John Strange» parecía inglés).
+    "es": frozenset("""
+        el la los las de del que y a en un una unos unas al se con por para su
+        sus lo como mas pero este esta estos estas entre cuando muy sin sobre
+        tambien me hasta hay donde quien desde todo todos nos durante uno les ni
+        contra otros ese eso ante ellos esto mi mis tu tus ella estar estoy estas
+        estamos estan nuestro nuestra nuestros nuestras vuestro vuestra vuestros
+        vuestras esos esas aquel aquella atlas mapa mapas biblia comentario
+        diccionario testamento version reina valera espanol sagrada escritura
+        evangelio cristo cristiano cristiana iglesia senor dios jesus espiritu
+        gracia fe amor vida muerte pecado salvacion doctrina teologia sermon
+        sermones bosquejo bosquejos estudio expositor auxiliar biblico devocional
+        oracion codigo analisis morfologico glosario nombres notas traduccion
+        texto original nuevo nueva antiguo antigua palabra palabras lengua lenguas
+        hebreo griego
+    """.split()),
+    "en": frozenset("""
+        the and of to in is that it for with as was on be by this are or from at
+        not have had but they you we he she his her their which will would can
+        could should may might must about into through these those there what
+        when where who how all any both each few more most other some such no nor
+        only own same so than too very just holy bible king james english new old
+        testament version standard american revised international living amplified
+        commentary dictionary lexicon concordance atlas maps devotion daily morning
+        evening through gospel christ christian church lord god jesus spirit grace
+        faith love life death sin salvation doctrine theology sermon sermons
+        study expositor biblical devotional prayer
+    """.split()),
+    "fr": frozenset("""
+        le la les de des du un une et en est que qui dans pour pas sur au aux
+        avec ce cette ces il elle ils elles nous vous je tu son sa ses leur leurs
+        plus mais ou comme tout tous etre avoir fait dit bible commentaire
+        dictionnaire testament version segond ostervald martineau francais sainte
+        ecriture evangile christ chretien eglise seigneur dieu jesus esprit grace
+        foi amour vie mort peche salut doctrine theologie sermon etude
+    """.split()),
+    "pt": frozenset("""
+        o a os as de do da dos das um uma uns umas e em no na nos nas por para
+        com que se ao aos seu sua seus suas ele ela eles elas nos vos eu tu nao
+        mais mas como quando onde muito tambem ja foi ser ter esta sao biblia
+        comentario dicionario testamento versao almeida portugues sagrada
+        escritura evangelho cristo cristao igreja senhor deus jesus espirito
+        graca fe amor vida morte pecado salvacao doutrina teologia sermao estudo
+        devocional oracao
+    """.split()),
+    "de": frozenset("""
+        der die das und in den von zu mit sich des auf fur ist im dem nicht ein
+        eine als auch an werden aus er hat dass sie nach wird bei einer um am
+        sind noch wie einem uber einen so zum war haben nur oder aber vor zur bis
+        mehr durch man sein wurde sei welche bibel kommentar worterbuch testament
+        version luther elberfelder schlachter deutsch heilige schrift evangelium
+        christ christlich kirche herr gott jesus geist gnade glaube liebe leben
+        tod sunde erlosung lehre theologie predigt studie
+    """.split()),
+    "it": frozenset("""
+        il lo la i gli le di del della dei delle un uno una e ed in nel nella per
+        con su che chi non piu ma come quando dove molto anche gia fu essere avere
+        questo questa questi queste suo sua loro bibbia commentario dizionario
+        testamento versione riveduta luzzi diodati italiano sacra scrittura
+        vangelo cristo cristiano chiesa signore dio gesu spirito grazia fede
+        amore vita morte peccato salvezza dottrina teologia sermone studio
+    """.split()),
+    "la": frozenset("""
+        et in est non ad de cum per qui quae quod ut si sed a ab ex hoc haec id
+        eius eorum christus deus dominus spiritus sanctus biblia testamentum
+        vulgata latin latina
+    """.split()),
+}
 
 
-def detect_language(title: str, abbreviation: str, filename: str) -> str:
-    text = f"{title} {abbreviation} {filename}"
-    if _EN_HINTS.search(text):
-        return "en"
-    if _ES_HINTS.search(text):
-        return "es"
-    low = text.lower()
-    if any(w in low for w in (" diccionario", " comentario", " biblia", " teologia",
-                              " evangelio", " reina", " valera", " version")):
-        return "es"
-    return "en" if any(w in low for w in (" dictionary", " commentary", " bible ")) else "es"
+def _filename_language(filename: str) -> str:
+    """Último marcador de idioma del nombre del archivo (``_es``, ``_en``…)."""
+    suffix = Path(filename).suffix.lower().lstrip(".")
+    if suffix in _FILENAME_LANG:
+        return _FILENAME_LANG[suffix]
+    tokens = [t for t in re.split(r"[_\-. ]+", Path(filename).stem.lower()) if t]
+    for token in reversed(tokens):
+        if token in _FILENAME_LANG:
+            return _FILENAME_LANG[token]
+    return ""
+
+
+def _language_counts(text: str) -> dict[str, int]:
+    counts = {code: 0 for code in LANGUAGE_ORDER}
+    # Descripciones de e-Sword pueden traer HTML con lang="es-ES"; sus
+    # atributos no son texto del contenido.
+    clean = _html.unescape(re.sub(r"(?is)<[^>]+>", " ", text or ""))
+    clean = unicodedata.normalize("NFD", clean)
+    clean = "".join(ch for ch in clean if unicodedata.category(ch) != "Mn")
+    low = clean.lower()
+    # Palabras de 1–2 letras se solapan entre idiomas ("a", "de", "es"…).
+    tokens = [t for t in re.findall(r"[^\W\d_]+", low, flags=re.UNICODE)
+              if len(t) >= 3]
+    token_set = set(tokens)
+    for code, words in _LANG_WORDS.items():
+        hits = token_set & words
+        if hits:
+            counts[code] += sum(tokens.count(word) for word in hits)
+    # Marcas tipográficas y alfabetos.
+    if re.search(r"[áéíóúñ¿¡]", low):
+        counts["es"] += 2
+    if re.search(r"[ãõç]", low):
+        counts["pt"] += 2
+    if re.search(r"[œ]", low):
+        counts["fr"] += 2
+    if re.search(r"[äöüß]", low):
+        counts["de"] += 2
+    letters = [ch for ch in text if ch.isalpha()]
+    if letters:
+        greek = sum(1 for ch in letters if "\u0370" <= ch <= "\u03ff"
+                    or "\u1f00" <= ch <= "\u1fff")
+        hebrew = sum(1 for ch in letters if "\u0590" <= ch <= "\u05ff")
+        if greek / len(letters) >= 0.25:
+            counts["grc"] += 20
+        if hebrew / len(letters) >= 0.25:
+            counts["hbo"] += 20
+    return counts
+
+
+def detect_language(title: str, abbreviation: str, filename: str,
+                    description: str = "", sample: str = "",
+                    allow_original: bool = True) -> str:
+    """Idioma del módulo: metadatos + nombre de archivo y, si hace falta, muestra.
+
+    El orden de señales es deliberado: un título como «Spanish Reina-Valera»
+    está en español aunque contenga palabras inglesas. Los nombres de autores
+    («Smith», «Strong») **no** son señal de idioma.
+    """
+    # La descripción de e-Sword puede ser un HTML enorme de licencia en otro
+    # idioma; no es una señal fiable del contenido. Título + abreviatura sí.
+    meta = f"{title} {abbreviation}"
+    counts = _language_counts(meta)
+    low_meta = _html.unescape(re.sub(r"(?is)<[^>]+>", " ", meta)).lower()
+    marker = _filename_language(filename)
+    if marker:
+        # Pista secundaria: no debe pisar un título claramente en otro idioma.
+        counts[marker] += 1
+    sample_counts = _language_counts(sample) if sample else {}
+    if sample:
+        for code, value in sample_counts.items():
+            counts[code] += min(value, 60)
+    # Lenguas originales: el título es la única señal en módulos cifrados
+    # (no se puede leer una muestra sin descifrarlos). Si la muestra ya es
+    # claramente española/inglesa/etc., no se fuerza griego/hebreo por el título.
+    if allow_original:
+        if re.search(r"\b(greek|griego|septuagint|lxx|textus receptus|byzantine|gnt)\b",
+                     low_meta):
+            counts["grc"] += 24
+        if re.search(r"\b(hebrew|hebreo|tanach|tanakh|masoretic|bhs|biblia hebraica)\b",
+                     low_meta):
+            counts["hbo"] += 24
+    best = max(LANGUAGE_ORDER, key=lambda code: (counts.get(code, 0),
+                                                -LANGUAGE_ORDER.index(code)))
+    if counts.get(best, 0) <= 0:
+        return marker or "und"
+    return best
 
 
 def _fingerprint(path: Path, size: int) -> str:
@@ -179,6 +330,7 @@ class Catalog:
 
         files = sorted(self._walk_modules(root))
         result.total = len(files)
+        force_meta = self.needs_metadata_refresh()
         existing = {
             r["path"]: (r["size"], r["mtime"], r["index_status"])
             for r in self.conn.execute("SELECT path, size, mtime, index_status FROM module")
@@ -194,7 +346,8 @@ class Catalog:
                 continue
             key = str(path)
             prev = existing.get(key)
-            if prev and prev[0] == stat.st_size and abs(prev[1] - stat.st_mtime) < 1:
+            if (not force_meta and prev and prev[0] == stat.st_size
+                    and abs(prev[1] - stat.st_mtime) < 1):
                 result.skipped += 1
                 continue
             try:
@@ -217,6 +370,7 @@ class Catalog:
         result.seconds = time.time() - started
         self.set_meta("last_scan", time.strftime("%Y-%m-%dT%H:%M:%S"))
         self.set_meta("resources_dir", str(root))
+        self.set_meta("metadata_version", METADATA_VERSION)
         return result
 
     def _walk_modules(self, root: Path) -> list[Path]:
@@ -243,6 +397,29 @@ class Catalog:
                 removed += 1
         return removed
 
+    @staticmethod
+    def _language_sample(mod) -> str:
+        """Muestra corta de contenido para desempatar el idioma.
+
+        Solo para módulos legibles: descifrar todos los cifrados para esto
+        costaría más de lo que aporta.
+        """
+        if mod.encrypted or mod.structure in ("maps", "unknown", "twm"):
+            return ""
+        from .text import to_plain
+
+        parts: list[str] = []
+        try:
+            for i, page in enumerate(mod.iter_pages()):
+                if i >= 2:
+                    break
+                text = to_plain(page.raw, hint=mod.stem, codepages=mod.codepages).strip()
+                if text:
+                    parts.append(text[:1200])
+        except Exception:
+            return ""
+        return " ".join(parts)
+
     def _probe(self, path: Path) -> dict:
         with EswordModule(path) as mod:
             title = mod.title
@@ -251,7 +428,12 @@ class Catalog:
                 "kind": mod.kind,
                 "title": title,
                 "abbreviation": mod.abbreviation,
-                "language": detect_language(title, mod.abbreviation, path.name),
+                "language": detect_language(
+                    title, mod.abbreviation, path.name,
+                    description=mod.description,
+                    sample=self._language_sample(mod),
+                    allow_original=mod.kind in ("bible", "commentary", "harmony"),
+                ),
                 "encrypted": int(mod.encrypted),
                 "entries": mod.count_entries(),
             }
@@ -396,6 +578,9 @@ class Catalog:
     def get_meta(self, key: str) -> str | None:
         row = self.conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
         return row["value"] if row else None
+
+    def needs_metadata_refresh(self) -> bool:
+        return self.get_meta("metadata_version") != METADATA_VERSION
 
     def is_empty(self) -> bool:
         return self.conn.execute("SELECT COUNT(*) FROM module").fetchone()[0] == 0

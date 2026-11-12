@@ -11,7 +11,7 @@ from linuxesword.core.indexer import Indexer
 from linuxesword.core.search import SearchEngine
 from linuxesword.core.store import ContentStore, build_match, build_match_or
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 BIBLE = "BIBLIAS/bible_rv1960_es_2.bblx"
 COMMENT = "COMENTARIOS/comment_rvr1960x_es.cmti"
 

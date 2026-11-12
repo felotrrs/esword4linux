@@ -19,6 +19,7 @@ class StrongPane(QWidget):
     """Muestra la entrada Strong del número seleccionado."""
 
     open_module = Signal(int, str)
+    lexicon_changed = Signal(str)
 
     def __init__(self, ctx: AppContext, parent=None):
         super().__init__(parent)
@@ -38,9 +39,9 @@ class StrongPane(QWidget):
         row.setContentsMargins(12, 5, 10, 5)
         row.setSpacing(8)
 
-        title = QLabel(tr("strong.title"))
-        title.setObjectName("sectionTitle")
-        row.addWidget(title)
+        self.title_label = QLabel(tr("strong.title"))
+        self.title_label.setObjectName("sectionTitle")
+        row.addWidget(self.title_label)
 
         self.badge = QLabel("")
         self.badge.setObjectName("strongBadge")
@@ -95,6 +96,13 @@ class StrongPane(QWidget):
         )
         self._rerender()
 
+    def retranslate(self) -> None:
+        self.title_label.setText(tr("strong.title"))
+        self.lexicon.setToolTip(tr("strong.default_label"))
+        self.btn_open.setText(tr("common.open"))
+        self._fill_lexicons()
+        self._rerender()
+
     # ── interno ──────────────────────────────────────────────────────────
     def _fill_lexicons(self) -> None:
         """Lista todos los léxicos Strong; la elección fija el predeterminado."""
@@ -102,7 +110,7 @@ class StrongPane(QWidget):
         current = row["rel_path"] if row else ""
         self.lexicon.blockSignals(True)
         self.lexicon.clear()
-        self.lexicon.addItem("Automático (detectado)", "__auto__")
+        self.lexicon.addItem(tr("strong.auto"), "__auto__")
         for mod in self.ctx.strong.candidates():
             mark = "★ " if mod["rel_path"] == current else ""
             label = f"{mark}{mod['abbreviation']} — {mod['title'][:48]}"
@@ -123,6 +131,7 @@ class StrongPane(QWidget):
             self.ctx.strong.set_default(rel)
         self._fill_lexicons()
         self._rerender()
+        self.lexicon_changed.emit("" if rel == "__auto__" else rel)
 
     def _rerender(self) -> None:
         self.browser.document().setDefaultStyleSheet(

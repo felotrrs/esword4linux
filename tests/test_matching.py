@@ -8,7 +8,7 @@ import pytest
 
 from linuxesword.core.refs import find_reference_spans, link_references
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 
 # ── referencias ──────────────────────────────────────────────────────────
@@ -20,11 +20,70 @@ CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
         ("Exo_28:1; Heb_5:4", ["Éxodo 28:1", "Hebreos 5:4"]),
         ("1 Corintios 13:4-7", ["1 Corintios 13:4-7"]),
         ("Sal 23", ["Salmos 23"]),
+        # Abreviaturas de otras tradiciones que aparecen en la bibliografía.
+        ("Luk 1:1-4", ["Lucas 1:1-4"]),
+        ("Jhn 1:1-5", ["Juan 1:1-5"]),
+        ("Deu 12:16", ["Deuteronomio 12:16"]),
+        ("Pro 1:1", ["Proverbios 1:1"]),
+        ("Amo 9:9", ["Amós 9:9"]),
+        ("Rth 2:14", ["Rut 2:14"]),
+        ("Ezk 16:8", ["Ezequiel 16:8"]),
+        ("Mrk 15:34", ["Marcos 15:34"]),
+        ("Jua 1:51", ["Juan 1:51"]),
+        # Marcador de nota «i» delante de la cita: no debe impedir el enlace.
+        ("i Mat 24:30", ["Mateo 24:30"]),
+        # Prefijos y nombres de varios idiomas.
+        ("I Samuel 1:1", ["1 Samuel 1:1"]),
+        ("II Reyes 2:1", ["2 Reyes 2:1"]),
+        ("Primera de Corintios 13:4", ["1 Corintios 13:4"]),
+        ("1a de Corintios 13:4", ["1 Corintios 13:4"]),
+        ("Tercera de Juan 1:2", ["3 Juan 1:2"]),
+        ("San Juan 3:16", ["Juan 3:16"]),
+        ("Jean 3:16", ["Juan 3:16"]),
+        ("João 3:16", ["Juan 3:16"]),
+        ("The Wisdom of Solomon 2:23", ["Sabiduría 2:23"]),
+        ("Cantar de los Cantares 1:1", ["Cantares 1:1"]),
+        ("Hechos de los Apóstoles 2:38", ["Hechos 2:38"]),
     ],
 )
 def test_find_reference_spans(text, expected):
     spans = find_reference_spans(text)
     assert [s.ref_text for s in spans] == expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Ex. 4:14, 27-30", [
+            ("Ex. 4:14", "Éxodo 4:14"),
+            ("27-30", "Éxodo 4:27-30"),
+        ]),
+        ("He. 5.4; 7.11", [
+            ("He. 5.4", "Hebreos 5:4"),
+            ("7.11", "Hebreos 7:11"),
+        ]),
+        ("Jn 3:16,17", [
+            ("Jn 3:16", "Juan 3:16"),
+            ("17", "Juan 3:17"),
+        ]),
+        ("Génesis 1-3", [("Génesis 1-3", "Génesis 1-3")]),
+    ],
+)
+def test_continuation_spans(text, expected):
+    spans = find_reference_spans(text)
+    assert [(s.text, s.ref_text) for s in spans] == expected
+
+
+@pytest.mark.parametrize("text", ["1 Esdras 8:2", "2 Esdras 1:2", "3 Macc 3:21"])
+def test_unsupported_books_are_not_linked(text):
+    # No están en la numeración e-Sword 1–73: enlazar «Esdras» o «Macc»
+    # mostraría un pasaje de otro libro.
+    assert find_reference_spans(text) == []
+
+
+def test_scan_reaches_late_references():
+    text = ("x " * 12_000) + "Juan 3:16"
+    assert [s.ref_text for s in find_reference_spans(text)] == ["Juan 3:16"]
 
 
 @pytest.mark.parametrize(

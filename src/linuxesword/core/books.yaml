@@ -1,0 +1,850 @@
+# books.yaml — libros e-Sword (1–73), nombres y alias por idioma.
+# Fuente única: core/books.py carga este archivo. No duplicar listas en otros módulos.
+# Los alias se normalizan al cargar (NFD, minúsculas, sin acentos ni puntos).
+# 'families' resuelve los libros numerados con prefijos 1/2/3, I/II/III,
+# 'Primera/Segunda/Tercera' y variantes 1ª/1a/1ra sin duplicar alias.
+
+meta: {version: 1, updated: '2026-11-11', note: 'Fuente única de libros, nombres y alias. El loader normaliza
+    acentos, mayúsculas y puntos; no hace falta duplicar variantes.'}
+families:
+  samuel:
+    default: 9
+    books: {1: 9, 2: 10}
+    aliases: [sa, sam, samuel]
+  kings:
+    default: 11
+    books: {1: 11, 2: 12}
+    aliases: [ki, re, kgs, rey, roi, rois, kings, reyes]
+  chronicles:
+    default: 13
+    books: {1: 13, 2: 14}
+    aliases: [ch, cr, chr, cron, chron, cronicas, chronicles, chroniques]
+  corinthians:
+    default: 46
+    books: {1: 46, 2: 47}
+    aliases: [co, cor, corintios, corinthians, corinthiens]
+  thessalonians:
+    default: 52
+    books: {1: 52, 2: 53}
+    aliases: [te, th, ts, tes, ths, thes, thess, thessalonians, tesalonicenses, thessaloniciens]
+  timothy:
+    default: 54
+    books: {1: 54, 2: 55}
+    aliases: [ti, tm, tim, timoteo, timothy, timothee, timothée]
+  peter:
+    default: 60
+    books: {1: 60, 2: 61}
+    aliases: [p, pe, pt, ped, pet, pie, pier, pedro, peter, pierre]
+  john_letters:
+    default: null
+    books: {1: 62, 2: 63, 3: 64}
+    aliases: [jn, jhn, joh, jua, jean, joao, john, juan]
+  maccabees:
+    default: 72
+    books: {1: 72, 2: 73}
+    aliases: [ma, mac, macc, macabeo, macabeos, maccabees, maccabées]
+books:
+  genesis:
+    id: 1
+    names: {es: Génesis, en: Genesis, fr: Genèse, pt: Gênesis}
+    abbreviations:
+      es: [gn, gen, génesis, genesis]
+      en: [gen, ge]
+    aliases:
+      es: [ge, gn, gen, genesis, génesis]
+      en: [ge, gn, gen, genesis]
+      fr: [gn, gen, genese, genèse]
+      pt: [gn, gen, gênesis]
+  exodus:
+    id: 2
+    names: {es: Éxodo, en: Exodus, fr: Exode, pt: Êxodo}
+    abbreviations:
+      es: [ex, éxodo, exodo]
+      en: [exod, exo]
+    aliases:
+      es: [ex, exo, exodo, éxodo]
+      en: [ex, exo, exod, exodus]
+      fr: [ex, exo, exode]
+      pt: [ex, exo, êxodo]
+  leviticus:
+    id: 3
+    names: {es: Levítico, en: Leviticus, fr: Lévitique, pt: Levítico}
+    abbreviations:
+      es: [lv, lev, levítico, levitico]
+      en: [lev, lv]
+    aliases:
+      es: [lv, lev, levitico, levítico]
+      en: [lv, lev, leviticus]
+      fr: [lv, lev, levitique, lévitique]
+      pt: [lv, lev, levítico]
+  numbers:
+    id: 4
+    names: {es: Números, en: Numbers, fr: Nombres, pt: Números}
+    abbreviations:
+      es: [nm, num, números, numeros]
+      en: [num, nu]
+    aliases:
+      es: [nm, num, numeros, números]
+      en: [nm, nu, num, numbers]
+      fr: [nb, nom, nombres]
+      pt: [nm, num, números]
+  deuteronomy:
+    id: 5
+    names: {es: Deuteronomio, en: Deuteronomy, fr: Deutéronome, pt: Deuteronômio}
+    abbreviations:
+      es: [dt, deut, deuteronomio]
+      en: [deut, dt]
+    aliases:
+      es: [dt, deu, deut, deuteronomio]
+      en: [dt, deu, deut, deuteronomy]
+      fr: [dt, deut, deuteronome, deutéronome]
+      pt: [dt, deut, deuteronômio]
+  joshua:
+    id: 6
+    names: {es: Josué, en: Joshua, fr: Josué, pt: Josué}
+    abbreviations:
+      es: [jos, josué, josue]
+      en: [josh, jos]
+    aliases:
+      es: [jos, josh, josue, josué]
+      en: [jos, josh, joshua]
+      fr: [jos, josue, josué]
+      pt: [js, jos, josué]
+  judges:
+    id: 7
+    names: {es: Jueces, en: Judges, fr: Juges, pt: Juízes}
+    abbreviations:
+      es: [jue, jueces, jdg]
+      en: [judg, jdg]
+    aliases:
+      es: [jc, jdg, jue, jueces]
+      en: [jdg, judg, judges]
+      fr: [jg, jug, juges]
+      pt: [jz, juizes, juízes]
+  ruth:
+    id: 8
+    names: {es: Rut, en: Ruth, fr: Ruth, pt: Rute}
+    abbreviations:
+      es: [rt, rut, ruth]
+      en: [ruth, ru]
+    aliases:
+      es: [rt, ru, rth, rut, ruth]
+      en: [ru, rth, rut, ruth]
+      fr: [rt, ruth]
+      pt: [rt, rute]
+  1samuel:
+    id: 9
+    names: {es: 1 Samuel, en: 1 Samuel, fr: 1 Samuel, pt: 1 Samuel}
+    abbreviations:
+      es: [1s, 1sa, 1sam, 1 samuel]
+      en: [1sam, 1sa]
+    aliases:
+      es: [1s, 1sa, 1sam, 1 samuel]
+      en: [1sa, 1sam, 1 samuel]
+      fr: [1 samuel]
+      pt: [1s, 1sm, 1 samuel]
+  2samuel:
+    id: 10
+    names: {es: 2 Samuel, en: 2 Samuel, fr: 2 Samuel, pt: 2 Samuel}
+    abbreviations:
+      es: [2s, 2sa, 2sam, 2 samuel]
+      en: [2sam, 2sa]
+    aliases:
+      es: [2s, 2sa, 2sam, 2 samuel]
+      en: [2sa, 2sam, 2 samuel]
+      fr: [2 samuel]
+      pt: [2s, 2sm, 2 samuel]
+  1kings:
+    id: 11
+    names: {es: 1 Reyes, en: 1 Kings, fr: 1 Rois, pt: 1 Reis}
+    abbreviations:
+      es: [1r, 1re, 1reyes, 1 reyes]
+      en: [1kgs, 1ki]
+    aliases:
+      es: [1r, 1re, 1reyes, 1 reyes]
+      en: [1ki, 1kgs, 1 kings]
+      fr: [1 rois]
+      pt: [1r, 1rs, 1 reis]
+  2kings:
+    id: 12
+    names: {es: 2 Reyes, en: 2 Kings, fr: 2 Rois, pt: 2 Reis}
+    abbreviations:
+      es: [2r, 2re, 2reyes, 2 reyes]
+      en: [2kgs, 2ki]
+    aliases:
+      es: [2r, 2re, 2reyes, 2 reyes]
+      en: [2ki, 2kgs, 2 kings]
+      fr: [2 rois]
+      pt: [2r, 2rs, 2 reis]
+  1chronicles:
+    id: 13
+    names: {es: 1 Crónicas, en: 1 Chronicles, fr: 1 Chroniques, pt: 1 Crônicas}
+    abbreviations:
+      es: [1cr, 1cro, 1crónicas, 1cronicas]
+      en: [1chr, 1ch]
+    aliases:
+      es: [1cr, 1cro, 1cronicas, 1crónicas, 1 crónicas]
+      en: [1ch, 1chr, 1 chronicles]
+      fr: [1 chroniques]
+      pt: [1cr, 1cro, 1 crônicas]
+  2chronicles:
+    id: 14
+    names: {es: 2 Crónicas, en: 2 Chronicles, fr: 2 Chroniques, pt: 2 Crônicas}
+    abbreviations:
+      es: [2cr, 2cro, 2crónicas, 2cronicas]
+      en: [2chr, 2ch]
+    aliases:
+      es: [2cr, 2cro, 2cronicas, 2crónicas, 2 crónicas]
+      en: [2ch, 2chr, 2 chronicles]
+      fr: [2 chroniques]
+      pt: [2cr, 2cro, 2 crônicas]
+  ezra:
+    id: 15
+    names: {es: Esdras, en: Ezra, fr: Esdras, pt: Esdras}
+    abbreviations:
+      es: [esd, ezra]
+      en: [ezra, ezr]
+    aliases:
+      es: [esd, ezra, esdras]
+      en: [ezr, ezra]
+      fr: [esd, esdras]
+      pt: [esd, esdras]
+  nehemiah:
+    id: 16
+    names: {es: Nehemías, en: Nehemiah, fr: Néhémie, pt: Neemias}
+    abbreviations:
+      es: [neh, nehemías, nehemias]
+      en: [neh, ne]
+    aliases:
+      es: [neh, nehemias, nehemías]
+      en: [ne, neh, nehemiah]
+      fr: [ne, neh, nehemie, néhémie]
+      pt: [ne, nee, neemias]
+  esther:
+    id: 17
+    names: {es: Ester, en: Esther, fr: Esther, pt: Ester}
+    abbreviations:
+      es: [est, ester, esth]
+      en: [esth, est]
+    aliases:
+      es: [est, esth, ester]
+      en: [est, esth, esther]
+      fr: [est, esther]
+      pt: [est, ester]
+  job:
+    id: 18
+    names: {es: Job, en: Job, fr: Job, pt: Jó}
+    abbreviations:
+      es: [job]
+      en: [job, jb]
+    aliases:
+      es: [jb, job]
+      en: [jb, job]
+      fr: [jb, job]
+      pt: [jo, jó, job]
+  psalms:
+    id: 19
+    names: {es: Salmos, en: Psalms, fr: Psaumes, pt: Salmos}
+    abbreviations:
+      es: [sal, salmo, ps, psa, salmos]
+      en: [ps, psa, psalm]
+    aliases:
+      es: [ps, sl, psa, sal, salmo, salmos]
+      en: [ps, psa, psalm, psalms]
+      fr: [ps, psa, psaume, psaumes]
+      pt: [sl, sal, salmos]
+  proverbs:
+    id: 20
+    names: {es: Proverbios, en: Proverbs, fr: Proverbes, pt: Provérbios}
+    abbreviations:
+      es: [pr, prov, proverbios]
+      en: [prov, pr]
+    aliases:
+      es: [pr, prov, proverbio, proverbios]
+      en: [pr, pro, prov, proverbs]
+      fr: [pr, prov, proverbes]
+      pt: [pr, prov, provérbios]
+  ecclesiastes:
+    id: 21
+    names: {es: Eclesiastés, en: Ecclesiastes, fr: Ecclésiaste, pt: Eclesiastes}
+    abbreviations:
+      es: [ec, ecl, eclesiastés, eclesiastes, eccl]
+      en: [eccl, ecc]
+    aliases:
+      es: [ec, ecl, eccl, eclesiastes, eclesiastés]
+      en: [ec, ecc, eccl, ecclesiastes]
+      fr: [qo, ecc, ecclesiaste, ecclésiaste]
+      pt: [ec, ecl, eclesiastes]
+  song_of_solomon:
+    id: 22
+    names: {es: Cantares, en: Song of Solomon, fr: Cantique des cantiques, pt: Cântico dos Cânticos}
+    abbreviations:
+      es: [cnt, cant, cantares, song]
+      en: [song, sos]
+    aliases:
+      es: [cnt, son, cant, song, cantar, cantares, cantar de los cantares, cantar_de_los_cantares]
+      en: [son, sos, song, canticles, song_of_songs, songofsolomon, song of solomon, song_of_solomon,
+        cantar de los cantares]
+      fr: [ct, cant, cantique, cantique des cantiques, cantique_des_cantiques]
+      pt: [ct, cant, cântico dos cânticos]
+  isaiah:
+    id: 23
+    names: {es: Isaías, en: Isaiah, fr: Ésaïe, pt: Isaías}
+    abbreviations:
+      es: [is, isa, isaías, isaias]
+      en: [isa, is]
+    aliases:
+      es: [is, isa, isaias, isaías]
+      en: [is, isa, isaiah]
+      fr: [is, esa, esaie, isaie, isaïe, ésaïe]
+      pt: [is, isa, isaías]
+  jeremiah:
+    id: 24
+    names: {es: Jeremías, en: Jeremiah, fr: Jérémie, pt: Jeremias}
+    abbreviations:
+      es: [jer, jeremías, jeremias]
+      en: [jer, je]
+    aliases:
+      es: [jer, jeremias, jeremías]
+      en: [je, jer, jeremiah]
+      fr: [jr, jer, jeremie, jérémie]
+      pt: [jer, jeremias]
+  lamentations:
+    id: 25
+    names: {es: Lamentaciones, en: Lamentations, fr: Lamentations, pt: Lamentações}
+    abbreviations:
+      es: [lm, lam, lamentaciones]
+      en: [lam, la]
+    aliases:
+      es: [lm, lam, lamentaciones]
+      en: [la, lam, lamentations]
+      fr: [lm, lam, lamentations]
+      pt: [lam, lamentações]
+  ezekiel:
+    id: 26
+    names: {es: Ezequiel, en: Ezekiel, fr: Ézéchiel, pt: Ezequiel}
+    abbreviations:
+      es: [ez, eze, ezequiel]
+      en: [ezek, eze]
+    aliases:
+      es: [ez, eze, ezk, ezequiel]
+      en: [ez, eze, ezk, ezek, ezekiel]
+      fr: [ez, eze, ezechiel, ézéchiel]
+      pt: [ez, eze, ezequiel]
+  daniel:
+    id: 27
+    names: {es: Daniel, en: Daniel, fr: Daniel, pt: Daniel}
+    abbreviations:
+      es: [dn, dan, daniel]
+      en: [dan, da]
+    aliases:
+      es: [dn, dan, daniel]
+      en: [da, dn, dan, daniel]
+      fr: [dn, dan, daniel]
+      pt: [dn, dan, daniel]
+  hosea:
+    id: 28
+    names: {es: Oseas, en: Hosea, fr: Osée, pt: Oseias}
+    abbreviations:
+      es: [os, ose, oseas]
+      en: [hos, ho]
+    aliases:
+      es: [os, hos, ose, oseas]
+      en: [ho, hos, hosea]
+      fr: [os, osee, osée]
+      pt: [os, ose, oseias]
+  joel:
+    id: 29
+    names: {es: Joel, en: Joel, fr: Joël, pt: Joel}
+    abbreviations:
+      es: [jl, joel]
+      en: [joel, joe]
+    aliases:
+      es: [jl, joe, joel]
+      en: [jl, joe, joel]
+      fr: [jl, joel, joël]
+      pt: [jl, joel]
+  amos:
+    id: 30
+    names: {es: Amós, en: Amos, fr: Amos, pt: Amós}
+    abbreviations:
+      es: [am, amos, amós]
+      en: [amos, am]
+    aliases:
+      es: [am, amos, amós]
+      en: [am, amo, amos]
+      fr: [am, amos]
+      pt: [am, amós]
+  obadiah:
+    id: 31
+    names: {es: Obadías, en: Obadiah, fr: Abdias, pt: Obadias}
+    abbreviations:
+      es: [ob, oba, obadías, obadias]
+      en: [obad, ob]
+    aliases:
+      es: [ob, abd, oba, abdias, obadias, obadías]
+      en: [ob, oba, obad, obadiah]
+      fr: [ab, abd, abdias]
+      pt: [abd, oba, obadias]
+  jonah:
+    id: 32
+    names: {es: Jonás, en: Jonah, fr: Jonas, pt: Jonas}
+    abbreviations:
+      es: [jon, jonás, jonas]
+      en: [jonah, jon]
+    aliases:
+      es: [jon, jonas, jonás]
+      en: [jnh, jon, jonah]
+      fr: [jon, jonas]
+      pt: [jon, jonas]
+  micah:
+    id: 33
+    names: {es: Miqueas, en: Micah, fr: Michée, pt: Miqueias}
+    abbreviations:
+      es: [mi, miq, miqueas]
+      en: [mic, mi]
+    aliases:
+      es: [mi, mic, miq, miqueas]
+      en: [mi, mic, micah]
+      fr: [mi, mic, michee, michée]
+      pt: [mic, miq, miqueias]
+  nahum:
+    id: 34
+    names: {es: Nahúm, en: Nahum, fr: Nahum, pt: Naum}
+    abbreviations:
+      es: [nah, nahúm, nahum, na]
+      en: [nah, na]
+    aliases:
+      es: [na, nah, nahum, nahúm]
+      en: [na, nah, nahum]
+      fr: [na, nah, nahum]
+      pt: [na, naum]
+  habakkuk:
+    id: 35
+    names: {es: Habacuc, en: Habakkuk, fr: Habacuc, pt: Habacuque}
+    abbreviations:
+      es: [hab, habacuc, hb]
+      en: [hab, hb]
+    aliases:
+      es: [hb, hab, habacuc]
+      en: [hb, hab, habakkuk]
+      fr: [ha, hab, habacuc]
+      pt: [hab, habacuque]
+  zephaniah:
+    id: 36
+    names: {es: Sofonías, en: Zephaniah, fr: Sophonie, pt: Sofonias}
+    abbreviations:
+      es: [sof, sofonías, sofonias, zep]
+      en: [zeph, zep]
+    aliases:
+      es: [sof, zep, sofonias, sofonías]
+      en: [zep, zeph, zephaniah]
+      fr: [so, sop, soph, sophonie]
+      pt: [sof, zep, sofonias]
+  haggai:
+    id: 37
+    names: {es: Hageo, en: Haggai, fr: Aggée, pt: Ageu}
+    abbreviations:
+      es: [hag, hageo]
+      en: [hag, hg]
+    aliases:
+      es: [hag, hageo]
+      en: [hg, hag, haggai]
+      fr: [ag, agg, aggee, aggée]
+      pt: [ag, age, ageu]
+  zechariah:
+    id: 38
+    names: {es: Zacarías, en: Zechariah, fr: Zacharie, pt: Zacarias}
+    abbreviations:
+      es: [zac, zacarías, zacarias, zec]
+      en: [zech, zec]
+    aliases:
+      es: [zac, zec, zacarias, zacarías]
+      en: [zec, zech, zechariah]
+      fr: [za, zac, zach, zacharie]
+      pt: [zac, zec, zacarias]
+  malachi:
+    id: 39
+    names: {es: Malaquías, en: Malachi, fr: Malachie, pt: Malaquias}
+    abbreviations:
+      es: [mal, malaquías, malaquias]
+      en: [mal, ml]
+    aliases:
+      es: [mal, malaquias, malaquías]
+      en: [ml, mal, malachi]
+      fr: [ml, mal, malachie]
+      pt: [mal, malaquias]
+  matthew:
+    id: 40
+    names: {es: Mateo, en: Matthew, fr: Matthieu, pt: Mateus}
+    abbreviations:
+      es: [mt, mat, mateo]
+      en: [matt, mt]
+    aliases:
+      es: [mt, mat, mateo]
+      en: [mt, mat, matt, matthew]
+      fr: [mt, mat, matt, matthieu]
+      pt: [mt, mat, mateus]
+  mark:
+    id: 41
+    names: {es: Marcos, en: Mark, fr: Marc, pt: Marcos}
+    abbreviations:
+      es: [mr, mar, marcos, mc]
+      en: [mark, mk]
+    aliases:
+      es: [mc, mr, mar, marcos]
+      en: [mk, mrk, mark]
+      fr: [mc, mr, marc]
+      pt: [mc, mar, marcos]
+  luke:
+    id: 42
+    names: {es: Lucas, en: Luke, fr: Luc, pt: Lucas}
+    abbreviations:
+      es: [lc, luc, lucas]
+      en: [luke, lk]
+    aliases:
+      es: [lc, lk, luc, luk, lucas]
+      en: [lk, lu, luk, luke]
+      fr: [lc, lk, luc]
+      pt: [lc, luc, lucas]
+  john:
+    id: 43
+    names: {es: Juan, en: John, fr: Jean, pt: João}
+    abbreviations:
+      es: [jn, juan, john]
+      en: [john, jn]
+    aliases:
+      es: [jn, jhn, joh, jua, john, juan]
+      en: [jn, jo, jhn, joh, john]
+      fr: [jn, jean]
+      pt: [jn, jo, joão]
+  acts:
+    id: 44
+    names: {es: Hechos, en: Acts, fr: Actes, pt: Atos}
+    abbreviations:
+      es: [hch, hech, hechos, acts]
+      en: [acts, ac]
+    aliases:
+      es: [hc, act, hch, hec, acts, hech, hechos, hechos de los apostoles]
+      en: [ac, act, hec, acts, hechos de los apostoles]
+      fr: [ac, act, actes]
+      pt: [at, atos]
+  romans:
+    id: 45
+    names: {es: Romanos, en: Romans, fr: Romains, pt: Romanos}
+    abbreviations:
+      es: [ro, rom, romanos]
+      en: [rom, ro]
+    aliases:
+      es: [ro, rom, romanos]
+      en: [ro, rom, romans]
+      fr: [rm, rom, romains]
+      pt: [ro, rom, romanos]
+  1corinthians:
+    id: 46
+    names: {es: 1 Corintios, en: 1 Corinthians, fr: 1 Corinthiens, pt: 1 Coríntios}
+    abbreviations:
+      es: [1co, 1cor, 1 corintios]
+      en: [1cor, 1co]
+    aliases:
+      es: [1co, 1cor, 1 corintios]
+      en: [1co, 1cor, 1 corinthians]
+      fr: [1 corinthiens]
+      pt: [1co, 1cor, 1 coríntios]
+  2corinthians:
+    id: 47
+    names: {es: 2 Corintios, en: 2 Corinthians, fr: 2 Corinthiens, pt: 2 Coríntios}
+    abbreviations:
+      es: [2co, 2cor, 2 corintios]
+      en: [2cor, 2co]
+    aliases:
+      es: [2co, 2cor, 2 corintios]
+      en: [2co, 2cor, 2 corinthians]
+      fr: [2 corinthiens]
+      pt: [2co, 2cor, 2 coríntios]
+  galatians:
+    id: 48
+    names: {es: Gálatas, en: Galatians, fr: Galates, pt: Gálatas}
+    abbreviations:
+      es: [ga, gal, gálatas, galatas]
+      en: [gal, ga]
+    aliases:
+      es: [ga, gal, galatas, gálatas]
+      en: [ga, gal, galatians]
+      fr: [ga, gal, galates]
+      pt: [ga, gal, gálatas]
+  ephesians:
+    id: 49
+    names: {es: Efesios, en: Ephesians, fr: Éphésiens, pt: Efésios}
+    abbreviations:
+      es: [ef, efe, efesios]
+      en: [eph, ep]
+    aliases:
+      es: [ef, efe, efesios]
+      en: [ep, eph, ephesians]
+      fr: [ep, eph, ephesiens, éphésiens]
+      pt: [ef, efe, efésios]
+  philippians:
+    id: 50
+    names: {es: Filipenses, en: Philippians, fr: Philippiens, pt: Filipenses}
+    abbreviations:
+      es: [fil, flp, filipenses]
+      en: [phil, php]
+    aliases:
+      es: [fil, flp, phil, filipenses]
+      en: [php, phil, philippians]
+      fr: [ph, phil, philippiens]
+      pt: [fil, flp, filipenses]
+  colossians:
+    id: 51
+    names: {es: Colosenses, en: Colossians, fr: Colossiens, pt: Colossenses}
+    abbreviations:
+      es: [col, colosenses]
+      en: [col, co]
+    aliases:
+      es: [col, colosenses]
+      en: [co, col, colossians]
+      fr: [col, colossiens]
+      pt: [col, colossenses]
+  1thessalonians:
+    id: 52
+    names: {es: 1 Tesalonicenses, en: 1 Thessalonians, fr: 1 Thessaloniciens, pt: 1 Tessalonicenses}
+    abbreviations:
+      es: [1ts, 1tes, 1 tesalonicenses]
+      en: [1thess, 1th]
+    aliases:
+      es: [1ts, 1tes, 1 tesalonicenses]
+      en: [1th, 1thess, 1 thessalonians]
+      fr: [1 thessaloniciens]
+      pt: [1ts, 1tes, 1 tessalonicenses]
+  2thessalonians:
+    id: 53
+    names: {es: 2 Tesalonicenses, en: 2 Thessalonians, fr: 2 Thessaloniciens, pt: 2 Tessalonicenses}
+    abbreviations:
+      es: [2ts, 2tes, 2 tesalonicenses]
+      en: [2thess, 2th]
+    aliases:
+      es: [2ts, 2tes, 2 tesalonicenses]
+      en: [2th, 2thess, 2 thessalonians]
+      fr: [2 thessaloniciens]
+      pt: [2ts, 2tes, 2 tessalonicenses]
+  1timothy:
+    id: 54
+    names: {es: 1 Timoteo, en: 1 Timothy, fr: 1 Timothée, pt: 1 Timóteo}
+    abbreviations:
+      es: [1ti, 1tim, 1 timoteo]
+      en: [1tim, 1ti]
+    aliases:
+      es: [1ti, 1tim, 1 timoteo]
+      en: [1ti, 1tim, 1 timothy]
+      fr: [1 timothée]
+      pt: [1ti, 1tim, 1 timóteo]
+  2timothy:
+    id: 55
+    names: {es: 2 Timoteo, en: 2 Timothy, fr: 2 Timothée, pt: 2 Timóteo}
+    abbreviations:
+      es: [2ti, 2tim, 2 timoteo]
+      en: [2tim, 2ti]
+    aliases:
+      es: [2ti, 2tim, 2 timoteo]
+      en: [2ti, 2tim, 2 timothy]
+      fr: [2 timothée]
+      pt: [2ti, 2tim, 2 timóteo]
+  titus:
+    id: 56
+    names: {es: Tito, en: Titus, fr: Tite, pt: Tito}
+    abbreviations:
+      es: [tit, tito]
+      en: [titus, tit]
+    aliases:
+      es: [tit, tito]
+      en: [tit, titus]
+      fr: [tt, tit, tite]
+      pt: [tit, tito]
+  philemon:
+    id: 57
+    names: {es: Filemón, en: Philemon, fr: Philémon, pt: Filemom}
+    abbreviations:
+      es: [flm, filemón, filemon, phlm]
+      en: [phlm, phm]
+    aliases:
+      es: [flm, phm, phlm, filemon, filemón]
+      en: [phm, phlm, philemon]
+      fr: [phm, philemon, philémon]
+      pt: [fm, flm, filemom]
+  hebrews:
+    id: 58
+    names: {es: Hebreos, en: Hebrews, fr: Hébreux, pt: Hebreus}
+    abbreviations:
+      es: [he, heb, hebreos]
+      en: [heb, he]
+    aliases:
+      es: [he, heb, hebreos]
+      en: [he, heb, hebrews]
+      fr: [he, heb, hebreux, hébreux]
+      pt: [heb, hebreus]
+  james:
+    id: 59
+    names: {es: Santiago, en: James, fr: Jacques, pt: Tiago}
+    abbreviations:
+      es: [stg, sant, santiago, jas]
+      en: [jas, jm]
+    aliases:
+      es: [jas, stg, sant, santiago]
+      en: [jm, jas, james]
+      fr: [jac, jacq, jacques]
+      pt: [tg, tia, tiago]
+  1peter:
+    id: 60
+    names: {es: 1 Pedro, en: 1 Peter, fr: 1 Pierre, pt: 1 Pedro}
+    abbreviations:
+      es: [1p, 1pe, 1ped, 1 pedro]
+      en: [1pet, 1pe]
+    aliases:
+      es: [1p, 1pe, 1ped, 1 pedro]
+      en: [1pe, 1pet, 1 peter]
+      fr: [1 pierre]
+      pt: [1pe, 1ped, 1 pedro]
+  2peter:
+    id: 61
+    names: {es: 2 Pedro, en: 2 Peter, fr: 2 Pierre, pt: 2 Pedro}
+    abbreviations:
+      es: [2p, 2pe, 2ped, 2 pedro]
+      en: [2pet, 2pe]
+    aliases:
+      es: [2p, 2pe, 2ped, 2 pedro]
+      en: [2pe, 2pet, 2 peter]
+      fr: [2 pierre]
+      pt: [2pe, 2ped, 2 pedro]
+  1john:
+    id: 62
+    names: {es: 1 Juan, en: 1 John, fr: 1 Jean, pt: 1 João}
+    abbreviations:
+      es: [1jn, 1juan, 1 juan]
+      en: [1john, 1jn]
+    aliases:
+      es: [1jn, 1juan, 1 juan]
+      en: [1jn, 1john, 1 john]
+      fr: [1 jean]
+      pt: [1jn, 1jo, 1 joão]
+  2john:
+    id: 63
+    names: {es: 2 Juan, en: 2 John, fr: 2 Jean, pt: 2 João}
+    abbreviations:
+      es: [2jn, 2juan, 2 juan]
+      en: [2john, 2jn]
+    aliases:
+      es: [2jn, 2juan, 2 juan]
+      en: [2jn, 2john, 2 john]
+      fr: [2 jean]
+      pt: [2jn, 2jo, 2 joão]
+  3john:
+    id: 64
+    names: {es: 3 Juan, en: 3 John, fr: 3 Jean, pt: 3 João}
+    abbreviations:
+      es: [3jn, 3juan, 3 juan]
+      en: [3john, 3jn]
+    aliases:
+      es: [3jn, 3juan, 3 juan]
+      en: [3jn, 3john, 3 john]
+      fr: [3 jean]
+      pt: [3jn, 3jo, 3 joão]
+  jude:
+    id: 65
+    names: {es: Judas, en: Jude, fr: Jude, pt: Judas}
+    abbreviations:
+      es: [jud, judas, jude]
+      en: [jude, jud]
+    aliases:
+      es: [jud, jude, judas]
+      en: [jud, jude]
+      fr: [jd, jud, jude]
+      pt: [jud, judas]
+  revelation:
+    id: 66
+    names: {es: Apocalipsis, en: Revelation, fr: Apocalypse, pt: Apocalipse}
+    abbreviations:
+      es: [ap, apo, apoc, apocalipsis, rev]
+      en: [rev, re]
+    aliases:
+      es: [ap, apo, rev, apoc, apocalipsis, apocalipsis de juan]
+      en: [re, rev, revelation, apocalipsis de juan]
+      fr: [ap, apoc, apocalypse]
+      pt: [ap, apoc, apocalipse]
+  tobit:
+    id: 67
+    names: {es: Tobit, en: Tobit, fr: Tobie, pt: Tobias}
+    abbreviations:
+      es: [tob, tobit, tb]
+      en: [tob, tb]
+    aliases:
+      es: [tb, tob, tobit, tobias]
+      en: [tb, tob, tobit]
+      fr: [tob, tobie, tobit]
+      pt: [tob, tobias]
+  judith:
+    id: 68
+    names: {es: Judit, en: Judith, fr: Judith, pt: Judite}
+    abbreviations:
+      es: [jdt, judit, judith]
+      en: [jdt]
+    aliases:
+      es: [jdt, judit, judith]
+      en: [jdt, judith]
+      fr: [jdt, judith]
+      pt: [jdt, judite]
+  wisdom:
+    id: 69
+    names: {es: Sabiduría, en: Wisdom, fr: Sagesse, pt: Sabedoria}
+    abbreviations:
+      es: [sab, sabiduría, sabiduria, wis]
+      en: [wis, ws]
+    aliases:
+      es: [sab, wis, sabiduria, sabiduría, wisdom of solomon, the wisdom of solomon]
+      en: [ws, wis, wisdom, wisdom of solomon, the wisdom of solomon]
+      fr: [sg, sag, sagesse]
+      pt: [sab, sabedoria]
+  sirach:
+    id: 70
+    names: {es: Eclesiástico, en: Sirach, fr: Siracide, pt: Eclesiástico}
+    abbreviations:
+      es: [eclo, sir, sirácide, siracide]
+      en: [sir, ecclus]
+    aliases:
+      es: [eci, sir, eclo, siracida, siracide, sirácide, eclesiastico, eclesiástico, ecclesiasticus]
+      en: [sir, ecclus, sirach, ecclesiasticus]
+      fr: [sir, sirac, siracide]
+      pt: [sir, eclo, eclesiástico]
+  baruch:
+    id: 71
+    names: {es: Baruc, en: Baruch, fr: Baruch, pt: Baruque}
+    abbreviations:
+      es: [bar, baruc]
+      en: [bar]
+    aliases:
+      es: [bar, baruc]
+      en: [bar, baruch]
+      fr: [bar, baruch]
+      pt: [bar, baruque]
+  1maccabees:
+    id: 72
+    names: {es: 1 Macabeos, en: 1 Maccabees, fr: 1 Maccabées, pt: 1 Macabeus}
+    abbreviations:
+      es: [1mac, 1m, 1 macabeos]
+      en: [1macc, 1ma]
+    aliases:
+      es: [1m, 1mac, 1 macabeos]
+      en: [1ma, 1macc, 1 maccabees]
+      fr: [1 maccabées]
+      pt: [1m, 1mac, 1 macabeus]
+  2maccabees:
+    id: 73
+    names: {es: 2 Macabeos, en: 2 Maccabees, fr: 2 Maccabées, pt: 2 Macabeus}
+    abbreviations:
+      es: [2mac, 2m, 2 macabeos]
+      en: [2macc, 2ma]
+    aliases:
+      es: [2m, 2mac, 2 macabeos]
+      en: [2ma, 2macc, 2 maccabees]
+      fr: [2 maccabées]
+      pt: [2m, 2mac, 2 macabeus]

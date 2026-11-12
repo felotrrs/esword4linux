@@ -8,7 +8,7 @@ import pytest
 
 from linuxesword.core.esword.module import EswordModule
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 CASES = [
     ("BIBLIAS/bible_rv1960_es_2.bblx", "bible"),

@@ -25,6 +25,9 @@ raw (str | bytes)
 - `_tidy` colapsa `(<br>){3,}` a dos y elimina `<p>` vacíos: el RTF de e-Sword
   deja decenas de saltos entre secciones y sin esto la lectura queda llena de
   huecos.
+- `_sanitize` equilibra tags: un cierre huérfano de bloque (`</p>` sin `<p>`)
+  se convierte en `<br>`; los cierres inline huérfanos se descartan. Sin esto,
+  datos como RVR1960x partían un versículo en dos bloques con hueco vertical.
 
 ## RTF de e-Sword
 
@@ -47,6 +50,8 @@ raw (str | bytes)
 
 - `LIGHT` / `DARK`: `Palette` con `bg, panel, text, muted, accent, link,
   highlight, comment_bg, verse_num`.
+- En `DARK` los escalones `bg → panel → panel_alt` y el borde tienen
+  contraste suficiente para distinguir paneles, entradas y filas alternas.
 - `stylesheet(theme, font_size)` → QSS de la app.
 - `document_css(theme, font_size, serif)` → CSS embebido en cada `QTextBrowser`.
 
@@ -100,10 +105,18 @@ hint solo los activa.
 
 ## Burbujas
 
-- Notas y referencias resuelven su texto **al pintar** y usan el atributo
-  `title` de `<a>` (tooltip nativo de Qt).
+- Todas usan `ui/tooltip.py:TipBubble` (ancho adaptable hasta 600 px), no el
+  tooltip nativo de Qt. El documento se **pinta directamente** (sin
+  `QTextBrowser` ni viewport) y el alto es
+  `documentLayout().documentSize()` con `ceil` + padding + `BOTTOM_EXTRA`
+  (5 px de seguridad). Así el último renglón y sus descendentes no se cortan y
+  el padding del QSS no altera la medición.
+- Notas y referencias resuelven su texto **al pintar**; las referencias pasan
+  por `core/refresolver.py:RefResolver` (versículo completo, rango completo o
+  capítulo capado a 10 versículos).
 - Los números Strong se resuelven **al pasar el ratón** (`RichBrowser`, 180 ms,
-  caché) porque cada uno es un `SELECT` al léxico.
+  caché) porque cada uno es un `SELECT` al léxico; la cabecera usa la
+  abreviatura del léxico, no el título largo.
 
 ## Codepages: registro + detección
 

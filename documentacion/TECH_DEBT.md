@@ -2,6 +2,49 @@
 
 Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 
+## Resuelto en 0.4.4
+
+- Burbujas con la última línea cortada o a medias por el padding del
+  `QTextBrowser`; ahora el documento se pinta directamente.
+- Palabras hebreas invisibles en las entradas Strong por aplanar los saltos de
+  línea en un párrafo RTL.
+- Citas que ocultaban libro/capítulo y no tenían forma de restaurarlos.
+- Checkbox de vista paralela sin marca de verificación.
+- Botón «Strong» renombrado a «Léxico»; icono de About como icono por defecto.
+
+## Resuelto en 0.4.3
+
+- Burbujas con espacios verticales por tags de cierre huérfanos (`</p>`).
+- Inconsistencia de alto/corte en burbujas; ahora hay un formato y medición únicos.
+- Botón de la lista de términos de biblioteca no era consistente con Recursos.
+- Recursos con un solo criterio de agrupación; ahora hay filtros/agrupaciones combinables.
+- Enter en Buscar exigía clic en «Ir a …» para referencias.
+- Biblia con flechas verticales de capítulo y combo paralelo siempre visible.
+- Falta de caja de citas múltiples al estilo del proyecto Bible.
+- «Pestaña A» no se retraducía al cambiar de idioma.
+- Checkbox de vista paralela poco visible en tema oscuro.
+- Icono con damero/tarjeta de fondo pintados.
+
+## Resuelto en 0.4.2
+
+- Burbujas con la última línea cortada (alto calculado con el layout real).
+- Panel de recursos y lista de términos de biblioteca que desaparecían al
+  arrastrar el divisor; ahora tienen mínimos, splitters no colapsables y botón
+  de recuperación.
+- Strong y comentarios no refrescaban las burbujas hasta pulsar «Abrir».
+- Detección de idioma con falsos positivos por autores/palabras inglesas.
+- Falta de vista «Por idioma» y de filtro en el combo de traducción.
+- Poco contraste entre fondos del tema oscuro.
+- Icono por defecto antiguo; ahora `linuxesword2.webp` genera también hicolor.
+
+## Resuelto en 0.4.1
+
+- Burbujas estrechas/cortadas y cabecera con el título largo de la obra.
+- Biblia con márgenes laterales por `stretch` (ahora ocupa todo el ancho).
+- Alias de libros hardcodeados y formatos de pasaje sin reconocer
+  (prefijos I/II, `1ª`, `Jn 3,16`, listas `, 27-30` / `; 7.11`, nombres
+  multi-palabra y abreviaturas `Luk`/`Jhn`/`Rth`/`Ezk`…).
+
 ## Resuelto en 0.4.0
 
 - Panel lateral sin tope de ancho y con asa arriba.
@@ -39,7 +82,7 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 |---|---|---|---|
 | 1 | **Codepages legacy** | ✅ Resuelto: registro + detección automática por contenido (0.4.0). | — |
 | 2 | **Strong's en el texto** | ✅ Resuelto en 0.3.0: ancla + burbuja + panel Strong inferior. | — |
-| 3 | **Deuterocanónicos** | Se muestran (libros 67–73) pero los nombres dependen de `core/books.py`; falta verificar edición por edición que la numeración coincida con el contenido. | Bajo |
+| 3 | **Deuterocanónicos** | Se muestran (libros 67–73) pero los nombres dependen de `core/books.yaml`; falta verificar edición por edición que la numeración coincida con el contenido. | Bajo |
 | 4 | **`.lanx` / `headings.*`** | Se catalogan como `unknown` y aparecen en "Sin clasificar". Podrían ocultarse o etiquetarse como "Recursos de e-Sword". | Bajo |
 | 5 | **Duplicados** | ✅ Resuelto en 0.4.0: `tools/deduplicate.py` (sha256) + cuarentena con manifiesto. | — |
 | 6 | **Imágenes de mapas** | Se muestran a ancho fijo 760 px; falta zoom y ajuste a ventana. | Bajo |
@@ -70,5 +113,5 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 | 16 | **Twofish en C** | gcc 13.3 disponible: una extensión C reduciría el descifrado ~50-100×. Hoy se compensa con 16 procesos. | Bajo |
 | 17 | **Migraciones de esquema** | `content.db` no tiene versionado; un cambio de esquema exige borrarlo. | Bajo |
 | 18 | **Empaquetado** | No hay AppImage/Flatpak; se ejecuta desde el checkout con `run.sh`. | Bajo |
-| 19 | **Tests de UI** | 48 pruebas cubren el núcleo; no hay pruebas de widgets (requerirían `pytest-qt`). | Medio |
+| 19 | **Tests de UI** | 175 pruebas; las de widgets (`test_ui_layout`, `test_theme`, `test_tooltip`) usan `QApplication` en modo `offscreen` sin `pytest-qt`. Falta cubrir más flujos completos de ventana. | Bajo |
 | 20 | **Deriva del núcleo** | `make drift` existe pero no corre en un hook; depende de que alguien lo ejecute. | Bajo |

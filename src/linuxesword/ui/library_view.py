@@ -8,7 +8,7 @@ from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QSplitter, QVBoxLayout, QWidget,
+    QSplitter, QToolButton, QVBoxLayout, QWidget,
 )
 
 from ..core.context import AppContext
@@ -19,6 +19,9 @@ from .rich_browser import RichBrowser
 from .theme import document_css
 
 MAX_ENTRIES = 3000
+LIST_MIN_WIDTH = 220
+DETAIL_MIN_WIDTH = 240
+HANDLE_WIDTH = 15
 
 
 class LibraryView(QWidget):
@@ -48,26 +51,31 @@ class LibraryView(QWidget):
         head = QWidget()
         head_row = QHBoxLayout(head)
         head_row.setContentsMargins(12, 8, 12, 8)
-        title = QLabel(self.module_row.get("title") or "")
-        title.setObjectName("appTitle")
-        sub = QLabel(self._subtitle())
-        sub.setObjectName("appSubtitle")
+        self.title_label = QLabel(self.module_row.get("title") or "")
+        self.title_label.setObjectName("appTitle")
+        self.sub_label = QLabel(self._subtitle())
+        self.sub_label.setObjectName("appSubtitle")
         box = QVBoxLayout()
         box.setSpacing(0)
-        box.addWidget(title)
-        box.addWidget(sub)
+        box.addWidget(self.title_label)
+        box.addWidget(self.sub_label)
         head_row.addLayout(box)
         head_row.addStretch(1)
         layout.addWidget(head)
 
-        split = QSplitter(Qt.Horizontal)
+        self.split = QSplitter(Qt.Horizontal)
+        self.split.setChildrenCollapsible(False)
+        self.split.splitterMoved.connect(self._on_split_moved)
         left = QWidget()
+        self.left = left
+        left.setMinimumWidth(LIST_MIN_WIDTH)
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(0)
 
         self.filter = QLineEdit()
         self.filter.setPlaceholderText(tr("lib.filter_placeholder"))
+        self.filter.setToolTip(tr("lib.filter_help"))
         self.filter.setClearButtonEnabled(True)
         self.filter.textChanged.connect(lambda _=0: self._filter_timer.start())
         left_layout.addWidget(self.filter)
@@ -93,6 +101,7 @@ class LibraryView(QWidget):
 
         self.list = QListWidget()
         self.list.setUniformItemSizes(True)
+        self.list.setAlternatingRowColors(True)
         self.list.currentItemChanged.connect(self._on_select)
         left_layout.addWidget(self.list, 1)
 
@@ -109,18 +118,72 @@ class LibraryView(QWidget):
             document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
         )
 
-        split.addWidget(left)
-        split.addWidget(self.detail)
-        split.setStretchFactor(0, 1)
-        split.setStretchFactor(1, 3)
-        split.setSizes([300, 700])
-        layout.addWidget(split, 1)
+        self.detail.setMinimumWidth(DETAIL_MIN_WIDTH)
+        self.left_dock = QWidget()
+        dock_row = QHBoxLayout(self.left_dock)
+        dock_row.setContentsMargins(0, 0, 0, 0)
+        dock_row.setSpacing(0)
+        dock_row.addWidget(left, 1)
+        self.handle = QToolButton()
+        self.handle.setObjectName("sidebarHandle")
+        self.handle.setFixedSize(HANDLE_WIDTH, 26)
+        self.handle.setCursor(Qt.PointingHandCursor)
+        self.handle.clicked.connect(self._toggle_list)
+        dock_row.addWidget(self.handle, 0, Qt.AlignTop)
+        self.split.addWidget(self.left_dock)
+        self.split.addWidget(self.detail)
+        self.split.setStretchFactor(0, 0)
+        self.split.setStretchFactor(1, 1)
+        width = max(LIST_MIN_WIDTH, int(self.settings.library_list_width or 300))
+        self.split.setSizes([width + HANDLE_WIDTH, 700])
+        self._apply_list_constraints(self.settings.library_list_visible)
+        self._update_handle()
+        layout.addWidget(self.split, 1)
 
     def _subtitle(self) -> str:
         kind = tr(f"kind.{self.module_row.get('kind', 'unknown')}")
         entries = self.module_row.get("entries") or 0
         extra = " · " + tr("badge.encrypted") if self.module_row.get("encrypted") else ""
         return f"{kind} · {entries} {tr('lib.entries').lower()}{extra}"
+
+    def _apply_list_constraints(self, visible: bool) -> None:
+        if visible:
+            self.left.show()
+            self.left_dock.setMinimumWidth(LIST_MIN_WIDTH + HANDLE_WIDTH)
+            self.left_dock.setMaximumWidth(16777215)
+        else:
+            self.left.hide()
+            self.left_dock.setMinimumWidth(HANDLE_WIDTH)
+            self.left_dock.setMaximumWidth(16)
+
+    def _update_handle(self) -> None:
+        visible = self.settings.library_list_visible
+        self.handle.setText("‹" if visible else "›")
+        self.handle.setToolTip(
+            tr("lib.hide_list" if visible else "lib.show_list")
+        )
+
+    def _toggle_list(self) -> None:
+        visible = not self.settings.library_list_visible
+        if not visible and self.left.isVisible():
+            self.settings.library_list_width = max(LIST_MIN_WIDTH, self.left.width())
+        self._apply_list_constraints(visible)
+        if visible:
+            total = max(self.width(), LIST_MIN_WIDTH + DETAIL_MIN_WIDTH + HANDLE_WIDTH)
+            width = min(
+                max(LIST_MIN_WIDTH, int(self.settings.library_list_width or 300)),
+                max(LIST_MIN_WIDTH, total - DETAIL_MIN_WIDTH - HANDLE_WIDTH),
+            )
+            self.split.setSizes([width + HANDLE_WIDTH, max(DETAIL_MIN_WIDTH, total - width - HANDLE_WIDTH)])
+        else:
+            self.split.setSizes([HANDLE_WIDTH, max(DETAIL_MIN_WIDTH, self.width() - HANDLE_WIDTH)])
+        self.settings.library_list_visible = visible
+        self.settings.save()
+        self._update_handle()
+
+    def _on_split_moved(self, _pos: int, _index: int) -> None:
+        if self.left.isVisible():
+            self.settings.library_list_width = max(LIST_MIN_WIDTH, self.left.width())
 
     # ── datos ────────────────────────────────────────────────────────────
     def _load_entries(self, prefix: str | None = None, contains: bool = True) -> None:
@@ -200,6 +263,16 @@ class LibraryView(QWidget):
                 parts.append(f'<p class="muted">{tr("map.no_image")}</p>')
         self.detail.setHtml("".join(parts))
         self.detail.verticalScrollBar().setValue(0)
+
+    def retranslate(self) -> None:
+        self.title_label.setText(self.module_row.get("title") or "")
+        self.sub_label.setText(self._subtitle())
+        self.filter.setPlaceholderText(tr("lib.filter_placeholder"))
+        self.filter.setToolTip(tr("lib.filter_help"))
+        self._update_handle()
+        current = self.list.currentItem()
+        if current is not None:
+            self._on_select(current, None)
 
     def reload_theme(self) -> None:
         """Reaplica la hoja de estilo sin recrear la pestaña."""

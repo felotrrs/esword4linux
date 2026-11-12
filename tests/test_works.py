@@ -8,7 +8,7 @@ import pytest
 
 from linuxesword.core.catalog import work_key, work_year
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 
 def test_work_key_strips_year_and_accents():

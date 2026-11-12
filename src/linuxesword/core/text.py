@@ -185,17 +185,43 @@ def _filter_style(style: str) -> str:
 _SAFE_SCHEMES = ("ref:", "strong:", "note:", "http://", "https://")
 
 
+def _ref_tag(match: re.Match) -> str:
+    inner = match.group(1).strip()
+    if "<" in inner:
+        return (f'<a href="ref:{_html.escape(inner, quote=True)}">'
+                f"{match.group(1)}</a>")
+    from .refs import find_reference_spans
+
+    spans = find_reference_spans(inner)
+    if not spans:
+        return (f'<a href="ref:{_html.escape(inner, quote=True)}">'
+                f"{match.group(1)}</a>")
+    parts: list[str] = []
+    last = 0
+    for span in spans:
+        if span.start > last:
+            parts.append(_html.escape(inner[last:span.start]))
+        parts.append(
+            f'<a href="ref:{_html.escape(span.ref_text, quote=True)}">'
+            f"{_html.escape(inner[span.start:span.end])}</a>"
+        )
+        last = span.end
+    if last < len(inner):
+        parts.append(_html.escape(inner[last:]))
+    return "".join(parts)
+
+
 def _sanitize(html: str) -> str:
     """HTML de módulo → HTML seguro para QTextDocument."""
     html = re.sub(r"(?is)<(script|style)\b.*?</\1>", "", html)
-    # <ref>Jn 3:16</ref> → enlace interno clicable
-    html = re.sub(
-        r"(?is)<ref>(.*?)</ref>",
-        lambda m: f'<a href="ref:{_html.escape(m.group(1).strip(), quote=True)}">'
-                  f"{m.group(1)}</a>",
-        html,
-    )
-    out = []
+    # <ref>Jn 3:16</ref> → enlace interno clicable. Si el contenido es una
+    # lista («Ex. 4:14, 27-30»), se generan varios enlaces para que cada
+    # sub-referencia tenga su propia burbuja.
+    html = re.sub(r"(?is)<ref>(.*?)</ref>", _ref_tag, html)
+    out: list[str] = []
+    open_tags: list[str] = []
+    block_tags = {"p", "div", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6",
+                  "tr", "td", "th", "ul", "ol", "table"}
     for token in _TAG_SPLIT.split(html):
         if not token.startswith("<"):
             out.append(token)
@@ -209,7 +235,18 @@ def _sanitize(html: str) -> str:
         if name not in _ALLOWED:
             continue  # se descarta el tag, se conserva el contenido
         if closing:
-            out.append(f"</{name}>")
+            if name in open_tags:
+                # Cierra también los tags intermedios mal anidados.
+                while open_tags:
+                    top = open_tags.pop()
+                    out.append(f"</{top}>")
+                    if top == name:
+                        break
+            elif name in block_tags:
+                # Tag de cierre huérfano (dato mal formado del módulo):
+                # no crear un bloque vacío; conservar solo el salto.
+                out.append("<br>")
+            # Cierres inline huérfanos (</span>, </a>…) se descartan.
             continue
         attrs = ""
         style = re.search(r'style\s*=\s*"([^"]*)"', token, re.I)
@@ -226,7 +263,11 @@ def _sanitize(html: str) -> str:
             title = re.search(r'title\s*=\s*"([^"]*)"', token, re.I)
             if title:
                 attrs += f' title="{_html.escape(title.group(1), quote=True)}"'
-        out.append(f"<{name}{attrs}>")
+        if name in _SELF_CLOSING:
+            out.append(f"<{name}{attrs}>")
+        else:
+            open_tags.append(name)
+            out.append(f"<{name}{attrs}>")
     return "".join(out)
 
 

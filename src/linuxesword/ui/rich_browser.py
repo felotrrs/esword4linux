@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import html as _html
 import re
+import weakref
 
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QTextCursor
@@ -25,12 +26,15 @@ HOVER_MS = 150
 
 _ANCHOR_RE = re.compile(r"(<a\b[^>]*>)", re.I)
 _HREF_RE = re.compile(r'href="([^"]*)"', re.I)
-_TITLE_RE = re.compile(r'\s+title="([^"]*)"', re.I)
+_TITLE_RE = re.compile(r"""\s+title\s*=\s*(["\'])(.*?)\1""", re.I | re.S)
 
 
 class RichBrowser(QTextBrowser):
+    _instances: weakref.WeakSet = weakref.WeakSet()
+
     def __init__(self, resolver=None, parent=None):
         super().__init__(parent)
+        type(self)._instances.add(self)
         self._resolver = resolver
         self._cache: dict[str, str] = {}
         self._titles: dict[str, str] = {}
@@ -58,9 +62,11 @@ class RichBrowser(QTextBrowser):
             tag = match.group(1)
             href = _HREF_RE.search(tag)
             title = _TITLE_RE.search(tag)
-            if href and title:
-                key = _html.unescape(href.group(1))
-                self._titles.setdefault(key, _html.unescape(title.group(1)))
+            if title:
+                if href:
+                    key = _html.unescape(href.group(1))
+                    self._titles.setdefault(key, _html.unescape(title.group(2)))
+                # Se quita siempre: Qt no debe mostrar su tooltip nativo.
                 return _TITLE_RE.sub("", tag)
             return tag
 
@@ -130,3 +136,9 @@ class RichBrowser(QTextBrowser):
     def clear_cache(self) -> None:
         self._cache.clear()
         self._bubble.hide()
+
+    @classmethod
+    def clear_all_caches(cls) -> None:
+        """Invalida burbujas resueltas en todos los visores abiertos."""
+        for browser in list(cls._instances):
+            browser.clear_cache()

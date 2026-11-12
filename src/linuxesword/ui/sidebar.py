@@ -1,12 +1,8 @@
-"""Panel lateral: carpeta de recursos con dos vistas.
+"""Panel lateral: catálogo de recursos con filtros y agrupaciones combinables.
 
-* **Por tipo** — categorías (Biblias, Comentarios, Diccionarios…). Es la vista
-  para *encontrar* un material por su naturaleza sin saber de qué obra es.
-* **Por obra** — agrupa los módulos por título. Una obra con texto + notas +
-  léxico aparece una sola vez, con sus piezas como sub-elementos.
-
-El clic simple carga el recurso; en una obra con varios módulos, el clic en el
-submódulo carga esa pieza concreta.
+El organizador permite elegir hasta tres niveles de agrupación (tipo, idioma,
+obra) y filtrar por varios tipos e idiomas a la vez. El filtro de texto sigue
+disponible y se aplica sobre la jerarquía resultante.
 """
 
 from __future__ import annotations
@@ -14,16 +10,19 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
-    QButtonGroup, QHBoxLayout, QLabel, QLineEdit, QMenu, QSizePolicy,
+    QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, QSizePolicy,
     QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
 )
 
 from ..core.catalog import KIND_ORDER, work_key
 from ..core.context import AppContext
 from ..i18n import tr
+from .language import language_label, language_sort_key
 
 STATUS_GLYPH = {"ready": "●", "pending": "○", "indexing": "◐", "failed": "✕",
                 "skipped": "–"}
+
+_GROUPINGS = ("kind", "language", "work")
 
 
 class Sidebar(QWidget):
@@ -35,9 +34,18 @@ class Sidebar(QWidget):
         super().__init__(parent)
         self.ctx = ctx
         self.settings = ctx.settings
-        self._mode = self.settings.sidebar_mode if self.settings.sidebar_mode in (
-            "kind", "work") else "kind"
         self.setMinimumWidth(240)
+        grouping = [g for g in (self.settings.sidebar_grouping or ["kind"])
+                    if g in _GROUPINGS]
+        if not grouping:
+            grouping = ["kind"]
+        # Migración desde la versión con un único modo.
+        if (grouping == ["kind"] and self.settings.sidebar_mode in ("work", "language")):
+            grouping = [self.settings.sidebar_mode]
+        self._grouping = grouping[:3]
+        self._kind_filters = [k for k in self.settings.sidebar_kind_filters
+                              if k in KIND_ORDER]
+        self._language_filters = list(self.settings.sidebar_language_filters or [])
         self._build_ui()
         self.refresh()
 
@@ -51,9 +59,9 @@ class Sidebar(QWidget):
         head_row = QVBoxLayout(head)
         head_row.setContentsMargins(12, 10, 12, 4)
         head_row.setSpacing(2)
-        title = QLabel(tr("sidebar.title"))
-        title.setObjectName("appTitle")
-        head_row.addWidget(title)
+        self.title_label = QLabel(tr("sidebar.title"))
+        self.title_label.setObjectName("appTitle")
+        head_row.addWidget(self.title_label)
         self.folder_label = QLabel(self.settings.resources_dir)
         self.folder_label.setObjectName("appSubtitle")
         self.folder_label.setToolTip(self.settings.resources_dir)
@@ -61,28 +69,63 @@ class Sidebar(QWidget):
         head_row.addWidget(self.folder_label)
         layout.addWidget(head)
 
-        modes = QWidget()
-        mrow = QHBoxLayout(modes)
-        mrow.setContentsMargins(10, 2, 10, 4)
-        mrow.setSpacing(4)
-        self.btn_kind = QToolButton()
-        self.btn_kind.setText(tr("sidebar.by_kind"))
-        self.btn_kind.setCheckable(True)
-        self.btn_kind.clicked.connect(lambda: self.set_mode("kind"))
-        self.btn_work = QToolButton()
-        self.btn_work.setText(tr("sidebar.by_work"))
-        self.btn_work.setCheckable(True)
-        self.btn_work.clicked.connect(lambda: self.set_mode("work"))
-        group = QButtonGroup(self)
-        group.setExclusive(True)
-        group.addButton(self.btn_kind)
-        group.addButton(self.btn_work)
-        self.btn_kind.setChecked(self._mode == "kind")
-        self.btn_work.setChecked(self._mode == "work")
-        for btn in (self.btn_kind, self.btn_work):
+        organizer = QFrame()
+        organizer.setObjectName("sidebarOrganizer")
+        org = QVBoxLayout(organizer)
+        org.setContentsMargins(7, 6, 7, 6)
+        org.setSpacing(5)
+
+        self.group_label = QLabel(tr("sidebar.group_by"))
+        self.group_label.setObjectName("organizerLabel")
+        org.addWidget(self.group_label)
+        group_row = QHBoxLayout()
+        group_row.setSpacing(2)
+        self.group_combos: list[QComboBox] = []
+        for i in range(3):
+            if i:
+                sep = QLabel("›")
+                sep.setObjectName("organizerSep")
+                group_row.addWidget(sep)
+            combo = QComboBox()
+            combo.setObjectName("organizerCombo")
+            combo.setMinimumWidth(52)
+            combo.setToolTip(tr("sidebar.group_help"))
+            combo.currentIndexChanged.connect(self._on_grouping_changed)
+            group_row.addWidget(combo, 1)
+            self.group_combos.append(combo)
+        org.addLayout(group_row)
+
+        # Título de sección a todo el ancho, igual que "Agrupar". El espacio
+        # vertical marca que los filtros son un bloque distinto.
+        org.addSpacing(6)
+        self.filter_label = QLabel(tr("sidebar.filter"))
+        self.filter_label.setObjectName("organizerLabel")
+        org.addWidget(self.filter_label)
+
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(4)
+        self.btn_kind_filter = QToolButton()
+        self.btn_kind_filter.setObjectName("organizerFilter")
+        self.btn_kind_filter.setPopupMode(QToolButton.InstantPopup)
+        self.kind_menu = QMenu(self.btn_kind_filter)
+        self.kind_menu.aboutToShow.connect(self._fill_kind_menu)
+        self.btn_kind_filter.setMenu(self.kind_menu)
+        filter_row.addWidget(self.btn_kind_filter, 1)
+        self.btn_language_filter = QToolButton()
+        self.btn_language_filter.setObjectName("organizerFilter")
+        self.btn_language_filter.setPopupMode(QToolButton.InstantPopup)
+        self.language_menu = QMenu(self.btn_language_filter)
+        self.language_menu.aboutToShow.connect(self._fill_language_menu)
+        self.btn_language_filter.setMenu(self.language_menu)
+        for btn in (self.btn_kind_filter, self.btn_language_filter):
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            mrow.addWidget(btn)
-        layout.addWidget(modes)
+            filter_row.addWidget(btn, 1)
+        org.addLayout(filter_row)
+        wrap_org = QWidget()
+        wrap_layout = QVBoxLayout(wrap_org)
+        wrap_layout.setContentsMargins(8, 2, 8, 5)
+        wrap_layout.addWidget(organizer)
+        layout.addWidget(wrap_org)
 
         self.filter = QLineEdit()
         self.filter.setPlaceholderText(tr("sidebar.filter_placeholder"))
@@ -98,35 +141,265 @@ class Sidebar(QWidget):
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(14)
         self.tree.setAnimated(True)
+        self.tree.setAlternatingRowColors(True)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._context_menu)
         self.tree.itemClicked.connect(self._on_click)
         self.tree.itemActivated.connect(self._on_keyboard)
         layout.addWidget(self.tree, 1)
 
-    def set_mode(self, mode: str) -> None:
-        if mode == self._mode:
-            return
-        self._mode = mode
-        self.settings.sidebar_mode = mode
-        self.settings.save()
-        self.btn_kind.setChecked(mode == "kind")
-        self.btn_work.setChecked(mode == "work")
+        self._refresh_group_combos()
+        self._update_filter_buttons()
+
+    def retranslate(self) -> None:
+        self.title_label.setText(tr("sidebar.title"))
+        self.group_label.setText(tr("sidebar.group_by"))
+        self.filter_label.setText(tr("sidebar.filter"))
+        self.filter.setPlaceholderText(tr("sidebar.filter_placeholder"))
+        self._refresh_group_combos()
+        self._update_filter_buttons()
         self.refresh()
 
-    # ── construcción del árbol ───────────────────────────────────────────
-    def refresh(self) -> None:
-        expanded = {
-            self.tree.topLevelItem(i).data(0, Qt.UserRole)
-            for i in range(self.tree.topLevelItemCount())
-            if self.tree.topLevelItem(i).isExpanded()
-        }
-        self.tree.clear()
-        if self._mode == "work":
-            self._build_works(expanded)
+    # ── agrupación ───────────────────────────────────────────────────────
+    def _group_label(self, code: str) -> str:
+        return {
+            "kind": tr("sidebar.group_kind"),
+            "language": tr("sidebar.group_language"),
+            "work": tr("sidebar.group_work"),
+        }.get(code, code)
+
+    def _refresh_group_combos(self) -> None:
+        for i, combo in enumerate(self.group_combos):
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem(tr("sidebar.group_none"), "")
+            for code in _GROUPINGS:
+                combo.addItem(self._group_label(code), code)
+            value = self._grouping[i] if i < len(self._grouping) else ""
+            idx = combo.findData(value)
+            combo.setCurrentIndex(idx if idx >= 0 else 0)
+            combo.blockSignals(False)
+
+    def _on_grouping_changed(self, _index: int = 0) -> None:
+        selected: list[str] = []
+        for combo in self.group_combos:
+            code = combo.currentData() or ""
+            if code and code not in selected:
+                selected.append(code)
+        self._grouping = selected
+        self.settings.sidebar_grouping = list(selected)
+        self.settings.sidebar_mode = selected[0] if selected else "kind"
+        self.settings.save()
+        self._refresh_group_combos()
+        self.refresh()
+
+    def set_mode(self, mode: str) -> None:
+        """Compatibilidad: fija una única agrupación."""
+        self._grouping = [mode] if mode in _GROUPINGS else []
+        self.settings.sidebar_grouping = list(self._grouping)
+        self.settings.sidebar_mode = mode if mode in _GROUPINGS else "kind"
+        self.settings.save()
+        self._refresh_group_combos()
+        self.refresh()
+
+    # ── filtros ──────────────────────────────────────────────────────────
+    def _update_filter_buttons(self) -> None:
+        if self._kind_filters:
+            self.btn_kind_filter.setText(
+                tr("sidebar.filter_kind_n", n=len(self._kind_filters))
+            )
         else:
-            self._build_kinds(expanded)
+            self.btn_kind_filter.setText(tr("sidebar.filter_kind"))
+        self.btn_kind_filter.setToolTip(tr("sidebar.filter_kind_help"))
+        if self._language_filters:
+            self.btn_language_filter.setText(
+                tr("sidebar.filter_language_n", n=len(self._language_filters))
+            )
+        else:
+            self.btn_language_filter.setText(tr("sidebar.filter_language"))
+        self.btn_language_filter.setToolTip(tr("sidebar.filter_language_help"))
+
+    def _fill_kind_menu(self) -> None:
+        menu = self.kind_menu
+        menu.clear()
+        act_all = QAction(tr("sidebar.filter_all"), self)
+        act_all.setCheckable(True)
+        act_all.setChecked(not self._kind_filters)
+        act_all.triggered.connect(self._clear_kind_filters)
+        menu.addAction(act_all)
+        menu.addSeparator()
+        counts = self.ctx.catalog.counts_by_kind()
+        for kind in KIND_ORDER:
+            if not counts.get(kind):
+                continue
+            act = QAction(f"{tr(f'kind.{kind}')} ({counts[kind]})", self)
+            act.setCheckable(True)
+            act.setChecked(kind in self._kind_filters)
+            act.triggered.connect(
+                lambda checked=False, k=kind: self._toggle_kind_filter(k, checked)
+            )
+            menu.addAction(act)
+
+    def _fill_language_menu(self) -> None:
+        menu = self.language_menu
+        menu.clear()
+        act_all = QAction(tr("sidebar.filter_all"), self)
+        act_all.setCheckable(True)
+        act_all.setChecked(not self._language_filters)
+        act_all.triggered.connect(self._clear_language_filters)
+        menu.addAction(act_all)
+        menu.addSeparator()
+        counts: dict[str, int] = {}
+        for mod in self.ctx.catalog.modules():
+            code = mod.get("language") or "und"
+            counts[code] = counts.get(code, 0) + 1
+        for code in sorted(counts, key=language_sort_key):
+            act = QAction(f"{language_label(code)} ({counts[code]})", self)
+            act.setCheckable(True)
+            act.setChecked(code in self._language_filters)
+            act.triggered.connect(
+                lambda checked=False, c=code: self._toggle_language_filter(c, checked)
+            )
+            menu.addAction(act)
+
+    def _toggle_kind_filter(self, kind: str, checked: bool) -> None:
+        if checked and kind not in self._kind_filters:
+            self._kind_filters.append(kind)
+        elif not checked and kind in self._kind_filters:
+            self._kind_filters.remove(kind)
+        self.settings.sidebar_kind_filters = list(self._kind_filters)
+        self.settings.save()
+        self._update_filter_buttons()
+        self.refresh()
+
+    def _clear_kind_filters(self) -> None:
+        self._kind_filters = []
+        self.settings.sidebar_kind_filters = []
+        self.settings.save()
+        self._update_filter_buttons()
+        self.refresh()
+
+    def _toggle_language_filter(self, code: str, checked: bool) -> None:
+        if checked and code not in self._language_filters:
+            self._language_filters.append(code)
+        elif not checked and code in self._language_filters:
+            self._language_filters.remove(code)
+        self.settings.sidebar_language_filters = list(self._language_filters)
+        self.settings.save()
+        self._update_filter_buttons()
+        self.refresh()
+
+    def _clear_language_filters(self) -> None:
+        self._language_filters = []
+        self.settings.sidebar_language_filters = []
+        self.settings.save()
+        self._update_filter_buttons()
+        self.refresh()
+
+    def _filtered_modules(self) -> list[dict]:
+        modules = self.ctx.catalog.modules()
+        if self._kind_filters:
+            modules = [m for m in modules if m["kind"] in self._kind_filters]
+        if self._language_filters:
+            modules = [
+                m for m in modules
+                if (m.get("language") or "und") in self._language_filters
+            ]
+        return modules
+
+    # ── árbol ────────────────────────────────────────────────────────────
+    def refresh(self) -> None:
+        expanded = self._expanded_keys()
+        self.tree.clear()
+        self._build_groups(None, self._filtered_modules(), 0, expanded)
         self._apply_filter(self.filter.text())
+
+    def _expanded_keys(self) -> set:
+        expanded: set = set()
+
+        def walk(item: QTreeWidgetItem) -> None:
+            data = item.data(0, Qt.UserRole)
+            if item.isExpanded() and isinstance(data, str):
+                expanded.add(data)
+            for i in range(item.childCount()):
+                walk(item.child(i))
+
+        for i in range(self.tree.topLevelItemCount()):
+            walk(self.tree.topLevelItem(i))
+        return expanded
+
+    def _new_item(self, parent: QTreeWidgetItem | None,
+                  text: str, data: str) -> QTreeWidgetItem:
+        item = QTreeWidgetItem([text])
+        item.setData(0, Qt.UserRole, data)
+        font = QFont()
+        font.setBold(True)
+        item.setFont(0, font)
+        item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
+        if parent is None:
+            self.tree.addTopLevelItem(item)
+        else:
+            parent.addChild(item)
+        return item
+
+    def _add_module(self, parent: QTreeWidgetItem | None, mod: dict,
+                    label: str | None = None) -> None:
+        item = self._module_item(mod, label)
+        if parent is None:
+            self.tree.addTopLevelItem(item)
+        else:
+            parent.addChild(item)
+
+    def _build_groups(self, parent: QTreeWidgetItem | None, modules: list[dict],
+                      level: int, expanded: set) -> None:
+        if level >= len(self._grouping):
+            work_context = (level > 0 and self._grouping[level - 1] == "work"
+                            and len(modules) > 1)
+            for mod in sorted(modules, key=lambda m: (m["title"] or "").lower()):
+                label = None
+                if work_context:
+                    role = tr("role." + mod["kind"])
+                    label = (
+                        f"{STATUS_GLYPH.get(mod['index_status'], '○')} "
+                        f"{role} · {mod['abbreviation'] or mod['filename']}"
+                    )
+                self._add_module(parent, mod, label)
+            return
+
+        grouping = self._grouping[level]
+        groups: dict[tuple[str, str], list[dict]] = {}
+        if grouping == "kind":
+            for mod in modules:
+                kind = mod["kind"]
+                groups.setdefault((kind, tr(f"kind.{kind}")), []).append(mod)
+            ordered = sorted(groups.items(),
+                             key=lambda kv: KIND_ORDER.index(kv[0][0])
+                             if kv[0][0] in KIND_ORDER else 99)
+        elif grouping == "language":
+            for mod in modules:
+                code = mod.get("language") or "und"
+                groups.setdefault((code, language_label(code)), []).append(mod)
+            ordered = sorted(groups.items(),
+                             key=lambda kv: language_sort_key(kv[0][0]))
+        else:  # work
+            works = {m["id"]: w for w in self.ctx.catalog.works()
+                     for m in w["modules"]}
+            for mod in modules:
+                work = works.get(mod["id"])
+                key = work["key"] if work else work_key(mod["title"])
+                label = work["title"] if work else (mod["title"] or "")
+                groups.setdefault((key, label), []).append(mod)
+            ordered = sorted(groups.items(), key=lambda kv: kv[0][1].lower())
+
+        for (key, label), items in ordered:
+            data = f"group:{grouping}:{key}"
+            item = self._new_item(
+                parent, f"{label}  ({len(items)})", data
+            )
+            item.setExpanded(data in expanded)
+            if grouping == "kind":
+                item.setToolTip(0, tr("sidebar.ctx.index_category"))
+            self._build_groups(item, items, level + 1, expanded)
 
     def _module_item(self, mod: dict, label: str | None = None) -> QTreeWidgetItem:
         status = mod["index_status"]
@@ -146,85 +419,54 @@ class Sidebar(QWidget):
     def _tooltip(mod: dict) -> str:
         return (
             f"{mod['title']}\n{mod['rel_path']}\n"
-            f"{mod['entries']} entradas · {mod['size'] / 1e6:.1f} MB\n"
-            f"estado: {mod['index_status']}"
+            f"{mod['entries']} {tr('lib.entries').lower()} · {mod['size'] / 1e6:.1f} MB\n"
+            f"{tr('sidebar.tooltip_status', status=mod['index_status'])}"
         )
 
-    def _build_kinds(self, expanded: set) -> None:
-        by_kind: dict[str, list[dict]] = {}
-        for mod in self.ctx.catalog.modules():
-            by_kind.setdefault(mod["kind"], []).append(mod)
-
-        bold = QFont()
-        bold.setBold(True)
-        for kind in KIND_ORDER:
-            items = by_kind.get(kind)
-            if not items:
-                continue
-            top = QTreeWidgetItem(self.tree, [f"{tr(f'kind.{kind}')}  ({len(items)})"])
-            top.setData(0, Qt.UserRole, f"kind:{kind}")
-            top.setFont(0, bold)
-            top.setFlags(top.flags() & ~Qt.ItemIsSelectable)
-            for mod in items:
-                top.addChild(self._module_item(mod))
-            top.setExpanded(f"kind:{kind}" in expanded)
-
-    def _build_works(self, expanded: set) -> None:
-        works = self.ctx.catalog.works()
-        bold = QFont()
-        bold.setBold(True)
-        for work in works:
-            modules = work["modules"]
-            first = modules[0]
-            if len(modules) == 1:
-                item = self._module_item(first)
-                self.tree.addTopLevelItem(item)
-                continue
-            roles = " · ".join(tr(f"role.{k}") for k in work["kinds"])
-            top = QTreeWidgetItem(self.tree, [f"{first['title']}  ({len(modules)})"])
-            top.setData(0, Qt.UserRole, f"work:{work['key']}")
-            top.setToolTip(0, roles)
-            top.setFont(0, bold)
-            top.setFlags(top.flags() & ~Qt.ItemIsSelectable)
-            for mod in modules:
-                role = tr(f"role.{mod['kind']}")
-                label = f"{STATUS_GLYPH.get(mod['index_status'], '○')} " \
-                        f"{role} · {mod['abbreviation'] or mod['filename']}"
-                top.addChild(self._module_item(mod, label))
-            top.setExpanded(f"work:{work['key']}" in expanded)
-
-    # ── interacción ──────────────────────────────────────────────────────
+    # ── filtro de texto ──────────────────────────────────────────────────
     def _apply_filter(self, text: str) -> None:
         needle = (text or "").strip().lower()
-        for i in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(i)
-            if top.childCount() == 0:
-                top.setHidden(bool(needle) and needle not in top.text(0).lower())
-                continue
-            visible = 0
-            for j in range(top.childCount()):
-                child = top.child(j)
-                match = not needle or needle in child.text(0).lower() \
-                    or needle in top.text(0).lower()
-                child.setHidden(not match)
-                if match:
-                    visible += 1
-            top.setHidden(visible == 0)
-            if needle and visible:
-                top.setExpanded(True)
 
+        def show_all(item: QTreeWidgetItem) -> None:
+            item.setHidden(False)
+            for j in range(item.childCount()):
+                show_all(item.child(j))
+
+        def visit(item: QTreeWidgetItem) -> bool:
+            own = needle in item.text(0).lower() if needle else True
+            if not needle:
+                item.setHidden(False)
+                for j in range(item.childCount()):
+                    visit(item.child(j))
+                return True
+            if own:
+                show_all(item)
+                item.setExpanded(True)
+                return True
+            visible = False
+            for j in range(item.childCount()):
+                if visit(item.child(j)):
+                    visible = True
+            item.setHidden(not visible)
+            if visible:
+                item.setExpanded(True)
+            return visible
+
+        for i in range(self.tree.topLevelItemCount()):
+            visit(self.tree.topLevelItem(i))
+
+    # ── interacción ──────────────────────────────────────────────────────
     def _module_id(self, item: QTreeWidgetItem) -> int | None:
         data = item.data(0, Qt.UserRole)
         return data if isinstance(data, int) else None
 
     def _on_click(self, item: QTreeWidgetItem, _column: int = 0) -> None:
-        """Un solo clic carga el recurso; en una agrupación, la despliega."""
         mid = self._module_id(item)
         if mid is not None:
             self.module_activated.emit(mid)
             return
         data = item.data(0, Qt.UserRole)
-        if isinstance(data, str) and data.startswith(("kind:", "work:")):
+        if isinstance(data, str) and data.startswith("group:"):
             item.setExpanded(not item.isExpanded())
 
     def _on_keyboard(self, item: QTreeWidgetItem, _column: int = 0) -> None:
@@ -252,15 +494,15 @@ class Sidebar(QWidget):
                 menu.addAction(act_rev)
         else:
             data = item.data(0, Qt.UserRole)
-            if isinstance(data, str) and data.startswith("kind:"):
-                kind = data.split(":", 1)[1]
+            if isinstance(data, str) and data.startswith("group:kind:"):
+                kind = data.rsplit(":", 1)[-1]
                 act = QAction(tr("sidebar.ctx.index_category"), self)
                 act.triggered.connect(lambda: self.index_kind_requested.emit(kind))
                 menu.addAction(act)
         if menu.actions():
             menu.exec(self.tree.viewport().mapToGlobal(pos))
 
-    def _reveal(self, path: str) -> None:
+    def _reveal(self, path) -> None:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
 

@@ -3,12 +3,18 @@
 Compartido por la Biblia, los diccionarios y el panel de comentario: cualquier
 `href="ref:Juan 3:16"` produce el texto del versículo en la **biblia de
 referencia** (la activa, salvo que se fije otra en los ajustes).
+
+Los pasajes se muestran completos hasta `MAX_VERSES`; un rango mayor se corta
+con aviso, nunca a mitad de un versículo.
 """
 
 from __future__ import annotations
 
-from .books import book_name, parse_reference
-from .text import snippet, to_plain
+from ..i18n import tr
+from .books import parse_reference
+from .text import to_plain
+
+MAX_VERSES = 10
 
 
 class RefResolver:
@@ -23,15 +29,24 @@ class RefResolver:
             self._rel = rel_path
             self._cache.clear()
 
-    def bible_row(self) -> dict | None:
+    def bible_rows(self):
+        """Biblias candidatas, en orden de preferencia y sin duplicados."""
         settings = self.ctx.settings
+        seen: set[str] = set()
         for rel in (settings.reference_bible, self._rel, settings.bible_module):
-            if rel:
+            if rel and rel not in seen:
                 row = self.ctx.catalog.by_rel_path(rel)
                 if row is not None:
-                    return row
-        bibles = self.ctx.bibles()
-        return bibles[0] if bibles else None
+                    seen.add(rel)
+                    yield row
+        for row in self.ctx.bibles():
+            rel = row.get("rel_path") or ""
+            if rel and rel not in seen:
+                seen.add(rel)
+                yield row
+
+    def bible_row(self) -> dict | None:
+        return next(iter(self.bible_rows()), None)
 
     # ── API ──────────────────────────────────────────────────────────────
     def tooltip(self, href: str) -> str:
@@ -59,22 +74,46 @@ class RefResolver:
 
     def _build_verse(self, ref_text: str) -> str:
         ref = parse_reference(ref_text)
-        row = self.bible_row()
-        if ref is None or row is None:
+        if ref is None:
             return ""
-        mod = self.ctx.module(row)
-        if mod is None or mod.structure != "bible":
-            return ""
-        version = row.get("abbreviation") or ""
-        if ref.verse:
+        # La biblia activa puede ser solo NT (p. ej. GNT): si no tiene el
+        # libro pedido, se prueba la siguiente candidata antes de rendirse.
+        for row in self.bible_rows():
+            mod = self.ctx.module(row)
+            if mod is None or mod.structure != "bible":
+                continue
+            pages, numbered = self._verse_pages(mod, ref)
+            if not pages:
+                continue
+            version = row.get("abbreviation") or ""
+            hidden = max(0, len(pages) - MAX_VERSES)
+            pages = pages[:MAX_VERSES]
+            texts = [
+                to_plain(page.raw, hint=mod.stem, codepages=mod.codepages).strip()
+                for page in pages
+            ]
+            if numbered:
+                body = "\n".join(
+                    f"{page.verse} {text}" if page.verse else text
+                    for page, text in zip(pages, texts)
+                )
+            else:
+                body = texts[0]
+            if hidden:
+                body += "\n" + tr("tooltip.more_verses", n=hidden)
+            label = ref.label(self.ctx.settings.locale)
+            return f"{tr('tooltip.verse', ref=label, version=version)}\n{body}"
+        return ""
+
+    @staticmethod
+    def _verse_pages(mod, ref) -> tuple[list, bool]:
+        if ref.verse is not None:
+            if ref.verse_end and ref.verse_end != ref.verse:
+                pages = [
+                    page for page in mod.bible_chapter(ref.book, ref.chapter)
+                    if page.verse and ref.verse <= page.verse <= ref.verse_end
+                ]
+                return pages, True
             page = mod.bible_verse(ref.book, ref.chapter, ref.verse)
-            if page is None:
-                return ""
-            body = snippet(to_plain(page.raw, hint=mod.stem, codepages=mod.codepages), 330)
-            return f"📖 {page.title} ({version})\n{body}"
-        pages = mod.bible_chapter(ref.book, ref.chapter)
-        if not pages:
-            return ""
-        body = " ".join(f"{p.verse} {to_plain(p.raw, hint=mod.stem, codepages=mod.codepages)}" for p in pages[:3])
-        label = f"{book_name(ref.book, self.ctx.settings.locale)} {ref.chapter}"
-        return f"📖 {label} ({version})\n{snippet(body, 330)}"
+            return ([page], False) if page is not None else ([], False)
+        return mod.bible_chapter(ref.book, ref.chapter), True

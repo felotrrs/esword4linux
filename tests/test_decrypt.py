@@ -9,7 +9,7 @@ import pytest
 from linuxesword.core.esword.sqliteplus import decrypt_payload, self_test
 from linuxesword.core.esword.twofish import self_test as twofish_self_test
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_bblx")
+CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 
 def test_twofish_vector():

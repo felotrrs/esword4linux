@@ -15,20 +15,26 @@ import html as _html
 import re
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QGuiApplication
+from PySide6.QtGui import (
+    QAction, QGuiApplication, QIntValidator, QStandardItem, QStandardItemModel,
+)
 from PySide6.QtWidgets import (
-    QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QLabel, QMenu, QPushButton, QSpinBox,
-    QSplitter, QStackedWidget, QToolButton, QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QComboBox, QCompleter, QHBoxLayout, QLabel,
+    QLineEdit, QMenu, QPushButton, QSplitter, QStackedWidget, QToolButton,
+    QVBoxLayout, QWidget,
 )
 
 from ..core.books import Reference, book_name, parse_reference
 from ..core.commentary import best_commentary
+from ..core.refchain import parse_reference_chain
 from ..core.context import AppContext
 from ..core.text import snippet, to_plain, to_rich
 from ..i18n import tr
+from .citation_pane import CitationPane
 from .commentary_pane import CommentaryPane
 from .rich_browser import RichBrowser
 from .strong_pane import StrongPane
+from .language import language_label, language_sort_key
 from .theme import document_css, palette
 
 _STRONG_COLOR = "#8f6bc4"
@@ -37,6 +43,71 @@ _TAGS_RE = re.compile(r"<[^>]+>")
 _SUP_RE = re.compile(r"(?is)<sup>(.*?)</sup>")
 _STRONG_IN_TEXT = re.compile(r"\b([GH]\d{1,5})\b")
 _REF_A_RE = re.compile(r'<a href="ref:([^"]+)">')
+
+
+def fill_bible_combo(combo: QComboBox, bibles: list[dict], current_rel: str,
+                     *, editable: bool = True) -> None:
+    """Llena un combo de biblias agrupado por idioma (editable opcional)."""
+    combo.blockSignals(True)
+    model = QStandardItemModel(combo)
+    grouped: dict[str, list[dict]] = {}
+    for mod in bibles:
+        grouped.setdefault(mod.get("language") or "und", []).append(mod)
+
+    first_selectable = -1
+    for code in sorted(grouped, key=language_sort_key):
+        items = grouped[code]
+        header = QStandardItem(f"— {language_label(code)} ({len(items)}) —")
+        header.setEnabled(False)
+        header.setSelectable(False)
+        header.setData(None, Qt.UserRole)
+        font = header.font()
+        font.setBold(True)
+        header.setFont(font)
+        model.appendRow(header)
+        for mod in sorted(
+            items,
+            key=lambda m: ((m.get("abbreviation") or "").lower(),
+                           (m.get("title") or "").lower()),
+        ):
+            label = (
+                f"{mod['abbreviation']} — {mod['title']}"
+                if mod.get("abbreviation") else (mod.get("title") or "")
+            )
+            item = QStandardItem(label[:110])
+            item.setData(mod["rel_path"], Qt.UserRole)
+            item.setToolTip(
+                f"{mod.get('title') or ''}\n{language_label(code)}"
+            )
+            model.appendRow(item)
+            if first_selectable < 0:
+                first_selectable = model.rowCount() - 1
+
+    combo.setModel(model)
+    combo.setEditable(editable)
+    combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+    combo.setMaxVisibleItems(20)
+    combo.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
+    combo.setMinimumContentsLength(18)
+    combo.setMaximumWidth(320)
+    if editable:
+        completer = QCompleter(model, combo)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        combo.setCompleter(completer)
+    idx = combo.findData(current_rel)
+    if idx < 0:
+        idx = first_selectable
+    if idx >= 0:
+        combo.setCurrentIndex(idx)
+    if editable and combo.lineEdit() is not None:
+        # Al mostrar un título largo, QLineEdit deja el cursor al final y
+        # parece que la traducción empieza por «…títulos, notas…».
+        combo.lineEdit().setCursorPosition(0)
+    combo.blockSignals(False)
 
 
 class BiblePane(QWidget):
@@ -55,6 +126,8 @@ class BiblePane(QWidget):
         self._secondary_rel = ""
         self._sizes_applied = False
         self._comments_cache: dict[tuple, dict] = {}
+        self._chapter_max = 200
+        self._citation_mode = False
         self._build_ui()
         self.reload_modules()
 
@@ -77,16 +150,31 @@ class BiblePane(QWidget):
         self.hsplit = QSplitter(Qt.Horizontal)
         self.primary = self._make_browser()
         self.second = self._make_browser()
-        self.host_primary = self._center(self.primary)
-        self.host_second = self._center(self.second)
-        self.hsplit.addWidget(self.host_primary)
-        self.hsplit.addWidget(self.host_second)
+        self.primary_host = self._center(self.primary)
+        self.second_host = self._center(self.second)
+        self.citations = CitationPane(self.ctx)
+        self.citations.btn_hide.hide()
+        self.citations.open_reference.connect(self._open_citation_reference)
+        self.citations_second = CitationPane(self.ctx)
+        self.citations_second.btn_hide.hide()
+        self.citations_second.open_reference.connect(self._open_citation_reference)
+        self.primary_stack = QStackedWidget()
+        self.primary_stack.addWidget(self.primary_host)
+        self.primary_stack.addWidget(self.citations)
+        self.second_stack = QStackedWidget()
+        self.second_stack.addWidget(self.second_host)
+        self.second_stack.addWidget(self.citations_second)
+        self.hsplit.addWidget(self.primary_stack)
+        self.hsplit.addWidget(self.second_stack)
+        self.host_second = self.second_stack
         self.host_second.hide()
 
         self.commentary = CommentaryPane(self.ctx)
         self.commentary.open_module.connect(self.open_module)
+        self.commentary.module_changed.connect(self._on_commentary_changed)
         self.strong = StrongPane(self.ctx)
         self.strong.open_module.connect(self.open_module)
+        self.strong.lexicon_changed.connect(self._on_strong_changed)
 
         self.bottom = QStackedWidget()
         self.bottom.addWidget(self.commentary)
@@ -99,7 +187,8 @@ class BiblePane(QWidget):
         layout.addWidget(self.vsplit, 1)
 
         page = self.settings.bottom_page
-        self._set_bottom_page(page if page in ("commentary", "strong") else "commentary",
+        self._set_bottom_page(page if page in ("commentary", "strong")
+                              else "commentary",
                               show=self.settings.show_commentary_inline)
 
     def _build_toolbar(self) -> QWidget:
@@ -108,23 +197,43 @@ class BiblePane(QWidget):
         row.setContentsMargins(10, 6, 10, 6)
         row.setSpacing(6)
 
-        row.addWidget(QLabel(tr("bible.translation")))
+        self.lbl_translation = QLabel(tr("bible.translation"))
+        row.addWidget(self.lbl_translation)
         self.translation = QComboBox()
         self.translation.setMinimumWidth(200)
+        self.translation.setToolTip(tr("bible.translation_help"))
         self.translation.currentIndexChanged.connect(self._on_translation)
         row.addWidget(self.translation)
+
+        self.citation_input = QLineEdit()
+        self.citation_input.setMinimumWidth(220)
+        self.citation_input.setMaximumWidth(360)
+        self.citation_input.setPlaceholderText(tr("bible.citation_placeholder"))
+        self.citation_input.setToolTip(tr("bible.citation_help"))
+        self.citation_input.setClearButtonEnabled(True)
+        self.citation_input.returnPressed.connect(self._show_citations)
+        row.addWidget(self.citation_input, 1)
+
+        self.btn_citation_back = QToolButton()
+        self.btn_citation_back.setText("↩")
+        self.btn_citation_back.setToolTip(tr("bible.citation_back"))
+        self.btn_citation_back.clicked.connect(self._exit_citation_mode)
+        self.btn_citation_back.hide()
+        row.addWidget(self.btn_citation_back)
 
         row.addSpacing(8)
         self.book = QComboBox()
         self.book.setMinimumWidth(140)
+        self.book.setToolTip(tr("bible.book_help"))
         self.book.currentIndexChanged.connect(self._on_book)
         row.addWidget(self.book)
 
-        self.chapter = QSpinBox()
-        self.chapter.setMinimum(1)
-        self.chapter.setMaximum(200)
-        self.chapter.setFixedWidth(62)
-        self.chapter.valueChanged.connect(self._on_chapter)
+        self.chapter = QLineEdit()
+        self.chapter.setFixedWidth(52)
+        self.chapter.setAlignment(Qt.AlignCenter)
+        self.chapter.setValidator(QIntValidator(1, 200, self))
+        self.chapter.setToolTip(tr("bible.chapter_help"))
+        self.chapter.editingFinished.connect(self._on_chapter_edited)
         row.addWidget(self.chapter)
 
         self.btn_prev = QToolButton()
@@ -141,11 +250,14 @@ class BiblePane(QWidget):
 
         row.addSpacing(10)
         self.parallel = QCheckBox(tr("bible.parallel"))
+        self.parallel.setToolTip(tr("bible.parallel_help"))
         self.parallel.toggled.connect(self._on_parallel)
         row.addWidget(self.parallel)
         self.secondary = QComboBox()
         self.secondary.setMinimumWidth(150)
+        self.secondary.setToolTip(tr("bible.parallel_help"))
         self.secondary.currentIndexChanged.connect(self._on_secondary)
+        self.secondary.setVisible(self.parallel.isChecked())
         row.addWidget(self.secondary)
 
         row.addStretch(1)
@@ -153,14 +265,14 @@ class BiblePane(QWidget):
         self.btn_commentary = QToolButton()
         self.btn_commentary.setText(tr("bible.bottom_commentary"))
         self.btn_commentary.setCheckable(True)
-        self.btn_commentary.setToolTip(tr("bible.bottom_commentary"))
+        self.btn_commentary.setToolTip(tr("bible.bottom_commentary_help"))
         self.btn_commentary.clicked.connect(lambda: self._on_bottom_button("commentary"))
         row.addWidget(self.btn_commentary)
 
         self.btn_strong = QToolButton()
         self.btn_strong.setText(tr("bible.bottom_strong"))
         self.btn_strong.setCheckable(True)
-        self.btn_strong.setToolTip(tr("bible.bottom_strong"))
+        self.btn_strong.setToolTip(tr("bible.bottom_strong_help"))
         self.btn_strong.clicked.connect(lambda: self._on_bottom_button("strong"))
         row.addWidget(self.btn_strong)
 
@@ -169,14 +281,8 @@ class BiblePane(QWidget):
         self.bottom_group.addButton(self.btn_commentary)
         self.bottom_group.addButton(self.btn_strong)
 
-        self.btn_hide_bottom = QToolButton()
-        self.btn_hide_bottom.setText("▾")
-        self.btn_hide_bottom.setToolTip(tr("bible.bottom_hide"))
-        self.btn_hide_bottom.clicked.connect(lambda: self._set_bottom_page("", show=False))
-        row.addWidget(self.btn_hide_bottom)
-
         self.btn_search_sel = QPushButton("🔍")
-        self.btn_search_sel.setToolTip(tr("bible.search_word"))
+        self.btn_search_sel.setToolTip(tr("bible.search_word_help"))
         self.btn_search_sel.clicked.connect(self._search_selection)
         row.addWidget(self.btn_search_sel)
         return bar
@@ -191,13 +297,13 @@ class BiblePane(QWidget):
 
     @staticmethod
     def _center(browser) -> QWidget:
+        # Sin stretches laterales: el texto ocupa todo el ancho del panel.
+        # El margen de lectura lo pone el padding del QTextBrowser.
         host = QWidget()
         row = QHBoxLayout(host)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(0)
-        row.addStretch(1)
-        row.addWidget(browser, 10)
-        row.addStretch(1)
+        row.addWidget(browser)
         return host
 
     def _css(self) -> str:
@@ -222,10 +328,14 @@ class BiblePane(QWidget):
             self._refresh_commentary()
 
     def _on_bottom_button(self, page: str) -> None:
-        if not self.bottom.isVisible() or self.bottom.currentWidget() is not (
-            self.commentary if page == "commentary" else self.strong
-        ):
-            self._set_bottom_page(page, show=True)
+        widget = {
+            "commentary": self.commentary,
+            "strong": self.strong,
+        }.get(page)
+        if widget is None:
+            return
+        if self.bottom.isVisible() and self.bottom.currentWidget() is widget:
+            self._set_bottom_page("", show=False)
         else:
             self._set_bottom_page(page, show=True)
 
@@ -239,16 +349,11 @@ class BiblePane(QWidget):
     def reload_modules(self) -> None:
         self._loading = True
         bibles = self.ctx.bibles()
-        self.translation.clear()
-        for mod in bibles:
-            label = f"{mod['abbreviation']} — {mod['title']}" if mod["abbreviation"] else mod["title"]
-            self.translation.addItem(label[:90], mod["rel_path"])
-        idx = self.translation.findData(self._main_rel or self.settings.bible_module)
-        self.translation.setCurrentIndex(idx if idx >= 0 else 0)
-
-        self.secondary.clear()
-        for mod in bibles:
-            self.secondary.addItem(mod["abbreviation"] or mod["title"], mod["rel_path"])
+        fill_bible_combo(
+            self.translation, bibles,
+            self._main_rel or self.settings.bible_module,
+            editable=False,
+        )
         primary_rel = self.translation.currentData()
         previous_secondary = self._secondary_rel or ""
         default_secondary = previous_secondary
@@ -260,9 +365,7 @@ class BiblePane(QWidget):
                 default_secondary = preferred[0]["rel_path"]
             elif candidates:
                 default_secondary = max(candidates, key=lambda m: m["entries"] or 0)["rel_path"]
-        idx = self.secondary.findData(default_secondary)
-        if idx >= 0:
-            self.secondary.setCurrentIndex(idx)
+        fill_bible_combo(self.secondary, bibles, default_secondary, editable=False)
         self._secondary_rel = self.secondary.currentData() or ""
         self._loading = False
         self._main_rel = self.translation.currentData() or ""
@@ -333,7 +436,7 @@ class BiblePane(QWidget):
             self.book.setCurrentIndex(idx)
         self._sync_chapter_bounds()
         if ref.chapter:
-            self.chapter.setValue(ref.chapter)
+            self.chapter.setText(str(ref.chapter))
         self._loading = False
         self.reload(anchor=ref.verse)
 
@@ -358,8 +461,9 @@ class BiblePane(QWidget):
         self._loading = True
         if mod and mod.structure == "bible" and book_id:
             total = mod.chapter_count(int(book_id)) or 1
-            self.chapter.setMaximum(total)
-            self.chapter.setValue(max(1, min(self._current.chapter, total)))
+            self._chapter_max = total
+            chapter = max(1, min(self._current.chapter, total))
+            self.chapter.setText(str(chapter))
         self._loading = False
 
     def _step(self, delta: int) -> None:
@@ -368,26 +472,37 @@ class BiblePane(QWidget):
         if not mod:
             return
         book_id = self.book.currentData()
-        chapter = self.chapter.value()
+        chapter = self._chapter_value()
         max_ch = mod.chapter_count(int(book_id)) if book_id else 1
         chapter += delta
         if chapter < 1:
             idx = self.book.currentIndex() - 1
             if idx < 0:
                 return
+            self.book.blockSignals(True)
             self.book.setCurrentIndex(idx)
+            self.book.blockSignals(False)
             new_book = self.book.currentData()
-            self.chapter.setMaximum(mod.chapter_count(int(new_book)) or 1)
-            self.chapter.setValue(self.chapter.maximum())
+            self._chapter_max = mod.chapter_count(int(new_book)) or 1
+            self.chapter.setText(str(self._chapter_max))
+            self._exit_citation_mode()
+            self._on_chapter_edited()
             return
         if chapter > max_ch:
             idx = self.book.currentIndex() + 1
             if idx >= self.book.count():
                 return
+            self.book.blockSignals(True)
             self.book.setCurrentIndex(idx)
-            self.chapter.setValue(1)
+            self.book.blockSignals(False)
+            self._chapter_max = mod.chapter_count(int(self.book.currentData())) or 1
+            self.chapter.setText("1")
+            self._exit_citation_mode()
+            self._on_chapter_edited()
             return
-        self.chapter.setValue(chapter)
+        self.chapter.setText(str(chapter))
+        self._exit_citation_mode()
+        self._on_chapter_edited()
 
     # ── render ───────────────────────────────────────────────────────────
     def reload(self, anchor: int | None = None) -> None:
@@ -396,7 +511,7 @@ class BiblePane(QWidget):
         row = self._active_module()
         mod = self.ctx.module(row) if row else None
         book_id = self.book.currentData()
-        chapter = self.chapter.value()
+        chapter = self._chapter_value()
         if mod is None or not book_id:
             return
         self._current = Reference(int(book_id), int(chapter), anchor)
@@ -411,7 +526,14 @@ class BiblePane(QWidget):
             srow = self.ctx.catalog.by_rel_path(self.secondary.currentData() or "")
             smod = self.ctx.module(srow) if srow else None
             if smod:
-                self.second.setHtml(self._render_chapter(smod, int(book_id), int(chapter)))
+                if self._citation_mode and self.citations._refs:
+                    self.citations_second.show_chain(self.citations._refs, smod)
+                    self.second_stack.setCurrentWidget(self.citations_second)
+                else:
+                    self.second.setHtml(
+                        self._render_chapter(smod, int(book_id), int(chapter))
+                    )
+                    self.second_stack.setCurrentWidget(self.second_host)
 
         if self.bottom.isVisible():
             if self.bottom.currentWidget() is self.commentary:
@@ -419,6 +541,9 @@ class BiblePane(QWidget):
             elif self.bottom.currentWidget() is self.strong and self.strong.code:
                 self.strong.show_code(self.strong.code)
 
+        if self._citation_mode and self.citations._refs:
+            self.citations.show_chain(self.citations._refs, mod)
+            self.primary_stack.setCurrentWidget(self.citations)
         if anchor:
             self.primary.scrollToAnchor(f"v{anchor}")
         else:
@@ -529,28 +654,68 @@ class BiblePane(QWidget):
         return f"{tr('tooltip.note', marker=marker, ref=ref)}\n{text}"
 
     def _verse_tooltip(self, ref_text: str) -> str:
-        ref = parse_reference(ref_text)
-        if ref is None:
-            return ""
-        row = self._active_module()
-        mod = self.ctx.module(row) if row else None
-        if mod is None or mod.structure != "bible":
-            return ""
-        version = row.get("abbreviation") or ""
-        if ref.verse:
-            page = mod.bible_verse(ref.book, ref.chapter, ref.verse)
-            if page is None:
-                return ""
-            body = snippet(to_plain(page.raw, hint=mod.stem, codepages=mod.codepages), 320)
-            return f"{tr('tooltip.verse', ref=page.title, version=version)}\n{body}"
-        pages = mod.bible_chapter(ref.book, ref.chapter)
-        if not pages:
-            return ""
-        body = " ".join(
-            f"{p.verse} {to_plain(p.raw, hint=mod.stem, codepages=mod.codepages)}" for p in pages[:3]
-        )
-        label = f"{book_name(ref.book, self.settings.locale)} {ref.chapter}"
-        return f"{tr('tooltip.verse', ref=label, version=version)}\n{snippet(body, 320)}"
+        # Una sola implementación (rangos, cap de versículos y formato) en
+        # RefResolver; aquí solo se delega.
+        return self.ctx.refs.verse_tooltip(ref_text)
+
+    def _on_commentary_changed(self, _rel: str) -> None:
+        """El comentario elegido cambia las notas/burbujas del capítulo."""
+        self._comments_cache.clear()
+        scroll = self.primary.verticalScrollBar().value()
+        self.commentary.browser.clear_cache()
+        self.primary.clear_cache()
+        self.second.clear_cache()
+        if self._current.book and self._current.chapter:
+            self.reload()
+            self.primary.verticalScrollBar().setValue(scroll)
+
+    def _on_strong_changed(self, _rel: str) -> None:
+        """Un nuevo léxico invalida todas las burbujas Strong ya resueltas."""
+        RichBrowser.clear_all_caches()
+        self.ctx.refs.clear()
+
+    def _set_citation_mode(self, active: bool) -> None:
+        self._citation_mode = active
+        # Libro, capítulo y flechas siguen siempre visibles: ocultarlos dejaba
+        # la barra sin forma de volver a la navegación normal. El botón ↩ y el
+        # cambio de vista bastan para el modo de citas.
+        self.btn_citation_back.setVisible(active)
+        if not active:
+            self.primary_stack.setCurrentWidget(self.primary_host)
+            self.second_stack.setCurrentWidget(self.second_host)
+
+    def _exit_citation_mode(self) -> None:
+        if getattr(self, "_citation_mode", False):
+            self._set_citation_mode(False)
+
+    def _open_citation_reference(self, ref: Reference) -> None:
+        self._exit_citation_mode()
+        self.navigate(ref)
+
+    def _show_citations(self) -> None:
+        self.citation_input.setCursorPosition(0)
+        text = self.citation_input.text().strip()
+        if not text:
+            self._exit_citation_mode()
+            return
+        result = parse_reference_chain(text)
+        mod = self.ctx.module(self._active_module())
+        self.citations.show_chain(result.refs, mod)
+        self._set_citation_mode(True)
+        self.primary_stack.setCurrentWidget(self.citations)
+        if not result.refs:
+            return
+        ref = result.refs[0]
+        self._current = ref
+        self._loading = True
+        idx = self.book.findData(ref.book)
+        if idx >= 0:
+            self.book.setCurrentIndex(idx)
+        self._sync_chapter_bounds()
+        self.chapter.setText(str(ref.chapter))
+        self._loading = False
+        self.reload(anchor=ref.verse)
+        self.primary_stack.setCurrentWidget(self.citations)
 
     # ── navegación por recursos ──────────────────────────────────────────
     def _jump_to_note(self, book: int, chapter: int, verse: int, marker: str) -> None:
@@ -586,18 +751,30 @@ class BiblePane(QWidget):
     def _on_book(self, _index: int) -> None:
         if self._loading:
             return
+        self._exit_citation_mode()
         self._sync_chapter_bounds()
         self._current = Reference(int(self.book.currentData() or 1), 1)
         self.reload()
 
-    def _on_chapter(self, value: int) -> None:
+    def _chapter_value(self) -> int:
+        try:
+            value = int((self.chapter.text() or "1").strip())
+        except ValueError:
+            value = 1
+        return max(1, min(value, self._chapter_max or 200))
+
+    def _on_chapter_edited(self) -> None:
         if self._loading:
             return
+        self._exit_citation_mode()
+        value = self._chapter_value()
+        self.chapter.setText(str(value))
         self._current = Reference(int(self.book.currentData() or 1), value)
         self.reload()
 
     def _on_parallel(self, checked: bool) -> None:
         self.host_second.setVisible(checked)
+        self.secondary.setVisible(checked)
         if checked:
             self.reload()
 
@@ -607,7 +784,10 @@ class BiblePane(QWidget):
             self.reload()
 
     def _search_selection(self) -> None:
-        text = self.primary.textCursor().selectedText().strip()
+        browser = self.citations.browser if self._citation_mode else self.primary
+        text = browser.textCursor().selectedText().strip()
+        if not text:
+            text = self._current.label(self.settings.locale)
         if text:
             self.search_requested.emit(text)
 
@@ -709,4 +889,29 @@ class BiblePane(QWidget):
             browser.document().setDefaultStyleSheet(css)
         self.commentary.reload_theme()
         self.strong.reload_theme()
+        self.citations.show_chain(self.citations._refs, self.ctx.module(self._active_module()))
+        self.reload()
+
+    def retranslate(self) -> None:
+        self.lbl_translation.setText(tr("bible.translation"))
+        self.translation.setToolTip(tr("bible.translation_help"))
+        self.book.setToolTip(tr("bible.book_help"))
+        self.chapter.setToolTip(tr("bible.chapter_help"))
+        self.parallel.setText(tr("bible.parallel"))
+        self.parallel.setToolTip(tr("bible.parallel_help"))
+        self.secondary.setToolTip(tr("bible.parallel_help"))
+        self.btn_prev.setToolTip(tr("bible.prev"))
+        self.btn_next.setToolTip(tr("bible.next"))
+        self.btn_commentary.setText(tr("bible.bottom_commentary"))
+        self.btn_commentary.setToolTip(tr("bible.bottom_commentary_help"))
+        self.btn_strong.setText(tr("bible.bottom_strong"))
+        self.btn_strong.setToolTip(tr("bible.bottom_strong_help"))
+        self.btn_search_sel.setToolTip(tr("bible.search_word_help"))
+        self.citation_input.setPlaceholderText(tr("bible.citation_placeholder"))
+        self.citation_input.setToolTip(tr("bible.citation_help"))
+        self.btn_citation_back.setToolTip(tr("bible.citation_back"))
+        self.commentary.retranslate()
+        self.strong.retranslate()
+        self.citations.retranslate()
+        self.citations_second.retranslate()
         self.reload()
