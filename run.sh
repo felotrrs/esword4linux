@@ -19,4 +19,7 @@ if ! "$VENV/bin/python" -c "import PySide6, yaml" >/dev/null 2>&1; then
     "$VENV/bin/pip" -q install -e .
 fi
 
+# Set Qt platform to offscreen for headless environments
+export QT_QPA_PLATFORM=offscreen
+
 exec "$VENV/bin/python" -m linuxesword "$@"

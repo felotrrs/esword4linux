@@ -6,7 +6,9 @@ import base64
 import string
 
 from PySide6.QtCore import QByteArray, QSize, Qt, QTimer
-from PySide6.QtGui import QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPixmap
+from PySide6.QtGui import (
+    QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPen, QPixmap,
+)
 from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox,
     QProgressBar, QSizePolicy, QSplitter, QTabBar, QTabWidget, QToolButton,

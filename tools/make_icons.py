@@ -88,13 +88,16 @@ def clean_icon(source: QImage) -> QImage:
             top = min(top, y); bottom = max(bottom, y)
     if right < left or bottom < top:
         return image
-    side = max(right - left + 1, bottom - top + 1)
-    side = int(side * 1.08)
+    cw = right - left + 1
+    ch = bottom - top + 1
+    # Margen óptico mínimo (2%) para que el icono llene el contenedor
+    # como los demás iconos de aplicaciones de Linux (Adwaita, Papirus, Breeze).
+    side = max(int(max(cw, ch) * 1.02), max(cw, ch))
     canvas = QImage(side, side, QImage.Format.Format_ARGB32)
     canvas.fill(Qt.GlobalColor.transparent)
-    cropped = image.copy(left, top, right - left + 1, bottom - top + 1)
-    dx = (side - cropped.width()) // 2
-    dy = (side - cropped.height()) // 2
+    cropped = image.copy(left, top, cw, ch)
+    dx = (side - cw) // 2
+    dy = (side - ch) // 2
     from PySide6.QtGui import QPainter
     painter = QPainter(canvas)
     painter.drawImage(dx, dy, cropped)
