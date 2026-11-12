@@ -28,7 +28,8 @@ CONFIG_DIR = _xdg("XDG_CONFIG_HOME", "~/.config") / APP_NAME.lower()
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
 # Cache pesada (catálogo + índice FTS5). Debe vivir en StorageC.
-DEFAULT_CACHE_DIR = Path("/home/felipe/StorageC/linuxEsword/.cache")
+_base_storage = Path("/mnt/StorageC") if Path("/mnt/StorageC").exists() else Path("/home/felipe/StorageC")
+DEFAULT_CACHE_DIR = _base_storage / "linuxEsword/.cache"
 DEFAULT_RESOURCES_DIR = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
 
 # Módulos que se indexan al primer arranque para que la app sea usable de
@@ -66,6 +67,7 @@ class Settings:
     sidebar_grouping: list[str] = field(default_factory=lambda: ["kind"])
     sidebar_kind_filters: list[str] = field(default_factory=list)
     sidebar_language_filters: list[str] = field(default_factory=list)
+    show_unclassified: bool = False
     library_list_visible: bool = True   # panel de términos de diccionarios
     library_list_width: int = 300
     workspaces: list[dict] = field(default_factory=list)
@@ -99,6 +101,11 @@ class Settings:
     @property
     def cache_path(self) -> Path:
         p = Path(self.cache_dir)
+        s = str(p)
+        if s.startswith("/home/felipe/StorageC") and not Path("/home/felipe/StorageC").exists() and Path("/mnt/StorageC").exists():
+            p = Path(s.replace("/home/felipe/StorageC", "/mnt/StorageC", 1))
+        elif s.startswith("/mnt/StorageC") and not Path("/mnt/StorageC").exists() and Path("/home/felipe/StorageC").exists():
+            p = Path(s.replace("/mnt/StorageC", "/home/felipe/StorageC", 1))
         p.mkdir(parents=True, exist_ok=True)
         return p
 

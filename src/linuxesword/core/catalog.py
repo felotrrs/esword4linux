@@ -56,6 +56,7 @@ KIND_LABELS = {
     "commentary": ("Comentarios", "Commentaries"),
     "dictionary": ("Diccionarios", "Dictionaries"),
     "lexicon": ("Léxicos", "Lexicons"),
+    "book": ("Libros", "Books"),
     "devotion": ("Devocionales", "Devotionals"),
     "topic": ("Tópicos", "Topics"),
     "reference": ("Referencias", "References"),
@@ -72,7 +73,7 @@ EXCLUDED_DIRS = {
 }
 
 KIND_ORDER = [
-    "bible", "commentary", "dictionary", "lexicon", "devotion", "topic",
+    "bible", "commentary", "dictionary", "lexicon", "book", "devotion", "topic",
     "reference", "harmony", "maps", "twm", "unknown",
 ]
 
@@ -82,6 +83,7 @@ ROLE_LABELS = {
     "commentary": ("Notas", "Notes"),
     "dictionary": ("Diccionario", "Dictionary"),
     "lexicon": ("Léxico", "Lexicon"),
+    "book": ("Libro", "Book"),
     "devotion": ("Devocional", "Devotional"),
     "topic": ("Tópicos", "Topics"),
     "reference": ("Referencia", "Reference"),
@@ -106,10 +108,10 @@ def work_year(title: str) -> str:
     match = re.search(r"\b(1[89]\d{2}|20\d{2})\b", title or "")
     return match.group(1) if match else ""
 
-# Versión del bloque de metadatos que depende de la detección de idioma.
+# Versión del bloque de metadatos que depende de la detección de idioma y tipo.
 # Al cambiarla, el próximo escaneo re-procesa todos los módulos (sin tocar
 # los índices de contenido).
-METADATA_VERSION = "2026-11-11"
+METADATA_VERSION = "2026-11-12-heuristic"
 
 LANGUAGE_ORDER = ["es", "en", "fr", "pt", "de", "it", "la", "grc", "hbo", "und"]
 
@@ -311,6 +313,14 @@ class Catalog:
         self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        try:
+            self.conn.execute(
+                "UPDATE module SET kind = 'dictionary' WHERE kind = 'twm' "
+                "AND (lower(title) LIKE '%diccionario%' OR lower(rel_path) LIKE '%diccionario%')"
+            )
+            self.conn.commit()
+        except Exception:
+            pass
         self.conn.commit()
 
     def close(self) -> None:

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.5 — 2026-11-12
+
+### Añadido
+
+- **Visor interactivo de mapas e ilustraciones (`ImageViewer`)**: control de zoom suave con la rueda del ratón, arrastre con mano (pan), botones flotantes de acercar/alejar/100%/ajustar a ventana y visualización en diálogo a pantalla completa.
+- **Categoría y detección de Libros (`book`)**: sistema heurístico que diferencia entre tablas `Reference` con citas bíblicas cruzadas (`reference`) y obras/tratados literarios con capítulos secuenciales (`book`).
+- **Clasificación heurística de módulos TWM**: los módulos `.twm` se reclasifican según su contenido real como diccionarios, libros o tópicos, eliminando su estatus de categoría paria.
+- **Icono de lupa en la pestaña Buscar**: renderizado vectorial nítido en `ColoredTabBar` que se adapta a la paleta del tema.
+- **Ocultamiento de módulos de sistema / vacíos**: los módulos sin entradas o de interfaz (`headings`, `localize`) no se muestran por defecto en el panel lateral, con opción en *Ver → Mostrar archivos sin contenido / sin clasificar*.
+
+### Cambiado
+
+- **Consistencia visual en filtros**: los botones Tipo e Idioma ahora van juntos en el layout con el mismo estilo, tipografía, padding y bordes que los selectores de Agrupar.
+- **Tokens semánticos de tema**: `Palette` incorpora `success`, `error` y `strong` para unificar colores de estado en el árbol de recursos y texto bíblico respetando los temas claro y oscuro.
+- **Botones de cierre compactos**: los paneles de Comentario y Léxico usan botones ✕ circulares y discretos (`#closeButton`).
+
 ## 0.4.4 — 2026-11-12
 
 ### Corregido

@@ -15,6 +15,7 @@ from ..core.context import AppContext
 from ..core.refs import link_references
 from ..core.text import to_rich
 from ..i18n import tr
+from .image_viewer import ImageViewer
 from .rich_browser import RichBrowser
 from .theme import document_css
 
@@ -119,6 +120,16 @@ class LibraryView(QWidget):
         )
 
         self.detail.setMinimumWidth(DETAIL_MIN_WIDTH)
+        self.right_split = QSplitter(Qt.Vertical)
+        self.right_split.setChildrenCollapsible(False)
+        self.right_split.setMinimumWidth(DETAIL_MIN_WIDTH)
+        self.image_viewer = ImageViewer(self)
+        self.right_split.addWidget(self.image_viewer)
+        self.right_split.addWidget(self.detail)
+        self.right_split.setStretchFactor(0, 3)
+        self.right_split.setStretchFactor(1, 1)
+        self.image_viewer.setVisible(bool(self.mod and self.mod.structure == "maps"))
+
         self.left_dock = QWidget()
         dock_row = QHBoxLayout(self.left_dock)
         dock_row.setContentsMargins(0, 0, 0, 0)
@@ -131,7 +142,7 @@ class LibraryView(QWidget):
         self.handle.clicked.connect(self._toggle_list)
         dock_row.addWidget(self.handle, 0, Qt.AlignTop)
         self.split.addWidget(self.left_dock)
-        self.split.addWidget(self.detail)
+        self.split.addWidget(self.right_split)
         self.split.setStretchFactor(0, 0)
         self.split.setStretchFactor(1, 1)
         width = max(LIST_MIN_WIDTH, int(self.settings.library_list_width or 300))
@@ -242,25 +253,21 @@ class LibraryView(QWidget):
         parts.append(link_references(to_rich(page.raw, hint=self.mod.stem if self.mod else "", codepages=self.mod.codepages if self.mod else None)))
         if self.mod and self.mod.structure == "maps":
             pixmap = self.mod.map_picture(page.ref)
+            has_img = False
             if pixmap:
                 from PySide6.QtCore import QByteArray
 
                 img = QPixmap()
                 if img.loadFromData(QByteArray(pixmap)):
-                    from PySide6.QtCore import QUrl
-
-                    doc = self.detail.document()
-                    doc.addResource(
-                        doc.ResourceType.ImageResource,
-                        QUrl(f"map:{page.ref}"),
-                        img,
-                    )
-                    parts.append(
-                        f'<p><img src="map:{_html.escape(page.ref, quote=True)}" '
-                        f'width="{min(img.width(), 760)}"></p>'
-                    )
-            else:
+                    has_img = True
+                    self.image_viewer.set_pixmap(img, page.title)
+                    self.image_viewer.show()
+            if not has_img:
+                self.image_viewer.set_pixmap(QPixmap(), page.title)
+                self.image_viewer.hide()
                 parts.append(f'<p class="muted">{tr("map.no_image")}</p>')
+        else:
+            self.image_viewer.hide()
         self.detail.setHtml("".join(parts))
         self.detail.verticalScrollBar().setValue(0)
 

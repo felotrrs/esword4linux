@@ -31,9 +31,17 @@ Por eso `EswordModule._detect_structure()` decide por tablas, en este orden:
 | `devotion` | `Devotions` \| `Devotional` | `devotion` |
 | `harmony` | `Sections` + `Parts` | `harmony` |
 | `maps` | `Graphics` | `maps` |
-| `reference` | `Reference` | `reference` |
-| `topic` | `Topics` | `topic` |
-| `twm` | `topics` (+ `config`, `content`) | `twm` |
+| `reference` | `Reference` | `reference` (citas bíblicas) \| `book` (capítulos de libro) |
+| `topic` | `Topics` | `topic` \| `book` |
+| `twm` | `topics` (+ `config`, `content`) | `dictionary` \| `book` \| `topic` |
+
+**Heurística de contenido**: `EswordModule._detect_kind()` analiza el contenido real de
+las tablas:
+- En `Reference`, si las entradas de `Chapter` son citas bíblicas (`libro:cap:ver`), es `reference`;
+  si son capítulos o tratados literarios, se clasifica como `book`.
+- En `twm`, el contenido de `config` y los términos de `topics` deciden si es `dictionary` (ej. Hitchcock),
+  `book` o `topic`.
+- Módulos con 0 entradas o solo tablas de interfaz (`localize`, `headings`) se ocultan por defecto en la UI.
 
 **El orden importa**: `topics` (TWM) y `Topics` (tópico) solo se distinguen por
 la caja del nombre y por la presencia de `config`.

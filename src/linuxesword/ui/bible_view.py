@@ -582,6 +582,9 @@ class BiblePane(QWidget):
         """Convierte `<sup>`, `<ref>` y números Strong en anclas con burbuja."""
         entries = self._chapter_comments(book, chapter).get(verse, []) if verse else []
 
+        pal = palette(self.settings.theme)
+        strong_style = f"color:{pal.strong};font-size:82%;text-decoration:none;font-weight:600;"
+
         def sup(match: re.Match) -> str:
             inner = match.group(1)
             if 'href="strong:' in inner:
@@ -590,7 +593,7 @@ class BiblePane(QWidget):
             hit = _STRONG_IN_TEXT.search(plain)
             if hit:
                 code = hit.group(1)
-                return (f'<a href="strong:{code}" style="{_STRONG_STYLE}">'
+                return (f'<a href="strong:{code}" style="{strong_style}">'
                         f"<sup>{_html.escape(plain)}</sup></a>")
             marker = plain.strip("()[]{} ").strip()
             if not marker or len(marker) > 6 or not entries:

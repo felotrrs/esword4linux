@@ -68,7 +68,9 @@ class CommentaryPane(QWidget):
         row.addWidget(self.btn_open)
 
         self.btn_hide = QPushButton("✕")
-        self.btn_hide.setFixedWidth(30)
+        self.btn_hide.setObjectName("closeButton")
+        self.btn_hide.setFixedSize(24, 24)
+        self.btn_hide.setCursor(Qt.PointingHandCursor)
         self.btn_hide.setToolTip(tr("bible.comments_off"))
         self.btn_hide.clicked.connect(lambda: self.setVisible(False))
         self.btn_hide.clicked.connect(self._notify_hidden)

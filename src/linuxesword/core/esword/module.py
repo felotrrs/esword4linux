@@ -90,7 +90,7 @@ class EswordModule:
         except sqlite3.Error as exc:
             raise ModuleError(f"no se pudo abrir {self.path.name}: {exc}") from exc
         self.structure = self._detect_structure()
-        self.kind = KIND_BY_STRUCTURE.get(self.structure, "unknown")
+        self.kind = self._detect_kind()
 
     # ── ciclo de vida ────────────────────────────────────────────────────
     def close(self) -> None:
@@ -130,6 +130,77 @@ class EswordModule:
         if "topics" in t:
             return "twm"
         return "unknown"
+
+    def _detect_kind(self) -> str:
+        """Determina la categoría lógica del módulo analizando estructura y contenido."""
+        if self.structure == "reference":
+            return self._classify_reference()
+        if self.structure == "twm":
+            return self._classify_twm()
+        if self.structure == "topic":
+            return self._classify_topic()
+        return KIND_BY_STRUCTURE.get(self.structure, "unknown")
+
+    def _classify_reference(self) -> str:
+        """Distingue entre referencias cruzadas bíblicas y libros/tratados."""
+        try:
+            import re
+            rows = self.conn.execute("SELECT Chapter FROM Reference LIMIT 40").fetchall()
+            if not rows:
+                return "reference"
+            verse_like = 0
+            for r in rows:
+                val = str(r[0] or "").strip()
+                if re.match(r"^\d+:\d+(?::\d+)?$", val):
+                    verse_like += 1
+            if verse_like / len(rows) >= 0.4:
+                return "reference"
+            return "book"
+        except Exception:
+            return "reference"
+
+    def _classify_twm(self) -> str:
+        """Clasifica un módulo TWM según su contenido (diccionario, libro o tópico)."""
+        try:
+            import re
+            rows = self.conn.execute(
+                "SELECT name, value FROM config WHERE name IN ('title', 'type', 'description', 'subject')"
+            ).fetchall()
+            cfg = {str(r[0]).lower(): str(r[1] or "").lower() for r in rows}
+            text = " ".join(cfg.values()) + " " + self.path.stem.lower()
+
+            dict_keywords = (
+                "diccionario", "dictionary", "lexicon", "lexico", "vocabulario",
+                "glosario", "hitchcock", "strong", "concordancia", "definicion"
+            )
+            if any(k in text for k in dict_keywords) or cfg.get("type") in ("dict", "dictionary"):
+                return "dictionary"
+
+            book_keywords = ("libro", "book", "tratado", "manual", "historia", "comentario", "commentary")
+            if any(k in text for k in book_keywords) or cfg.get("type") in ("book", "commentary"):
+                return "book"
+
+            cur = self.conn.execute("SELECT subject FROM topics LIMIT 35")
+            subjects = [str(r[0] or "").strip() for r in cur.fetchall()]
+            if subjects:
+                avg_len = sum(len(s) for s in subjects) / len(subjects)
+                if avg_len <= 16:
+                    return "dictionary"
+                if any(re.match(r"^(?:cap[íi]tulo|cap\.?|secci[óo]n)\s+\d+", s, re.I) for s in subjects):
+                    return "book"
+            return "topic"
+        except Exception:
+            return "topic"
+
+    def _classify_topic(self) -> str:
+        try:
+            det = self.details()
+            title = (det.get("Title") or det.get("Description") or self.path.stem).lower()
+            if any(k in title for k in ("libro de ", "tratado de ", "manual de ", "biografía de ", "historia de ")):
+                return "book"
+            return "topic"
+        except Exception:
+            return "topic"
 
     @property
     def encrypted(self) -> bool:
@@ -849,6 +920,7 @@ KIND_BY_STRUCTURE = {
     "commentary": "commentary",
     "dictionary": "dictionary",
     "lexicon": "lexicon",
+    "book": "book",
     "devotion": "devotion",
     "topic": "topic",
     "harmony": "harmony",

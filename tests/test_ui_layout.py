@@ -138,6 +138,8 @@ def test_citation_view_replaces_main_bible_and_back_returns():
     pane.show()
     app.processEvents()
     try:
+        if not pane.book.count():
+            pytest.skip("No hay biblias accesibles en el corpus para probar navegación")
         before = pane.chapter.text()
         pane._step(1)
         app.processEvents()

@@ -22,18 +22,23 @@ class Palette:
     highlight: str
     comment_bg: str
     verse_num: str
+    success: str = "#2e7d32"
+    error: str = "#c62828"
+    strong: str = "#8f6bc4"
 
 
 LIGHT = Palette(
     bg="#fbf9f4", panel="#f3efe6", panel_alt="#ece6d9", border="#d9d2c2",
     text="#26231d", muted="#6f685a", accent="#9a6a3a", accent_text="#ffffff",
     link="#2f5d8a", highlight="#f6e3b4", comment_bg="#f6f1e4", verse_num="#9a6a3a",
+    success="#2e7d32", error="#c62828", strong="#8f6bc4",
 )
 
 DARK = Palette(
     bg="#12110f", panel="#201e1a", panel_alt="#302c25", border="#574f40",
     text="#f0e9db", muted="#b9ae9b", accent="#e0a96b", accent_text="#17130e",
     link="#9cc4e8", highlight="#6a5328", comment_bg="#2a2419", verse_num="#e0a96b",
+    success="#66bb6a", error="#ef5350", strong="#b39ddb",
 )
 
 
@@ -86,6 +91,13 @@ QPushButton:hover {{ border-color: {p.accent}; }}
 QPushButton:pressed {{ background: {p.border}; }}
 QPushButton#primary {{ background: {p.accent}; color: {p.accent_text}; border: 0; }}
 QPushButton#primary:hover {{ background: {p.accent}; }}
+QPushButton#closeButton, QToolButton#closeButton {{
+    background: transparent; color: {p.muted}; border: 0;
+    border-radius: 12px; font-weight: 700; font-size: 13px; padding: 0;
+}}
+QPushButton#closeButton:hover, QToolButton#closeButton:hover {{
+    background: {p.panel_alt}; color: {p.text};
+}}
 
 QCheckBox {{ spacing: 6px; }}
 
@@ -105,7 +117,7 @@ QToolButton {{
 }}
 QToolButton:hover {{ border-color: {p.accent}; }}
 QToolButton:checked {{ background: {p.accent}; color: {p.accent_text}; border-color: {p.accent}; }}
-QToolButton#sidebarMode, QToolButton#organizerFilter {{ padding: 4px 3px; }}
+QToolButton#sidebarMode {{ padding: 4px 3px; }}
 QFrame#sidebarOrganizer {{
     background: {p.panel_alt}; border: 1px solid {p.border};
     border-radius: 8px;
@@ -115,12 +127,16 @@ QLabel#organizerLabel {{
     font-weight: 700;
 }}
 QLabel#organizerSep {{ color: {p.muted}; padding: 0 1px; }}
-QComboBox#organizerCombo {{
-    padding: 2px 2px; background: {p.panel}; border-radius: 5px;
+QComboBox#organizerCombo, QToolButton#organizerFilter {{
+    padding: 3px 6px; background: {p.panel}; color: {p.text};
+    border: 1px solid {p.border}; border-radius: 5px;
     font-size: {max(9, font_size - 5)}px;
 }}
+QComboBox#organizerCombo:focus, QToolButton#organizerFilter:hover {{
+    border-color: {p.accent};
+}}
 QComboBox#organizerCombo::drop-down {{ width: 12px; }}
-QToolButton#organizerFilter {{ font-size: {max(9, font_size - 4)}px; }}
+QToolButton#organizerFilter::menu-indicator {{ subcontrol-position: right center; subcontrol-origin: padding; width: 12px; }}
 
 QToolButton#sidebarHandle {{
     background: {p.panel}; color: {p.muted};
@@ -207,6 +223,8 @@ p {{ margin: 0 0 6px 0; }}
     margin: 16px 0 8px 0; }}
 b {{ color: {p.text}; }}
 a {{ color: {p.link}; }}
+a.strong {{ color: {p.strong}; font-size: 82%; text-decoration: none; font-weight: 600; }}
+a.strong:hover {{ text-decoration: underline; }}
 .entry-title {{ color: {p.accent}; font-family: "{serif_family}", Georgia, serif;
     font-size: {font_size + 4}px; font-weight: 700; margin-bottom: 10px; }}
 """

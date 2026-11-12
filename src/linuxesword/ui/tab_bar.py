@@ -82,7 +82,9 @@ class ColoredTabBar(QTabBar):
     def tabSizeHint(self, index: int) -> QSize:  # noqa: N802
         base = super().tabSizeHint(index)
         closable = index >= self._first_closable()
-        width = base.width() + (CLOSE_W + CLOSE_MARGIN if closable else 14)
+        icon = self.tabIcon(index)
+        icon_w = 20 if not icon.isNull() else 0
+        width = base.width() + (CLOSE_W + CLOSE_MARGIN if closable else 14) + icon_w
         width = max(MIN_TAB_W, min(MAX_TAB_W, width + 18))
         return QSize(width, TAB_H)
 
@@ -144,9 +146,17 @@ class ColoredTabBar(QTabBar):
         painter.setFont(font)
         painter.setPen(fg)
 
+        icon = self.tabIcon(index)
+        left_pad = 12
+        if not icon.isNull():
+            icon_size = 14
+            icon_rect = QRect(rect.left() + 10, rect.center().y() - icon_size // 2, icon_size, icon_size)
+            icon.paint(painter, icon_rect)
+            left_pad = 10 + icon_size + 6
+
         closable = index >= self._first_closable()
         right_pad = (CLOSE_W + CLOSE_MARGIN) if closable else 10
-        text_rect = rect.adjusted(12, 0, -right_pad, 0)
+        text_rect = rect.adjusted(left_pad, 0, -right_pad, 0)
         elided = painter.fontMetrics().elidedText(
             self.tabText(index), Qt.ElideRight, text_rect.width()
         )

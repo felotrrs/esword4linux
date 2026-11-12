@@ -60,7 +60,9 @@ class StrongPane(QWidget):
         row.addWidget(self.btn_open)
 
         self.btn_hide = QPushButton("✕")
-        self.btn_hide.setFixedWidth(30)
+        self.btn_hide.setObjectName("closeButton")
+        self.btn_hide.setFixedSize(24, 24)
+        self.btn_hide.setCursor(Qt.PointingHandCursor)
         self.btn_hide.clicked.connect(self._hide)
         row.addWidget(self.btn_hide)
 

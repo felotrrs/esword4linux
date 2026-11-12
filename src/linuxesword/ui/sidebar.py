@@ -8,7 +8,7 @@ disponible y se aplica sobre la jerarquía resultante.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtGui import QAction, QColor, QFont
 from PySide6.QtWidgets import (
     QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu, QSizePolicy,
     QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
@@ -18,6 +18,7 @@ from ..core.catalog import KIND_ORDER, work_key
 from ..core.context import AppContext
 from ..i18n import tr
 from .language import language_label, language_sort_key
+from .theme import palette
 
 STATUS_GLYPH = {"ready": "●", "pending": "○", "indexing": "◐", "failed": "✕",
                 "skipped": "–"}
@@ -103,23 +104,25 @@ class Sidebar(QWidget):
         org.addWidget(self.filter_label)
 
         filter_row = QHBoxLayout()
-        filter_row.setSpacing(4)
+        filter_row.setSpacing(2)
         self.btn_kind_filter = QToolButton()
         self.btn_kind_filter.setObjectName("organizerFilter")
         self.btn_kind_filter.setPopupMode(QToolButton.InstantPopup)
+        self.btn_kind_filter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.kind_menu = QMenu(self.btn_kind_filter)
         self.kind_menu.aboutToShow.connect(self._fill_kind_menu)
         self.btn_kind_filter.setMenu(self.kind_menu)
         filter_row.addWidget(self.btn_kind_filter, 1)
+
         self.btn_language_filter = QToolButton()
         self.btn_language_filter.setObjectName("organizerFilter")
         self.btn_language_filter.setPopupMode(QToolButton.InstantPopup)
+        self.btn_language_filter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.language_menu = QMenu(self.btn_language_filter)
         self.language_menu.aboutToShow.connect(self._fill_language_menu)
         self.btn_language_filter.setMenu(self.language_menu)
-        for btn in (self.btn_kind_filter, self.btn_language_filter):
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            filter_row.addWidget(btn, 1)
+        filter_row.addWidget(self.btn_language_filter, 1)
+
         org.addLayout(filter_row)
         wrap_org = QWidget()
         wrap_layout = QVBoxLayout(wrap_org)
@@ -298,6 +301,9 @@ class Sidebar(QWidget):
 
     def _filtered_modules(self) -> list[dict]:
         modules = self.ctx.catalog.modules()
+        show_unclassified = getattr(self.settings, "show_unclassified", False)
+        if not show_unclassified and "unknown" not in self._kind_filters:
+            modules = [m for m in modules if not (m.get("kind") == "unknown" and (m.get("entries") or 0) == 0)]
         if self._kind_filters:
             modules = [m for m in modules if m["kind"] in self._kind_filters]
         if self._language_filters:
@@ -409,10 +415,11 @@ class Sidebar(QWidget):
         item = QTreeWidgetItem([text])
         item.setData(0, Qt.UserRole, mod["id"])
         item.setToolTip(0, self._tooltip(mod))
+        p = palette(self.settings.theme)
         if status == "ready":
-            item.setForeground(0, Qt.GlobalColor.darkGreen)
+            item.setForeground(0, QColor(p.success))
         elif status == "failed":
-            item.setForeground(0, Qt.GlobalColor.darkRed)
+            item.setForeground(0, QColor(p.error))
         return item
 
     @staticmethod

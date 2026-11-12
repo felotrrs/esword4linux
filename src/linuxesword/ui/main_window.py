@@ -54,6 +54,22 @@ def color_dot(color: str, size: int = 12) -> QIcon:
     return QIcon(pm)
 
 
+def search_icon(color: str = "#8a8378", size: int = 14) -> QIcon:
+    pm = QPixmap(QSize(size, size))
+    pm.fill(Qt.transparent)
+    painter = QPainter(pm)
+    painter.setRenderHint(QPainter.Antialiasing)
+    pen = QPen(QColor(color), 1.7)
+    pen.setCapStyle(Qt.RoundCap)
+    painter.setPen(pen)
+    painter.setBrush(Qt.NoBrush)
+    d = size - 6
+    painter.drawEllipse(1, 1, d, d)
+    painter.drawLine(d - 1, d - 1, size - 2, size - 2)
+    painter.end()
+    return QIcon(pm)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, ctx: AppContext):
         super().__init__()
@@ -94,7 +110,8 @@ class MainWindow(QMainWindow):
         self.search = SearchView(self.ctx)
         self.search.open_hit.connect(self._open_hit)
         self.search.go_reference.connect(self._go_reference)
-        self.tabs.addTab(self.search, tr("search.tab"))
+        p = palette(self.settings.theme)
+        self.tabs.addTab(self.search, search_icon(p.muted), tr("search.tab"))
 
         self.sidebar_dock = self._build_sidebar_dock()
         self.sidebar.setVisible(self.settings.sidebar_visible)
@@ -188,6 +205,11 @@ class MainWindow(QMainWindow):
         self.act_sidebar.setShortcut(QKeySequence("Ctrl+B"))
         self.act_sidebar.triggered.connect(self.toggle_sidebar)
         m_view.addAction(self.act_sidebar)
+        act_unclass = QAction(tr("menu.view.show_unclassified"), self)
+        act_unclass.setCheckable(True)
+        act_unclass.setChecked(getattr(self.settings, "show_unclassified", False))
+        act_unclass.triggered.connect(self._toggle_show_unclassified)
+        m_view.addAction(act_unclass)
         m_view.addSeparator()
         group = QActionGroup(self)
         group.setExclusive(True)
@@ -393,6 +415,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, "act_sidebar"):
             self.act_sidebar.setChecked(visible)
 
+    def _toggle_show_unclassified(self, checked: bool) -> None:
+        self.settings.show_unclassified = checked
+        self.settings.save()
+        self.sidebar.refresh()
+
     # ── recursos ─────────────────────────────────────────────────────────
     def open_resource(self, module_id: int) -> None:
         """Clic en el panel lateral: carga el recurso en la pestaña activa."""
@@ -541,6 +568,8 @@ class MainWindow(QMainWindow):
         self.settings.theme = theme
         self.settings.save()
         set_check_style_theme(theme)
+        p = palette(theme)
+        self.tabs.setTabIcon(0, search_icon(p.muted))
         self.setStyleSheet(stylesheet(theme, self.settings.font_size))
         self._apply_tab_palette()
         for ws in self._workspaces:
@@ -596,6 +625,8 @@ class MainWindow(QMainWindow):
                 self.tabs.setTabText(idx, ws.name)
                 self.tabs.setTabToolTip(idx, self._workspace_tooltip(ws))
         self.tabs.setTabText(0, tr("search.tab"))
+        p = palette(self.settings.theme)
+        self.tabs.setTabIcon(0, search_icon(p.muted))
         self.search.retranslate()
         self._refresh_status()
 
