@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
     # ── UI ───────────────────────────────────────────────────────────────
     def _build_ui(self) -> None:
         self.setWindowTitle(tr("app.title"))
-        self.setWindowIcon(QIcon(str(asset("linuxesword.png"))))
+        self.setWindowIcon(QIcon(str(asset("linuxesword3.jpeg"))))
         self.resize(1400, 900)
 
         self.sidebar = Sidebar(self.ctx)

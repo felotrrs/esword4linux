@@ -2,7 +2,8 @@
 
 Una pestaña agrupa un recurso principal. Si es una biblia, incluye su propia
 biblia paralela y su propio panel de comentario. Si no es biblia, muestra el
-visor del módulo y no ofrece controles de biblia.
+visor del módulo y ofrece un selector de biblia de referencia para burbujas y
+apertura de citas desde esa obra.
 """
 
 from __future__ import annotations
@@ -14,8 +15,9 @@ from PySide6.QtWidgets import QStackedWidget, QVBoxLayout, QWidget
 
 from ..core.context import AppContext
 from ..i18n import tr
-from .bible_view import BiblePane
+from .bible_view import BiblePane, fill_bible_combo
 from .library_view import LibraryView
+from .rich_browser import RichBrowser
 
 
 class Workspace(QWidget):
@@ -35,6 +37,8 @@ class Workspace(QWidget):
         self.main_rel = ""
         self.main_kind = ""
         self._library: LibraryView | None = None
+        # Biblia de referencia independiente para workspaces no-biblia
+        self._ref_bible_rel: str = ""
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -50,6 +54,23 @@ class Workspace(QWidget):
         self.placeholder = QWidget()
         self.stack.addWidget(self.placeholder)
         layout.addWidget(self.stack)
+
+    # ── biblia de referencia para workspaces no-biblia ───────────────────
+    def ref_bible_rel(self) -> str:
+        """Ruta relativa de la biblia de referencia de este workspace."""
+        return self._ref_bible_rel
+
+    def set_ref_bible_rel(self, rel: str) -> None:
+        """Establece la biblia de referencia de este workspace (independiente)."""
+        rel = rel or ""
+        self._ref_bible_rel = rel
+        if self._library is not None:
+            self._library.set_reference_bible(self._ref_bible_rel)
+        # Notificar al resolvedor de burbujas para que las citas de esta obra
+        # se resuelvan con la traducción elegida en este workspace.
+        if rel:
+            self.ctx.refs.set_bible(rel)
+            RichBrowser.clear_all_caches()
 
     # ── recurso principal ────────────────────────────────────────────────
     def set_main(self, row: dict | None, ref: str | None = None) -> None:
@@ -67,10 +88,16 @@ class Workspace(QWidget):
             self.bible.load_module(row)
             return
         old = self._library
-        self._library = LibraryView(self.ctx, row, initial_ref=ref)
+        self._library = LibraryView(self.ctx, row, initial_ref=ref,
+                                    ref_bible_rel=self._ref_bible_rel
+                                    or self.settings.reference_bible or "")
         self._library.open_reference.connect(self.reference_requested)
+        self._library.ref_bible_changed.connect(self.set_ref_bible_rel)
         self.stack.addWidget(self._library)
         self.stack.setCurrentWidget(self._library)
+        # Propagar la biblia de referencia al resolvedor de burbujas desde el
+        # arranque del workspace (restauración de estado o carga inicial).
+        self.set_ref_bible_rel(self._ref_bible_rel)
         if old is not None:
             self.stack.removeWidget(old)
             old.deleteLater()
@@ -95,6 +122,8 @@ class Workspace(QWidget):
                 "commentary_rel": self.bible.commentary_rel(),
                 "split": list(self.bible.split_sizes()),
             })
+        else:
+            data["ref_bible_rel"] = self._ref_bible_rel
         return data
 
     def apply_state(self, data: dict) -> None:
@@ -105,13 +134,15 @@ class Workspace(QWidget):
         auto = data.get("name_auto")
         letter = data.get("auto_letter") or ""
         if auto is None:
-            match = re.match(r"^(?:Pestaña|Tab)\s+([A-Z])$", self.name)
+            match = re.match(r"^(?:Pestaña|Espacio|Tab|Workspace)\s+([A-Z])$", self.name)
             auto = bool(match)
             letter = match.group(1) if match else letter
         self.name_auto = bool(auto)
         self.auto_letter = letter
         if self.name_auto and self.auto_letter:
             self.name = tr("workspace.default_name", letter=self.auto_letter)
+        # Restaurar biblia de referencia antes de cargar el módulo
+        self._ref_bible_rel = data.get("ref_bible_rel") or ""
         rel = data.get("main_rel") or ""
         row = self.ctx.catalog.by_rel_path(rel) if rel else None
         if row is None:
@@ -143,3 +174,4 @@ class Workspace(QWidget):
 
     def label(self) -> str:
         return self.name
+

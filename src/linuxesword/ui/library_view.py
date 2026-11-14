@@ -8,13 +8,14 @@ from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QSplitter, QToolButton, QVBoxLayout, QWidget,
+    QSplitter, QStackedWidget, QToolButton, QVBoxLayout, QWidget,
 )
 
 from ..core.context import AppContext
 from ..core.refs import link_references
 from ..core.text import to_rich
 from ..i18n import tr
+from .bible_view import fill_bible_combo
 from .image_viewer import ImageViewer
 from .rich_browser import RichBrowser
 from .theme import document_css
@@ -27,15 +28,21 @@ HANDLE_WIDTH = 15
 
 class LibraryView(QWidget):
     open_reference = Signal(str)
+    # Emitida cuando el usuario cambia la biblia de referencia de este workspace
+    ref_bible_changed = Signal(str)
 
     def __init__(self, ctx: AppContext, module: dict, initial_ref: str | None = None,
-                 parent=None):
+                 ref_bible_rel: str = "", parent=None):
         super().__init__(parent)
         self.ctx = ctx
         self.settings = ctx.settings
         self.module_row = module
         self.mod = ctx.module(module)
         self.initial_ref = initial_ref
+        self._ref_bible_rel = (
+            ref_bible_rel or self.settings.reference_bible
+            or self.settings.bible_module or ""
+        )
         self._filter_timer = QTimer(self)
         self._filter_timer.setSingleShot(True)
         self._filter_timer.setInterval(180)
@@ -62,6 +69,33 @@ class LibraryView(QWidget):
         box.addWidget(self.sub_label)
         head_row.addLayout(box)
         head_row.addStretch(1)
+
+        # ── tamaño de la imagen (mapas/ilustraciones) ────────────────────
+        self.lbl_map_size = QLabel("")
+        self.lbl_map_size.setObjectName("mapSize")
+        self.lbl_map_size.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_map_size.hide()
+        head_row.addWidget(self.lbl_map_size)
+
+        # ── selector de Biblia de referencia ─────────────────────────────
+        bibles = self.ctx.bibles()
+        if bibles:
+            self._bible_lbl = QLabel(tr("workspace.bible") + ":")
+            self._bible_lbl.setObjectName("appSubtitle")
+            self._bible_combo = QComboBox()
+            # Reutilizamos la función ya existente en bible_view
+            fill_bible_combo(self._bible_combo, bibles,
+                             self._ref_bible_rel, editable=False)
+            # Si no hay selección, seleccionar el primero disponible
+            self._sync_combo_to_rel(self._ref_bible_rel)
+            self._bible_combo.setToolTip(tr("workspace.bible_help"))
+            self._bible_combo.currentIndexChanged.connect(self._on_bible_changed)
+            head_row.addWidget(self._bible_lbl)
+            head_row.addWidget(self._bible_combo)
+        else:
+            self._bible_lbl = None
+            self._bible_combo = None
+
         layout.addWidget(head)
 
         self.split = QSplitter(Qt.Horizontal)
@@ -124,11 +158,14 @@ class LibraryView(QWidget):
         self.right_split.setChildrenCollapsible(False)
         self.right_split.setMinimumWidth(DETAIL_MIN_WIDTH)
         self.image_viewer = ImageViewer(self)
+        self.image_viewer.legend_toggled.connect(self._toggle_legend)
+        self.image_viewer.image_size.connect(self._on_image_size)
         self.right_split.addWidget(self.image_viewer)
         self.right_split.addWidget(self.detail)
         self.right_split.setStretchFactor(0, 3)
         self.right_split.setStretchFactor(1, 1)
         self.image_viewer.setVisible(bool(self.mod and self.mod.structure == "maps"))
+        self._legend_visible = True
 
         self.left_dock = QWidget()
         dock_row = QHBoxLayout(self.left_dock)
@@ -156,6 +193,46 @@ class LibraryView(QWidget):
         entries = self.module_row.get("entries") or 0
         extra = " · " + tr("badge.encrypted") if self.module_row.get("encrypted") else ""
         return f"{kind} · {entries} {tr('lib.entries').lower()}{extra}"
+
+    # ── Biblia de referencia ─────────────────────────────────────────────
+    def _sync_combo_to_rel(self, rel: str) -> None:
+        """Selecciona en el combo el item cuyo UserRole == rel."""
+        if self._bible_combo is None:
+            return
+        self._bible_combo.blockSignals(True)
+        model = self._bible_combo.model()
+        target = -1
+        first_selectable = -1
+        for i in range(model.rowCount()):
+            item_rel = model.item(i).data(Qt.UserRole) if model.item(i) else None
+            if item_rel is not None:
+                if first_selectable < 0:
+                    first_selectable = i
+                if item_rel == rel:
+                    target = i
+                    break
+        if target >= 0:
+            self._bible_combo.setCurrentIndex(target)
+        elif first_selectable >= 0:
+            self._bible_combo.setCurrentIndex(first_selectable)
+            # Actualizar _ref_bible_rel al primero disponible
+            first_item = model.item(first_selectable)
+            if first_item:
+                self._ref_bible_rel = first_item.data(Qt.UserRole) or ""
+        self._bible_combo.blockSignals(False)
+
+    def _on_bible_changed(self, index: int) -> None:
+        if self._bible_combo is None:
+            return
+        rel = self._bible_combo.currentData(Qt.UserRole)
+        if rel and rel != self._ref_bible_rel:
+            self._ref_bible_rel = rel
+            self.ref_bible_changed.emit(rel)
+
+    def set_reference_bible(self, rel: str) -> None:
+        """Actualiza el selector cuando el workspace cambia la biblia externamente."""
+        self._ref_bible_rel = rel or ""
+        self._sync_combo_to_rel(self._ref_bible_rel)
 
     def _apply_list_constraints(self, visible: bool) -> None:
         if visible:
@@ -253,6 +330,9 @@ class LibraryView(QWidget):
         parts.append(link_references(to_rich(page.raw, hint=self.mod.stem if self.mod else "", codepages=self.mod.codepages if self.mod else None)))
         if self.mod and self.mod.structure == "maps":
             pixmap = self.mod.map_picture(page.ref)
+            self.image_viewer.show()
+            # Estado inicial de la leyenda (memoria de la pestaña).
+            self.image_viewer.set_legend_visible(self._legend_visible)
             has_img = False
             if pixmap:
                 from PySide6.QtCore import QByteArray
@@ -261,15 +341,29 @@ class LibraryView(QWidget):
                 if img.loadFromData(QByteArray(pixmap)):
                     has_img = True
                     self.image_viewer.set_pixmap(img, page.title)
-                    self.image_viewer.show()
             if not has_img:
                 self.image_viewer.set_pixmap(QPixmap(), page.title)
-                self.image_viewer.hide()
                 parts.append(f'<p class="muted">{tr("map.no_image")}</p>')
         else:
             self.image_viewer.hide()
+            self.lbl_map_size.hide()
         self.detail.setHtml("".join(parts))
+        self.detail.setVisible(self.mod is None or self.mod.structure != "maps" or self._legend_visible)
         self.detail.verticalScrollBar().setValue(0)
+
+    def _toggle_legend(self, checked: bool) -> None:
+        """Oculta o muestra la leyenda (texto Details) de un mapa/ilustración."""
+        self._legend_visible = bool(checked)
+        if self.mod and self.mod.structure == "maps":
+            self.detail.setVisible(self._legend_visible)
+
+    def _on_image_size(self, text: str) -> None:
+        """Muestra u oculta el tamaño de píxeles junto al combobox de Biblia."""
+        if self.mod and self.mod.structure == "maps" and text:
+            self.lbl_map_size.setText(text)
+            self.lbl_map_size.show()
+        else:
+            self.lbl_map_size.hide()
 
     def retranslate(self) -> None:
         self.title_label.setText(self.module_row.get("title") or "")
@@ -277,6 +371,10 @@ class LibraryView(QWidget):
         self.filter.setPlaceholderText(tr("lib.filter_placeholder"))
         self.filter.setToolTip(tr("lib.filter_help"))
         self._update_handle()
+        if self._bible_lbl is not None:
+            self._bible_lbl.setText(tr("workspace.bible") + ":")
+        if self._bible_combo is not None:
+            self._bible_combo.setToolTip(tr("workspace.bible_help"))
         current = self.list.currentItem()
         if current is not None:
             self._on_select(current, None)
@@ -294,3 +392,4 @@ class LibraryView(QWidget):
     def _on_anchor(self, url) -> None:
         if url.scheme() == "ref":
             self.open_reference.emit(url.path() or url.toString()[4:])
+

@@ -72,6 +72,14 @@ EXCLUDED_DIRS = {
     "System Volume Information", "$RECYCLE.BIN", "lost+found",
 }
 
+# Archivos de sistema/localización de e-Sword que no son módulos de estudio:
+# `headings.*` son encabezados de biblia y `localize.lanx` las tablas de
+# idiomas de la aplicación e-Sword. No tienen contenido navegable.
+EXCLUDED_FILES = {
+    "headings.es", "headings_en.en", "headings_fr.fr", "headings_pt.pt",
+    "localize.lanx",
+}
+
 KIND_ORDER = [
     "bible", "commentary", "dictionary", "lexicon", "book", "devotion", "topic",
     "reference", "harmony", "maps", "twm", "unknown",
@@ -392,6 +400,8 @@ class Catalog:
                 if d not in EXCLUDED_DIRS and not d.startswith(".")
             ]
             for fn in filenames:
+                if fn in EXCLUDED_FILES:
+                    continue
                 path = Path(dirpath) / fn
                 if path.suffix.lower() in ESWORD_EXTS and path.is_file():
                     out.append(path)
@@ -433,11 +443,23 @@ class Catalog:
     def _probe(self, path: Path) -> dict:
         with EswordModule(path) as mod:
             title = mod.title
+            abbreviation = mod.abbreviation
+            structure = mod.structure
+            kind = mod.kind
+            # Una obra completa en la carpeta LIBROS/ con estructura de
+            # referencia es un libro, no una referencia cruzada suelta.
+            if structure == "reference" and path.parent.name.lower() == "libros":
+                kind = "book"
+            # Un módulo TWM cuyo título revela que es un diccionario se cataloga
+            # como diccionario para no quedarse como categoría paria (un solo
+            # elemento bajo «TWM»). No se modifica el módulo, solo su clasificación.
+            if structure == "twm" and "diccionario" in f"{title} {abbreviation}".lower():
+                kind = "dictionary"
             return {
-                "structure": mod.structure,
-                "kind": mod.kind,
+                "structure": structure,
+                "kind": kind,
                 "title": title,
-                "abbreviation": mod.abbreviation,
+                "abbreviation": abbreviation,
                 "language": detect_language(
                     title, mod.abbreviation, path.name,
                     description=mod.description,
