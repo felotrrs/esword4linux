@@ -137,7 +137,7 @@ class LibraryView(QWidget):
         self.btn_pan.setText("👋")
         self.btn_pan.setToolTip(tr("image.pan"))
         self.btn_pan.setCheckable(True)
-        self.btn_pan.setChecked(False)
+        self.btn_pan.setChecked(True)
         self.btn_pan.clicked.connect(
             lambda checked: self._toggle_image_tool("pan", bool(checked))
         )
@@ -233,9 +233,11 @@ class LibraryView(QWidget):
         self.right_split.setStretchFactor(1, 1)
         self.image_viewer.setVisible(bool(self.mod and self.mod.structure == "maps"))
         self._legend_visible = True
-        # Estado inicial: zoom con rueda activado, arrastre desactivado.
+        # Estado inicial: manita con clic izquierdo activada y zoom con rueda
+        # activada. Ambas pueden usarse a la vez (clic izquierdo arrastra, rueda
+        # hace zoom).
         self.image_viewer.set_wheel_zoom_enabled(True)
-        self.image_viewer.set_pan_enabled(False)
+        self.image_viewer.set_pan_enabled(True)
 
         self.left_dock = QWidget()
         dock_row = QHBoxLayout(self.left_dock)
@@ -440,22 +442,17 @@ class LibraryView(QWidget):
         if self.mod and self.mod.structure == "maps":
             self.detail.setVisible(self._legend_visible)
 
-    def _toggle_image_tool(self, tool: str, _checked: bool) -> None:
-        """Activa una herramienta de imagen desactivando la otra.
+    def _toggle_image_tool(self, tool: str, checked: bool) -> None:
+        """Activa o desactiva una herramienta de imagen de forma independiente.
 
-        Son mutuamente excluyentes: siempre uno de los dos está encendido,
-        nunca ambos apagados ni ambos encendidos al mismo tiempo.
+        Zoom con rueda y arrastre con manita usan mecanismos distintos
+        (rueda del ratón vs. clic izquierdo), por lo que pueden estar ambos
+        activos al mismo tiempo sin conflicto.
         """
         if tool == "wheel":
-            self.btn_wheel_zoom.setChecked(True)
-            self.btn_pan.setChecked(False)
-            self.image_viewer.set_wheel_zoom_enabled(True)
-            self.image_viewer.set_pan_enabled(False)
+            self.image_viewer.set_wheel_zoom_enabled(bool(checked))
         elif tool == "pan":
-            self.btn_pan.setChecked(True)
-            self.btn_wheel_zoom.setChecked(False)
-            self.image_viewer.set_pan_enabled(True)
-            self.image_viewer.set_wheel_zoom_enabled(False)
+            self.image_viewer.set_pan_enabled(bool(checked))
 
     def _on_image_size(self, text: str) -> None:
         """Muestra u oculta el tamaño de píxeles junto al combobox de Biblia."""
