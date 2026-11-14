@@ -125,7 +125,10 @@ class RichBrowser(QTextBrowser):
         href = self._hover_href
         if not href:
             return
-        text = self._titles.get(href) or self._cache.get(href)
+        # Clave de caché que incluye la biblia de referencia de este visor,
+        # así dos workspaces con traducciones distintas no se pisarán.
+        cache_key = f"{self.bible_rel or ''}::{href}" if self.bible_rel else href
+        text = self._titles.get(href) or self._cache.get(cache_key)
         if not text:
             if self._resolver is None:
                 return
@@ -136,7 +139,7 @@ class RichBrowser(QTextBrowser):
                 text = self._resolver(href) or ""
             except Exception:
                 text = ""
-            self._cache[href] = text
+            self._cache[cache_key] = text
         if text:
             self._bubble.show_html(self._hover_pos, text)
 

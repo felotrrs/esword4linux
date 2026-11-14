@@ -70,32 +70,37 @@ class RefResolver:
             key = f"{rel_path}::{key}"
         if key in self._cache:
             return self._cache[key]
-        text = self._build_verse(key, rel_path)
+        text = self._build_verse(ref_text, rel_path)
         self._cache[key] = text
         return text
 
     def bible_rows_for(self, rel_path: str | None = None):
-        """Biblias candidatas, dando prioridad a rel_path si se provee."""
+        """Biblias candidatas, dando prioridad a rel_path si se provee.
+
+        Siempre incluye como fallback la biblia por defecto (settings.bible_module)
+        y, por último, todas las biblias indexadas, para que nunca se quede sin
+        candidatos aunque rel_path no sea una biblia válida o no contenga el
+        pasaje pedido.
+        """
         settings = self.ctx.settings
         seen: set[str] = set()
         order: list[str] = []
         if rel_path:
             order.append(rel_path)
-        order.extend(
-            r for r in (settings.reference_bible, self._rel, settings.bible_module)
-            if r
-        )
+        for r in (settings.reference_bible, self._rel, settings.bible_module):
+            if r and r not in order:
+                order.append(r)
+        # Todas las biblias indexadas como último recurso.
+        for row in self.ctx.bibles():
+            r = row.get("rel_path") or ""
+            if r and r not in order:
+                order.append(r)
         for rel in order:
             if rel and rel not in seen:
                 row = self.ctx.catalog.by_rel_path(rel)
                 if row is not None:
                     seen.add(rel)
                     yield row
-        for row in self.ctx.bibles():
-            rel = row.get("rel_path") or ""
-            if rel and rel not in seen:
-                seen.add(rel)
-                yield row
 
     def _build_verse(self, ref_text: str, rel_path: str | None = None) -> str:
         ref = parse_reference(ref_text)
@@ -104,10 +109,16 @@ class RefResolver:
         # La biblia activa puede ser solo NT (p. ej. GNT): si no tiene el
         # libro pedido, se prueba la siguiente candidata antes de rendirse.
         for row in self.bible_rows_for(rel_path):
-            mod = self.ctx.module(row)
+            try:
+                mod = self.ctx.module(row)
+            except Exception:
+                continue
             if mod is None or mod.structure != "bible":
                 continue
-            pages, numbered = self._verse_pages(mod, ref)
+            try:
+                pages, numbered = self._verse_pages(mod, ref)
+            except Exception:
+                continue
             if not pages:
                 continue
             version = row.get("abbreviation") or ""
