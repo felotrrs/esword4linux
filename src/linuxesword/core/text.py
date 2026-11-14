@@ -123,14 +123,24 @@ def is_markup(text: str) -> bool:
 
 
 def decode_raw(raw) -> str:
-    """bytes (UTF-8, fallback latin-1) o str → str."""
+    """bytes (UTF-8, UTF-16LE, fallback latin-1) o str → str."""
     if raw is None:
         return ""
     if isinstance(raw, (bytes, bytearray)):
+        data = bytes(raw)
+        # UTF-16LE sin BOM: muchos bytes nulos en posiciones impares
+        # (típico de títulos de e-Sword legacy).
+        if len(data) >= 2 and data[1] == 0 and sum(
+            1 for b in data[::2] if b != 0
+        ) > len(data) // 4:
+            try:
+                return data.decode("utf-16-le")
+            except UnicodeDecodeError:
+                pass
         try:
-            return bytes(raw).decode("utf-8")
+            return data.decode("utf-8")
         except UnicodeDecodeError:
-            return bytes(raw).decode("latin-1", "replace")
+            return data.decode("latin-1", "replace")
     return str(raw)
 
 

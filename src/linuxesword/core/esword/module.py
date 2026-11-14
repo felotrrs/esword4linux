@@ -325,9 +325,11 @@ class EswordModule:
                 return decrypt_payload(bytes(value), self.crypt_key).decode(
                     "utf-8", "replace"
                 )
-            except SQLitePlusError as exc:
-                self.warnings.append(f"{table}/{ident}: no descifrado ({exc})")
-                return ""
+            except SQLitePlusError:
+                # No es un blob SQLitePlus cifrado: decodificar como texto
+                # plano (puede ser UTF-16LE, UTF-8 o latin-1).
+                from ..text import decode_raw
+                return decode_raw(value)
         return str(value)
 
     def _rows(self, sql: str, params: tuple = ()) -> Iterator[sqlite3.Row]:
