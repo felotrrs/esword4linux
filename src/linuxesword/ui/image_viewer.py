@@ -12,11 +12,15 @@ cualquier página que contenga una imagen embebida. Permite:
 Los controles de zoom/arrastre/leyenda viven fuera de este widget (en la
 cabecera de ``LibraryView``) y se conectan a través de las señales y métodos
 públicos que se exponen aquí.
+
+Nota: los eventos de mouse y rueda se capturan mediante un event filter
+instalado en el viewport del ``QGraphicsView``, ya que ese view consume los
+eventos antes de que lleguen al widget padre.
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
@@ -66,8 +70,8 @@ class ImageViewer(QWidget):
         # Centra el contenido cuando es más pequeño que el viewport
         # (p. ej. mapa en tamaño real 1:1 no queda pegado a la esquina).
         self.view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Sin DragMode nativo: manejamos el arrastre manualmente para que
-        # zoom con rueda y arrastre con manita puedan coexistir.
+        # Sin DragMode nativo: manejamos el arrastre manualmente vía event
+        # filter, para que zoom con rueda y arrastre con manita coexistan.
         self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.view.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse
@@ -79,6 +83,9 @@ class ImageViewer(QWidget):
         self.view.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
+        # Capturar mouse y wheel directamente en el viewport, ya que el
+        # QGraphicsView los consume antes de que lleguen a este widget.
+        self.view.viewport().installEventFilter(self)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -167,31 +174,35 @@ class ImageViewer(QWidget):
         self._scale = max(tr_.m11(), tr_.m22())
         self.zoom_changed.emit(self._scale)
 
-    def wheelEvent(self, event) -> None:  # type: ignore[override]
-        """Rueda del ratón: hace zoom centrado en el puntero.
+    # ── event filter: wheel + pan en el viewport ───────────────────────
+    def eventFilter(self, obj, event) -> None:  # type: ignore[override]
+        if obj is self.view.viewport():
+            if event.type() == QEvent.Wheel:
+                return self._viewport_wheel_event(event)
+            if event.type() == QEvent.MouseButtonPress:
+                return self._viewport_mouse_press(event)
+            if event.type() == QEvent.MouseMove:
+                return self._viewport_mouse_move(event)
+            if event.type() == QEvent.MouseButtonRelease:
+                return self._viewport_mouse_release(event)
+        return super().eventFilter(obj, event)
 
-        Requiere que el zoom con rueda esté habilitado, o bien que se
-        mantenga Ctrl + clic derecho presionado mientras se mueve la rueda.
-        """
+    def _viewport_wheel_event(self, event) -> bool:
         if not self.has_image():
-            event.ignore()
-            return
+            return False
         delta = event.angleDelta().y()
         if delta == 0:
-            event.ignore()
-            return
+            return False
         ctrl_right = bool(
             event.modifiers() & Qt.ControlModifier
             and event.buttons() & Qt.RightButton
         )
         if not self._wheel_zoom_enabled and not ctrl_right:
-            event.ignore()
-            return
+            return False
         factor = ZOOM_IN if delta > 0 else ZOOM_OUT
         new_scale = min(MAX_ZOOM, max(MIN_ZOOM, self._scale * factor))
         if abs(new_scale - self._scale) < 1e-6:
-            event.accept()
-            return
+            return True
         mouse_pos = self.view.mapToScene(event.position().toPoint())
         self._scale = new_scale
         self._apply_zoom()
@@ -203,10 +214,9 @@ class ImageViewer(QWidget):
         self.view.verticalScrollBar().setValue(
             int(self.view.verticalScrollBar().value() + delta_scene.y())
         )
-        event.accept()
+        return True
 
-    # ── arrastre manual (manita) ──────────────────────────────────────
-    def mousePressEvent(self, event) -> None:  # type: ignore[override]
+    def _viewport_mouse_press(self, event) -> bool:
         if (
             self._pan_enabled
             and self.has_image()
@@ -214,11 +224,10 @@ class ImageViewer(QWidget):
         ):
             self._pan_origin = event.pos()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
-            event.accept()
-            return
-        super().mousePressEvent(event)
+            return True
+        return False
 
-    def mouseMoveEvent(self, event) -> None:  # type: ignore[override]
+    def _viewport_mouse_move(self, event) -> bool:
         if self._pan_enabled and self.has_image() and event.buttons() & self._pan_button:
             delta = event.pos() - self._pan_origin
             self._pan_origin = event.pos()
@@ -228,16 +237,14 @@ class ImageViewer(QWidget):
             self.view.verticalScrollBar().setValue(
                 self.view.verticalScrollBar().value() - delta.y()
             )
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
+            return True
+        return False
 
-    def mouseReleaseEvent(self, event) -> None:  # type: ignore[override]
+    def _viewport_mouse_release(self, event) -> bool:
         if event.button() == self._pan_button:
             self.setCursor(Qt.CursorShape.ArrowCursor)
-            event.accept()
-            return
-        super().mouseReleaseEvent(event)
+            return True
+        return False
 
     def _apply_zoom(self) -> None:
         self.view.resetTransform()

@@ -358,6 +358,14 @@ class LibraryView(QWidget):
             prefix = self.filter.text().strip()
         entries = self.mod.list_entries(prefix=prefix, limit=MAX_ENTRIES, contains=contains)
         for ref, label in entries:
+            # Para mapas/ilustraciones, mostrar el tamaño de píxeles al lado
+            # del título en la lista de entradas.
+            if self.mod and self.mod.structure == "maps":
+                picture = self.mod.map_picture(ref)
+                if picture:
+                    pixmap = QPixmap()
+                    if pixmap.loadFromData(picture):
+                        label = f"{label} ({pixmap.width()} × {pixmap.height()} px)"
             item = QListWidgetItem(label or ref)
             item.setData(Qt.UserRole, ref)
             self.list.addItem(item)
@@ -432,18 +440,22 @@ class LibraryView(QWidget):
         if self.mod and self.mod.structure == "maps":
             self.detail.setVisible(self._legend_visible)
 
-    def _toggle_image_tool(self, tool: str, checked: bool) -> None:
-        """Activa una herramienta de imagen desactivando la otra (mutuamente excluyentes)."""
+    def _toggle_image_tool(self, tool: str, _checked: bool) -> None:
+        """Activa una herramienta de imagen desactivando la otra.
+
+        Son mutuamente excluyentes: siempre uno de los dos está encendido,
+        nunca ambos apagados ni ambos encendidos al mismo tiempo.
+        """
         if tool == "wheel":
-            self.image_viewer.set_wheel_zoom_enabled(bool(checked))
-            if checked:
-                self.btn_pan.setChecked(False)
-                self.image_viewer.set_pan_enabled(False)
+            self.btn_wheel_zoom.setChecked(True)
+            self.btn_pan.setChecked(False)
+            self.image_viewer.set_wheel_zoom_enabled(True)
+            self.image_viewer.set_pan_enabled(False)
         elif tool == "pan":
-            self.image_viewer.set_pan_enabled(bool(checked))
-            if checked:
-                self.btn_wheel_zoom.setChecked(False)
-                self.image_viewer.set_wheel_zoom_enabled(False)
+            self.btn_pan.setChecked(True)
+            self.btn_wheel_zoom.setChecked(False)
+            self.image_viewer.set_pan_enabled(True)
+            self.image_viewer.set_wheel_zoom_enabled(False)
 
     def _on_image_size(self, text: str) -> None:
         """Muestra u oculta el tamaño de píxeles junto al combobox de Biblia."""
