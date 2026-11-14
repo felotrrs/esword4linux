@@ -8,20 +8,21 @@ cualquier página que contenga una imagen embebida. Permite:
 * Arrastrar la imagen para navegar cuando está más grande que el visor.
 * Ajustar a ventana, tamaño real (1:1) y restablecer zoom.
 * Mostrar u ocultar la leyenda (texto Details) del mapa.
-* Activar / desactivar por separado el zoom con rueda y el arrastre.
+
+Los controles de zoom/arrastre/leyenda viven fuera de este widget (en la
+cabecera de ``LibraryView``) y se conectan a través de las señales y métodos
+públicos que se exponen aquí.
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import (
     QGraphicsPixmapItem,
     QGraphicsScene,
     QGraphicsView,
-    QHBoxLayout,
     QLabel,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -35,7 +36,7 @@ MAX_ZOOM = 10.0
 
 
 class ImageViewer(QWidget):
-    """Visor de imagen con zoom (rueda), arrastre y botones de control."""
+    """Visor de imagen con zoom (rueda) y arrastre (manita)."""
 
     zoom_changed = Signal(float)
     legend_toggled = Signal(bool)
@@ -47,6 +48,8 @@ class ImageViewer(QWidget):
         self._scale = 1.0
         self._wheel_zoom_enabled = True
         self._pan_enabled = True
+        self._pan_button = Qt.RightButton  # botón que activa el arrastre
+        self._pan_origin = QPoint()
 
         self.scene = QGraphicsScene(self)
         self._item = QGraphicsPixmapItem()
@@ -63,7 +66,9 @@ class ImageViewer(QWidget):
         # Centra el contenido cuando es más pequeño que el viewport
         # (p. ej. mapa en tamaño real 1:1 no queda pegado a la esquina).
         self.view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._update_drag_mode()
+        # Sin DragMode nativo: manejamos el arrastre manualmente para que
+        # zoom con rueda y arrastre con manita puedan coexistir.
+        self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.view.setTransformationAnchor(
             QGraphicsView.ViewportAnchor.AnchorUnderMouse
         )
@@ -75,72 +80,15 @@ class ImageViewer(QWidget):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
 
-        # ── barra de controles (arriba, botones a la izquierda) ──────────
-        self.btn_zoom_in = QToolButton()
-        self.btn_zoom_in.setText("+")
-        self.btn_zoom_in.setToolTip(tr("image.zoom_in"))
-        self.btn_zoom_in.clicked.connect(self.zoom_in)
-
-        self.btn_zoom_out = QToolButton()
-        self.btn_zoom_out.setText("-")
-        self.btn_zoom_out.setToolTip(tr("image.zoom_out"))
-        self.btn_zoom_out.clicked.connect(self.zoom_out)
-
-        self.btn_reset = QToolButton()
-        self.btn_reset.setText("1:1")
-        self.btn_reset.setToolTip(tr("image.zoom_real"))
-        self.btn_reset.clicked.connect(self.reset_zoom)
-
-        self.btn_fit = QToolButton()
-        self.btn_fit.setText(tr("image.fit"))
-        self.btn_fit.setToolTip(tr("image.fit"))
-        self.btn_fit.clicked.connect(self.fit_to_window)
-
-        self.btn_legend = QToolButton()
-        self.btn_legend.setText(tr("image.legend"))
-        self.btn_legend.setToolTip(tr("image.legend"))
-        self.btn_legend.setCheckable(True)
-        self.btn_legend.setChecked(True)
-        self.btn_legend.clicked.connect(self._on_legend_clicked)
-
-        # Toggle: zoom con rueda del ratón.
-        self.btn_wheel_zoom = QToolButton()
-        self.btn_wheel_zoom.setText("🔍")
-        self.btn_wheel_zoom.setToolTip(tr("image.wheel_zoom"))
-        self.btn_wheel_zoom.setCheckable(True)
-        self.btn_wheel_zoom.setChecked(self._wheel_zoom_enabled)
-        self.btn_wheel_zoom.clicked.connect(self._toggle_wheel_zoom)
-
-        # Toggle: arrastre con manita.
-        self.btn_pan = QToolButton()
-        self.btn_pan.setText("👋")
-        self.btn_pan.setToolTip(tr("image.pan"))
-        self.btn_pan.setCheckable(True)
-        self.btn_pan.setChecked(self._pan_enabled)
-        self.btn_pan.clicked.connect(self._toggle_pan)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.view, 1)
 
         # Atributo conservado para compatibilidad con pruebas; el texto de
         # píxeles se muestra ahora junto al combobox de Biblia en la cabecera.
         self.lbl_info = QLabel(self)
         self.lbl_info.hide()
-
-        toolbar = QHBoxLayout()
-        toolbar.setContentsMargins(6, 4, 6, 4)
-        toolbar.setSpacing(6)
-        toolbar.addWidget(self.btn_zoom_in)
-        toolbar.addWidget(self.btn_zoom_out)
-        toolbar.addWidget(self.btn_reset)
-        toolbar.addWidget(self.btn_fit)
-        toolbar.addWidget(self.btn_legend)
-        toolbar.addWidget(self.btn_wheel_zoom)
-        toolbar.addWidget(self.btn_pan)
-        toolbar.addStretch(1)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addLayout(toolbar)
-        layout.addWidget(self.view, 1)
 
     # ── API pública ────────────────────────────────────────────────────
     def set_pixmap(self, pixmap: QPixmap, title: str | None = None) -> None:
@@ -173,25 +121,22 @@ class ImageViewer(QWidget):
         return not self.item.pixmap().isNull()
 
     def is_legend_visible(self) -> bool:
-        return self.btn_legend.isChecked()
+        return True  # El visor no gestiona la leyenda; lo hace LibraryView.
 
     def set_legend_visible(self, visible: bool) -> None:
-        self.btn_legend.setChecked(bool(visible))
+        self.legend_toggled.emit(bool(visible))
 
     def is_wheel_zoom_enabled(self) -> bool:
         return self._wheel_zoom_enabled
 
     def set_wheel_zoom_enabled(self, enabled: bool) -> None:
         self._wheel_zoom_enabled = bool(enabled)
-        self.btn_wheel_zoom.setChecked(self._wheel_zoom_enabled)
 
     def is_pan_enabled(self) -> bool:
         return self._pan_enabled
 
     def set_pan_enabled(self, enabled: bool) -> None:
         self._pan_enabled = bool(enabled)
-        self.btn_pan.setChecked(self._pan_enabled)
-        self._update_drag_mode()
 
     def zoom(self, factor: float) -> None:
         """Aplica un factor de zoom relativo al nivel actual."""
@@ -260,26 +205,44 @@ class ImageViewer(QWidget):
         )
         event.accept()
 
-    def _update_drag_mode(self) -> None:
-        if self._pan_enabled:
-            self.view.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-        else:
-            self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
+    # ── arrastre manual (manita) ──────────────────────────────────────
+    def mousePressEvent(self, event) -> None:  # type: ignore[override]
+        if (
+            self._pan_enabled
+            and self.has_image()
+            and event.button() == self._pan_button
+        ):
+            self._pan_origin = event.pos()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:  # type: ignore[override]
+        if self._pan_enabled and self.has_image() and event.buttons() & self._pan_button:
+            delta = event.pos() - self._pan_origin
+            self._pan_origin = event.pos()
+            self.view.horizontalScrollBar().setValue(
+                self.view.horizontalScrollBar().value() - delta.x()
+            )
+            self.view.verticalScrollBar().setValue(
+                self.view.verticalScrollBar().value() - delta.y()
+            )
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:  # type: ignore[override]
+        if event.button() == self._pan_button:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
     def _apply_zoom(self) -> None:
         self.view.resetTransform()
         self.view.scale(self._scale, self._scale)
         self.zoom_changed.emit(self._scale)
-
-    def _on_legend_clicked(self, checked: bool) -> None:
-        self.legend_toggled.emit(checked)
-
-    def _toggle_wheel_zoom(self, checked: bool) -> None:
-        self._wheel_zoom_enabled = bool(checked)
-
-    def _toggle_pan(self, checked: bool) -> None:
-        self._pan_enabled = bool(checked)
-        self._update_drag_mode()
 
     def sizeHint(self) -> QSize:
         return QSize(400, 300)

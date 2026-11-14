@@ -46,6 +46,10 @@ class RichBrowser(QTextBrowser):
         self._timer.setInterval(HOVER_MS)
         self._timer.timeout.connect(self._show_tooltip)
         self.setMouseTracking(True)
+        # Biblia de referencia de este visor (workspace). Si se establece,
+        # se pasa al resolvedor para resolver citas con la traducción propia
+        # de este espacio de trabajo en lugar de la global.
+        self.bible_rel: str | None = None
 
     # ── HTML ─────────────────────────────────────────────────────────────
     def setHtml(self, html: str) -> None:  # noqa: N802
@@ -126,6 +130,9 @@ class RichBrowser(QTextBrowser):
             if self._resolver is None:
                 return
             try:
+                text = self._resolver(href, self.bible_rel) or ""
+            except TypeError:
+                # Resolvedor antiguo que no acepta rel_path.
                 text = self._resolver(href) or ""
             except Exception:
                 text = ""

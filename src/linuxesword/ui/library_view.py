@@ -96,6 +96,74 @@ class LibraryView(QWidget):
             self._bible_lbl = None
             self._bible_combo = None
 
+        # ── visor de imagen (creado antes de sus controles en la cabecera) ──
+        self.image_viewer = ImageViewer(self)
+        self.image_viewer.legend_toggled.connect(self._toggle_legend)
+        self.image_viewer.image_size.connect(self._on_image_size)
+
+        # ── controles de mapa/imagen (misma fila que el combobox Biblia) ──
+        self.map_toolbar = QWidget()
+        self.map_toolbar.setObjectName("mapToolbar")
+        map_row = QHBoxLayout(self.map_toolbar)
+        map_row.setContentsMargins(0, 0, 0, 0)
+        map_row.setSpacing(4)
+
+        self.btn_zoom_in = QToolButton()
+        self.btn_zoom_in.setText("+")
+        self.btn_zoom_in.setToolTip(tr("image.zoom_in"))
+        self.btn_zoom_in.clicked.connect(self.image_viewer.zoom_in)
+        map_row.addWidget(self.btn_zoom_in)
+
+        self.btn_zoom_out = QToolButton()
+        self.btn_zoom_out.setText("-")
+        self.btn_zoom_out.setToolTip(tr("image.zoom_out"))
+        self.btn_zoom_out.clicked.connect(self.image_viewer.zoom_out)
+        map_row.addWidget(self.btn_zoom_out)
+
+        self.btn_reset = QToolButton()
+        self.btn_reset.setText("1:1")
+        self.btn_reset.setToolTip(tr("image.zoom_real"))
+        self.btn_reset.clicked.connect(self.image_viewer.reset_zoom)
+        map_row.addWidget(self.btn_reset)
+
+        self.btn_fit = QToolButton()
+        self.btn_fit.setText(tr("image.fit"))
+        self.btn_fit.setToolTip(tr("image.fit"))
+        self.btn_fit.clicked.connect(self.image_viewer.fit_to_window)
+        map_row.addWidget(self.btn_fit)
+
+        self.btn_legend = QToolButton()
+        self.btn_legend.setText(tr("image.legend"))
+        self.btn_legend.setToolTip(tr("image.legend"))
+        self.btn_legend.setCheckable(True)
+        self.btn_legend.setChecked(True)
+        self.btn_legend.clicked.connect(self.image_viewer.set_legend_visible)
+        self.image_viewer.legend_toggled.connect(self.btn_legend.setChecked)
+        map_row.addWidget(self.btn_legend)
+
+        self.btn_wheel_zoom = QToolButton()
+        self.btn_wheel_zoom.setText("🔍")
+        self.btn_wheel_zoom.setToolTip(tr("image.wheel_zoom"))
+        self.btn_wheel_zoom.setCheckable(True)
+        self.btn_wheel_zoom.setChecked(True)
+        self.btn_wheel_zoom.clicked.connect(
+            lambda checked: self.image_viewer.set_wheel_zoom_enabled(bool(checked))
+        )
+        map_row.addWidget(self.btn_wheel_zoom)
+
+        self.btn_pan = QToolButton()
+        self.btn_pan.setText("👋")
+        self.btn_pan.setToolTip(tr("image.pan"))
+        self.btn_pan.setCheckable(True)
+        self.btn_pan.setChecked(True)
+        self.btn_pan.clicked.connect(
+            lambda checked: self.image_viewer.set_pan_enabled(bool(checked))
+        )
+        map_row.addWidget(self.btn_pan)
+
+        self.map_toolbar.hide()
+        head_row.addWidget(self.map_toolbar)
+
         layout.addWidget(head)
 
         self.split = QSplitter(Qt.Horizontal)
@@ -146,6 +214,7 @@ class LibraryView(QWidget):
         left_layout.addWidget(self.count_label)
 
         self.detail = RichBrowser(resolver=self.ctx.refs.tooltip)
+        self.detail.bible_rel = self._ref_bible_rel or None
         self.detail.setOpenLinks(False)
         self.detail.setOpenExternalLinks(False)
         self.detail.anchorClicked.connect(self._on_anchor)
@@ -157,9 +226,6 @@ class LibraryView(QWidget):
         self.right_split = QSplitter(Qt.Vertical)
         self.right_split.setChildrenCollapsible(False)
         self.right_split.setMinimumWidth(DETAIL_MIN_WIDTH)
-        self.image_viewer = ImageViewer(self)
-        self.image_viewer.legend_toggled.connect(self._toggle_legend)
-        self.image_viewer.image_size.connect(self._on_image_size)
         self.right_split.addWidget(self.image_viewer)
         self.right_split.addWidget(self.detail)
         self.right_split.setStretchFactor(0, 3)
@@ -227,12 +293,15 @@ class LibraryView(QWidget):
         rel = self._bible_combo.currentData(Qt.UserRole)
         if rel and rel != self._ref_bible_rel:
             self._ref_bible_rel = rel
+            self.detail.bible_rel = rel or None
             self.ref_bible_changed.emit(rel)
 
     def set_reference_bible(self, rel: str) -> None:
         """Actualiza el selector cuando el workspace cambia la biblia externamente."""
         self._ref_bible_rel = rel or ""
         self._sync_combo_to_rel(self._ref_bible_rel)
+        if self.detail is not None:
+            self.detail.bible_rel = self._ref_bible_rel or None
 
     def _apply_list_constraints(self, visible: bool) -> None:
         if visible:
@@ -331,6 +400,7 @@ class LibraryView(QWidget):
         if self.mod and self.mod.structure == "maps":
             pixmap = self.mod.map_picture(page.ref)
             self.image_viewer.show()
+            self.map_toolbar.show()
             # Estado inicial de la leyenda (memoria de la pestaña).
             self.image_viewer.set_legend_visible(self._legend_visible)
             has_img = False
@@ -346,6 +416,7 @@ class LibraryView(QWidget):
                 parts.append(f'<p class="muted">{tr("map.no_image")}</p>')
         else:
             self.image_viewer.hide()
+            self.map_toolbar.hide()
             self.lbl_map_size.hide()
         self.detail.setHtml("".join(parts))
         self.detail.setVisible(self.mod is None or self.mod.structure != "maps" or self._legend_visible)

@@ -212,5 +212,7 @@
   "image.zoom_in": "Zoom in",
   "image.zoom_out": "Zoom out",
   "image.zoom_real": "Actual size",
-  "image.fit": "Fit to window"
+  "image.fit": "Fit to window",
+  "image.wheel_zoom": "Zoom with mouse wheel",
+  "image.pan": "Drag with hand"
 }

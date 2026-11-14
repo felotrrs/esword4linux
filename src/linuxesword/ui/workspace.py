@@ -17,7 +17,6 @@ from ..core.context import AppContext
 from ..i18n import tr
 from .bible_view import BiblePane, fill_bible_combo
 from .library_view import LibraryView
-from .rich_browser import RichBrowser
 
 
 class Workspace(QWidget):
@@ -68,9 +67,8 @@ class Workspace(QWidget):
             self._library.set_reference_bible(self._ref_bible_rel)
         # Notificar al resolvedor de burbujas para que las citas de esta obra
         # se resuelvan con la traducción elegida en este workspace.
-        if rel:
-            self.ctx.refs.set_bible(rel)
-            RichBrowser.clear_all_caches()
+        # Cada LibraryView pasa su propio bible_rel al resolver; no usamos
+        # el estado global de RefResolver para evitar afectar a otros workspaces.
 
     # ── recurso principal ────────────────────────────────────────────────
     def set_main(self, row: dict | None, ref: str | None = None) -> None:
@@ -89,8 +87,7 @@ class Workspace(QWidget):
             return
         old = self._library
         self._library = LibraryView(self.ctx, row, initial_ref=ref,
-                                    ref_bible_rel=self._ref_bible_rel
-                                    or self.settings.reference_bible or "")
+                                    ref_bible_rel=self._ref_bible_rel or "")
         self._library.open_reference.connect(self.reference_requested)
         self._library.ref_bible_changed.connect(self.set_ref_bible_rel)
         self.stack.addWidget(self._library)

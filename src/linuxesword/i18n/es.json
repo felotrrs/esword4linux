@@ -213,5 +213,7 @@
   "image.zoom_in": "Acercar",
   "image.zoom_out": "Alejar",
   "image.zoom_real": "Tamaño real",
-  "image.fit": "Ajustar"
+  "image.fit": "Ajustar",
+  "image.wheel_zoom": "Zoom con rueda del ratón",
+  "image.pan": "Arrastrar con manita"
 }

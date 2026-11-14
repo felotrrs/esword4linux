@@ -49,10 +49,10 @@ class RefResolver:
         return next(iter(self.bible_rows()), None)
 
     # ── API ──────────────────────────────────────────────────────────────
-    def tooltip(self, href: str) -> str:
+    def tooltip(self, href: str, rel_path: str | None = None) -> str:
         try:
             if href.startswith("ref:"):
-                return self.verse_tooltip(href[4:])
+                return self.verse_tooltip(href[4:], rel_path)
             if href.startswith("strong:"):
                 return self.ctx.strong.tooltip(href[7:])
         except Exception:
@@ -62,23 +62,48 @@ class RefResolver:
     def clear(self) -> None:
         self._cache.clear()
 
-    def verse_tooltip(self, ref_text: str) -> str:
+    def verse_tooltip(self, ref_text: str, rel_path: str | None = None) -> str:
         if not ref_text:
             return ""
         key = ref_text.strip()
+        if rel_path:
+            key = f"{rel_path}::{key}"
         if key in self._cache:
             return self._cache[key]
-        text = self._build_verse(key)
+        text = self._build_verse(key, rel_path)
         self._cache[key] = text
         return text
 
-    def _build_verse(self, ref_text: str) -> str:
+    def bible_rows_for(self, rel_path: str | None = None):
+        """Biblias candidatas, dando prioridad a rel_path si se provee."""
+        settings = self.ctx.settings
+        seen: set[str] = set()
+        order: list[str] = []
+        if rel_path:
+            order.append(rel_path)
+        order.extend(
+            r for r in (settings.reference_bible, self._rel, settings.bible_module)
+            if r
+        )
+        for rel in order:
+            if rel and rel not in seen:
+                row = self.ctx.catalog.by_rel_path(rel)
+                if row is not None:
+                    seen.add(rel)
+                    yield row
+        for row in self.ctx.bibles():
+            rel = row.get("rel_path") or ""
+            if rel and rel not in seen:
+                seen.add(rel)
+                yield row
+
+    def _build_verse(self, ref_text: str, rel_path: str | None = None) -> str:
         ref = parse_reference(ref_text)
         if ref is None:
             return ""
         # La biblia activa puede ser solo NT (p. ej. GNT): si no tiene el
         # libro pedido, se prueba la siguiente candidata antes de rendirse.
-        for row in self.bible_rows():
+        for row in self.bible_rows_for(rel_path):
             mod = self.ctx.module(row)
             if mod is None or mod.structure != "bible":
                 continue
