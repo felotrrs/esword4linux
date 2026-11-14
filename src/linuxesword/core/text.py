@@ -61,16 +61,21 @@ _PSEUDO_STYLE: dict[str, str | None] = {
 _PSEUDO_NAMES = "|".join(sorted((k for k in _PSEUDO_STYLE), key=len, reverse=True))
 _PSEUDO_RE = re.compile(rf"(?is)<\s*(/?)\s*({_PSEUDO_NAMES})\s*>")
 _PSEUDO_SHE_RE = re.compile(r"(?is)</?\s*SHE\d{2,5}\s*>")
-_NUM_RE = re.compile(r"(?is)<num>\s*([GHgh]\d{1,5})\s*</num>")
+_NUM_RE = re.compile(r"(?is)<num>\s*([GHgh]\d{1,5}[^<]*)\s*</num>")
 _STRONG_ANCHOR_RE = re.compile(
-    r"""(?is)<a\b[^>]*href\s*=\s*['"]#s([GHgh]\d{1,5})['"][^>]*>.*?</a>"""
+    r"""(?is)<a\b[^>]*href\s*=\s*['"]#s([GHgh]\d{1,5}[^'"]*)['"][^>]*>.*?</a>"""
 )
 _STRONG_COLOR = "#8f6bc4"
 _STRONG_STYLE = f"color:{_STRONG_COLOR};font-size:78%;text-decoration:none;"
 
 
 def _strong_anchor(code: str) -> str:
-    code = code.upper()
+    code = code.upper().strip()
+    # Extraer solo el código Strong (G/H + dígitos), ignorando el código de
+    # parsing que e-Sword adjunta (p. ej. «G2532 C», «G846 RP-DSM»).
+    m = re.match(r"([GH]\d+)", code)
+    if m:
+        code = m.group(1)
     return f'<a href="strong:{code}" style="{_STRONG_STYLE}">{code}</a>'
 
 

@@ -1,21 +1,15 @@
-"""Visor de imagen con zoom y controles típicos (mapas, ilustraciones).
+"""Visor de imagen con zoom y arrastre para mapas e ilustraciones.
 
 Se usa para las entradas de tipo ``maps`` (`.mapx`) y, en general, para
 cualquier página que contenga una imagen embebida. Permite:
 
-* Acercar / alejar con la rueda del ratón (centrado en el puntero), o
-  manteniendo Ctrl + clic derecho mientras se mueve la rueda.
-* Arrastrar la imagen para navegar cuando está más grande que el visor.
-* Ajustar a ventana, tamaño real (1:1) y restablecer zoom.
-* Mostrar u ocultar la leyenda (texto Details) del mapa.
+* Acercar / alejar con la rueda del ratón (centrado en el puntero).
+* Arrastrar la imagen con clic izquierdo para navegar cuando es más grande
+  que el visor.
+* Ajustar a ventana y tamaño real (1:1).
 
-Los controles de zoom/arrastre/leyenda viven fuera de este widget (en la
-cabecera de ``LibraryView``) y se conectan a través de las señales y métodos
-públicos que se exponen aquí.
-
-Nota: los eventos de mouse y rueda se capturan mediante un event filter
-instalado en el viewport del ``QGraphicsView``, ya que ese view consume los
-eventos antes de que lleguen al widget padre.
+Los gestos del mouse se manejan internamente; no hay botones de control en
+la UI.
 """
 
 from __future__ import annotations
@@ -31,8 +25,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..i18n import tr
-
 ZOOM_IN = 1.25
 ZOOM_OUT = 0.8
 MIN_ZOOM = 0.1
@@ -40,10 +32,9 @@ MAX_ZOOM = 10.0
 
 
 class ImageViewer(QWidget):
-    """Visor de imagen con zoom (rueda) y arrastre (manita)."""
+    """Visor de imagen con zoom (rueda) y arrastre (manita con clic izquierdo)."""
 
     zoom_changed = Signal(float)
-    legend_toggled = Signal(bool)
     # Emitida al cargar una imagen con el texto del tamaño (p. ej. "400 × 300 px").
     image_size = Signal(str)
 
@@ -84,7 +75,7 @@ class ImageViewer(QWidget):
             Qt.ScrollBarPolicy.ScrollBarAsNeeded
         )
         # Capturar mouse y wheel directamente en el viewport, ya que el
-        # QGraphicsView los consume antes de que lleguen a este widget.
+        # QGraphicsView los consume antes de que lleguen al widget padre.
         self.view.viewport().installEventFilter(self)
 
         layout = QVBoxLayout(self)
@@ -126,24 +117,6 @@ class ImageViewer(QWidget):
 
     def has_image(self) -> bool:
         return not self.item.pixmap().isNull()
-
-    def is_legend_visible(self) -> bool:
-        return True  # El visor no gestiona la leyenda; lo hace LibraryView.
-
-    def set_legend_visible(self, visible: bool) -> None:
-        self.legend_toggled.emit(bool(visible))
-
-    def is_wheel_zoom_enabled(self) -> bool:
-        return self._wheel_zoom_enabled
-
-    def set_wheel_zoom_enabled(self, enabled: bool) -> None:
-        self._wheel_zoom_enabled = bool(enabled)
-
-    def is_pan_enabled(self) -> bool:
-        return self._pan_enabled
-
-    def set_pan_enabled(self, enabled: bool) -> None:
-        self._pan_enabled = bool(enabled)
 
     def zoom(self, factor: float) -> None:
         """Aplica un factor de zoom relativo al nivel actual."""
@@ -193,11 +166,7 @@ class ImageViewer(QWidget):
         delta = event.angleDelta().y()
         if delta == 0:
             return False
-        ctrl_right = bool(
-            event.modifiers() & Qt.ControlModifier
-            and event.buttons() & Qt.RightButton
-        )
-        if not self._wheel_zoom_enabled and not ctrl_right:
+        if not self._wheel_zoom_enabled:
             return False
         factor = ZOOM_IN if delta > 0 else ZOOM_OUT
         new_scale = min(MAX_ZOOM, max(MIN_ZOOM, self._scale * factor))

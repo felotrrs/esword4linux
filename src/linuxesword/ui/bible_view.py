@@ -387,9 +387,17 @@ class BiblePane(QWidget):
         self.navigate(self._current)
 
     def _apply_commentary_match(self) -> None:
-        """Empareja el comentario con la biblia activa (heurística visible)."""
+        """Empareja el comentario con la biblia activa (heurística visible).
+
+        Cuando se cambia la biblia principal, busca automáticamente el
+        comentario que mejor corresponde y lo carga en el panel inferior.
+        Si el comentario emparejado no existe en el catálogo, muestra una
+        advertencia en el badge de emparejamiento.
+        """
         bible = self._active_module()
         if bible is None:
+            self.commentary.set_match_badge("")
+            self.commentary.set_commentary_rel("")
             return
         mod = self.ctx.module(bible)
         matched = best_commentary(
@@ -398,11 +406,25 @@ class BiblePane(QWidget):
         )
         if matched is not None:
             self.commentary.set_commentary_rel(matched["rel_path"])
-            self.commentary.set_match_badge(
-                tr("commentary.matched", bible=bible.get("abbreviation") or bible.get("title", ""))
-            )
+            # Verificar que el comentario realmente existe en el catálogo.
+            row = self.ctx.catalog.by_rel_path(matched["rel_path"])
+            if row is None:
+                self.commentary.set_match_badge(
+                    tr("commentary.not_found",
+                       bible=bible.get("abbreviation") or bible.get("title", ""))
+                )
+            else:
+                self.commentary.set_match_badge(
+                    tr("commentary.matched",
+                       bible=bible.get("abbreviation") or bible.get("title", ""))
+                )
+            # Recargar el panel de comentario para mostrar el nuevo comentario.
+            self.commentary.refresh()
         else:
-            self.commentary.set_match_badge("")
+            self.commentary.set_match_badge(
+                tr("commentary.no_match")
+            )
+            self.commentary.set_commentary_rel("")
         self._comments_cache.clear()
 
     def _active_module(self) -> dict | None:

@@ -130,6 +130,7 @@
   "bible.note_jump": "Go to commentary",
   "commentary.matched": "matched with {bible}",
   "commentary.no_match": "no matching commentary",
+  "commentary.not_found": "matched with {bible} but not found in the library",
   "tooltip.verse": "📖 {ref} ({version})",
   "tooltip.note": "Note {marker} — {ref}",
   "tooltip.no_note": "No note for this marker.",

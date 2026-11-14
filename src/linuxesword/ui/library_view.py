@@ -80,69 +80,12 @@ class LibraryView(QWidget):
 
         # ── visor de imagen (creado antes de sus controles en la cabecera) ──
         self.image_viewer = ImageViewer(self)
-        self.image_viewer.legend_toggled.connect(self._toggle_legend)
         self.image_viewer.image_size.connect(self._on_image_size)
 
-        # ── controles de mapa/imagen (misma fila que el combobox Biblia) ──
+        # Los gestos del mouse (left click = manita, wheel = zoom) se manejan
+        # dentro de ImageViewer; no hay botones de control en la UI.
         self.map_toolbar = QWidget()
         self.map_toolbar.setObjectName("mapToolbar")
-        map_row = QHBoxLayout(self.map_toolbar)
-        map_row.setContentsMargins(0, 0, 0, 0)
-        map_row.setSpacing(4)
-
-        self.btn_zoom_in = QToolButton()
-        self.btn_zoom_in.setText("+")
-        self.btn_zoom_in.setToolTip(tr("image.zoom_in"))
-        self.btn_zoom_in.clicked.connect(self.image_viewer.zoom_in)
-        map_row.addWidget(self.btn_zoom_in)
-
-        self.btn_zoom_out = QToolButton()
-        self.btn_zoom_out.setText("-")
-        self.btn_zoom_out.setToolTip(tr("image.zoom_out"))
-        self.btn_zoom_out.clicked.connect(self.image_viewer.zoom_out)
-        map_row.addWidget(self.btn_zoom_out)
-
-        self.btn_reset = QToolButton()
-        self.btn_reset.setText("1:1")
-        self.btn_reset.setToolTip(tr("image.zoom_real"))
-        self.btn_reset.clicked.connect(self.image_viewer.reset_zoom)
-        map_row.addWidget(self.btn_reset)
-
-        self.btn_fit = QToolButton()
-        self.btn_fit.setText(tr("image.fit"))
-        self.btn_fit.setToolTip(tr("image.fit"))
-        self.btn_fit.clicked.connect(self.image_viewer.fit_to_window)
-        map_row.addWidget(self.btn_fit)
-
-        self.btn_legend = QToolButton()
-        self.btn_legend.setText(tr("image.legend"))
-        self.btn_legend.setToolTip(tr("image.legend"))
-        self.btn_legend.setCheckable(True)
-        self.btn_legend.setChecked(True)
-        self.btn_legend.clicked.connect(self.image_viewer.set_legend_visible)
-        self.image_viewer.legend_toggled.connect(self.btn_legend.setChecked)
-        map_row.addWidget(self.btn_legend)
-
-        self.btn_wheel_zoom = QToolButton()
-        self.btn_wheel_zoom.setText("🔍")
-        self.btn_wheel_zoom.setToolTip(tr("image.wheel_zoom"))
-        self.btn_wheel_zoom.setCheckable(True)
-        self.btn_wheel_zoom.setChecked(True)
-        self.btn_wheel_zoom.clicked.connect(
-            lambda checked: self._toggle_image_tool("wheel", bool(checked))
-        )
-        map_row.addWidget(self.btn_wheel_zoom)
-
-        self.btn_pan = QToolButton()
-        self.btn_pan.setText("👋")
-        self.btn_pan.setToolTip(tr("image.pan"))
-        self.btn_pan.setCheckable(True)
-        self.btn_pan.setChecked(True)
-        self.btn_pan.clicked.connect(
-            lambda checked: self._toggle_image_tool("pan", bool(checked))
-        )
-        map_row.addWidget(self.btn_pan)
-
         self.map_toolbar.hide()
         head_row.addWidget(self.map_toolbar)
 
@@ -232,12 +175,6 @@ class LibraryView(QWidget):
         self.right_split.setStretchFactor(0, 3)
         self.right_split.setStretchFactor(1, 1)
         self.image_viewer.setVisible(bool(self.mod and self.mod.structure == "maps"))
-        self._legend_visible = True
-        # Estado inicial: manita con clic izquierdo activada y zoom con rueda
-        # activada. Ambas pueden usarse a la vez (clic izquierdo arrastra, rueda
-        # hace zoom).
-        self.image_viewer.set_wheel_zoom_enabled(True)
-        self.image_viewer.set_pan_enabled(True)
 
         self.left_dock = QWidget()
         dock_row = QHBoxLayout(self.left_dock)
@@ -414,9 +351,6 @@ class LibraryView(QWidget):
         if self.mod and self.mod.structure == "maps":
             pixmap = self.mod.map_picture(page.ref)
             self.image_viewer.show()
-            self.map_toolbar.show()
-            # Estado inicial de la leyenda (memoria de la pestaña).
-            self.image_viewer.set_legend_visible(self._legend_visible)
             has_img = False
             if pixmap:
                 from PySide6.QtCore import QByteArray
@@ -433,26 +367,8 @@ class LibraryView(QWidget):
             self.map_toolbar.hide()
             self.lbl_map_size.hide()
         self.detail.setHtml("".join(parts))
-        self.detail.setVisible(self.mod is None or self.mod.structure != "maps" or self._legend_visible)
+        self.detail.setVisible(self.mod is None or self.mod.structure != "maps")
         self.detail.verticalScrollBar().setValue(0)
-
-    def _toggle_legend(self, checked: bool) -> None:
-        """Oculta o muestra la leyenda (texto Details) de un mapa/ilustración."""
-        self._legend_visible = bool(checked)
-        if self.mod and self.mod.structure == "maps":
-            self.detail.setVisible(self._legend_visible)
-
-    def _toggle_image_tool(self, tool: str, checked: bool) -> None:
-        """Activa o desactiva una herramienta de imagen de forma independiente.
-
-        Zoom con rueda y arrastre con manita usan mecanismos distintos
-        (rueda del ratón vs. clic izquierdo), por lo que pueden estar ambos
-        activos al mismo tiempo sin conflicto.
-        """
-        if tool == "wheel":
-            self.image_viewer.set_wheel_zoom_enabled(bool(checked))
-        elif tool == "pan":
-            self.image_viewer.set_pan_enabled(bool(checked))
 
     def _on_image_size(self, text: str) -> None:
         """Muestra u oculta el tamaño de píxeles junto al combobox de Biblia."""

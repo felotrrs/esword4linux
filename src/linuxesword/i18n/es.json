@@ -131,6 +131,7 @@
   "bible.note_jump": "Ir al comentario",
   "commentary.matched": "emparejado con {bible}",
   "commentary.no_match": "sin comentario emparejado",
+  "commentary.not_found": "emparejado con {bible} pero no se encuentra en la biblioteca",
   "tooltip.verse": "📖 {ref} ({version})",
   "tooltip.note": "Nota {marker} — {ref}",
   "tooltip.no_note": "Sin nota para este marcador.",
