@@ -48,7 +48,7 @@ class ImageViewer(QWidget):
         self._scale = 1.0
         self._wheel_zoom_enabled = True
         self._pan_enabled = True
-        self._pan_button = Qt.RightButton  # botón que activa el arrastre
+        self._pan_button = Qt.LeftButton  # arrastre con clic izquierdo
         self._pan_origin = QPoint()
 
         self.scene = QGraphicsScene(self)

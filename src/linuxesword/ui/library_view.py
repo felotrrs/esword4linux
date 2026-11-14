@@ -68,33 +68,15 @@ class LibraryView(QWidget):
         box.addWidget(self.title_label)
         box.addWidget(self.sub_label)
         head_row.addLayout(box)
-        head_row.addStretch(1)
 
         # ── tamaño de la imagen (mapas/ilustraciones) ────────────────────
         self.lbl_map_size = QLabel("")
         self.lbl_map_size.setObjectName("mapSize")
-        self.lbl_map_size.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_map_size.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.lbl_map_size.hide()
         head_row.addWidget(self.lbl_map_size)
 
-        # ── selector de Biblia de referencia ─────────────────────────────
-        bibles = self.ctx.bibles()
-        if bibles:
-            self._bible_lbl = QLabel(tr("workspace.bible") + ":")
-            self._bible_lbl.setObjectName("appSubtitle")
-            self._bible_combo = QComboBox()
-            # Reutilizamos la función ya existente en bible_view
-            fill_bible_combo(self._bible_combo, bibles,
-                             self._ref_bible_rel, editable=False)
-            # Si no hay selección, seleccionar el primero disponible
-            self._sync_combo_to_rel(self._ref_bible_rel)
-            self._bible_combo.setToolTip(tr("workspace.bible_help"))
-            self._bible_combo.currentIndexChanged.connect(self._on_bible_changed)
-            head_row.addWidget(self._bible_lbl)
-            head_row.addWidget(self._bible_combo)
-        else:
-            self._bible_lbl = None
-            self._bible_combo = None
+        head_row.addStretch(1)
 
         # ── visor de imagen (creado antes de sus controles en la cabecera) ──
         self.image_viewer = ImageViewer(self)
@@ -163,6 +145,25 @@ class LibraryView(QWidget):
 
         self.map_toolbar.hide()
         head_row.addWidget(self.map_toolbar)
+
+        # ── selector de Biblia de referencia (siempre a la derecha) ─────
+        bibles = self.ctx.bibles()
+        if bibles:
+            self._bible_lbl = QLabel(tr("workspace.bible") + ":")
+            self._bible_lbl.setObjectName("appSubtitle")
+            self._bible_combo = QComboBox()
+            # Reutilizamos la función ya existente en bible_view
+            fill_bible_combo(self._bible_combo, bibles,
+                             self._ref_bible_rel, editable=False)
+            # Si no hay selección, seleccionar el primero disponible
+            self._sync_combo_to_rel(self._ref_bible_rel)
+            self._bible_combo.setToolTip(tr("workspace.bible_help"))
+            self._bible_combo.currentIndexChanged.connect(self._on_bible_changed)
+            head_row.addWidget(self._bible_lbl)
+            head_row.addWidget(self._bible_combo)
+        else:
+            self._bible_lbl = None
+            self._bible_combo = None
 
         layout.addWidget(head)
 
