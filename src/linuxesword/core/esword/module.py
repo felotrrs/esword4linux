@@ -597,7 +597,14 @@ class EswordModule:
                     params = (prefix + "%",)
             sql += " ORDER BY k LIMIT ?"
             params += (limit,)
-            return [(str(r["k"] or ""), str(r["k"] or "")) for r in self._rows(sql, params)]
+            out: list[tuple[str, str]] = []
+            for r in self._rows(sql, params):
+                k = r["k"]
+                if isinstance(k, (bytes, bytearray)):
+                    from ..text import decode_raw
+                    k = decode_raw(k)
+                out.append((str(k or ""), str(k or "")))
+            return out
         if self.structure == "devotion":
             table = "Devotions" if "Devotions" in self.tables else "Devotional"
             return [

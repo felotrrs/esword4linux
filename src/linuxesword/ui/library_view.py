@@ -80,12 +80,52 @@ class LibraryView(QWidget):
 
         # ── visor de imagen (creado antes de sus controles en la cabecera) ──
         self.image_viewer = ImageViewer(self)
+        self.image_viewer.legend_toggled.connect(self._toggle_legend)
         self.image_viewer.image_size.connect(self._on_image_size)
 
-        # Los gestos del mouse (left click = manita, wheel = zoom) se manejan
-        # dentro de ImageViewer; no hay botones de control en la UI.
+        # ── controles de mapa/imagen (misma fila que el combobox Biblia) ──
         self.map_toolbar = QWidget()
         self.map_toolbar.setObjectName("mapToolbar")
+        map_row = QHBoxLayout(self.map_toolbar)
+        map_row.setContentsMargins(0, 0, 0, 0)
+        map_row.setSpacing(4)
+
+        self.btn_zoom_in = QToolButton()
+        self.btn_zoom_in.setText("+")
+        self.btn_zoom_in.setToolTip(tr("image.zoom_in"))
+        self.btn_zoom_in.clicked.connect(self.image_viewer.zoom_in)
+        map_row.addWidget(self.btn_zoom_in)
+
+        self.btn_zoom_out = QToolButton()
+        self.btn_zoom_out.setText("-")
+        self.btn_zoom_out.setToolTip(tr("image.zoom_out"))
+        self.btn_zoom_out.clicked.connect(self.image_viewer.zoom_out)
+        map_row.addWidget(self.btn_zoom_out)
+
+        self.btn_reset = QToolButton()
+        self.btn_reset.setText("1:1")
+        self.btn_reset.setToolTip(tr("image.zoom_real"))
+        self.btn_reset.clicked.connect(self.image_viewer.reset_zoom)
+        map_row.addWidget(self.btn_reset)
+
+        self.btn_fit = QToolButton()
+        self.btn_fit.setText(tr("image.fit"))
+        self.btn_fit.setToolTip(tr("image.fit"))
+        self.btn_fit.clicked.connect(self.image_viewer.fit_to_window)
+        map_row.addWidget(self.btn_fit)
+
+        self.btn_legend = QToolButton()
+        self.btn_legend.setText(tr("image.legend"))
+        self.btn_legend.setToolTip(tr("image.legend"))
+        self.btn_legend.setCheckable(True)
+        self.btn_legend.setChecked(True)
+        self.btn_legend.clicked.connect(self.image_viewer.set_legend_visible)
+        self.image_viewer.legend_toggled.connect(self.btn_legend.setChecked)
+        map_row.addWidget(self.btn_legend)
+
+        # Quitamos los botones de lupa y manita: el mouse gestiona ambos
+        # (left click = arrastre, wheel = zoom) sin necesidad de botones.
+
         self.map_toolbar.hide()
         head_row.addWidget(self.map_toolbar)
 
@@ -172,9 +212,10 @@ class LibraryView(QWidget):
         self.right_split.setMinimumWidth(DETAIL_MIN_WIDTH)
         self.right_split.addWidget(self.image_viewer)
         self.right_split.addWidget(self.detail)
-        self.right_split.setStretchFactor(0, 3)
+        self.right_split.setStretchFactor(0, 3 if self.mod and self.mod.structure == "maps" else 0)
         self.right_split.setStretchFactor(1, 1)
         self.image_viewer.setVisible(bool(self.mod and self.mod.structure == "maps"))
+        self._legend_visible = True
 
         self.left_dock = QWidget()
         dock_row = QHBoxLayout(self.left_dock)
@@ -369,6 +410,12 @@ class LibraryView(QWidget):
         self.detail.setHtml("".join(parts))
         self.detail.setVisible(self.mod is None or self.mod.structure != "maps")
         self.detail.verticalScrollBar().setValue(0)
+
+    def _toggle_legend(self, checked: bool) -> None:
+        """Oculta o muestra la leyenda (texto Details) de un mapa/ilustración."""
+        self._legend_visible = bool(checked)
+        if self.mod and self.mod.structure == "maps":
+            self.detail.setVisible(self._legend_visible)
 
     def _on_image_size(self, text: str) -> None:
         """Muestra u oculta el tamaño de píxeles junto al combobox de Biblia."""

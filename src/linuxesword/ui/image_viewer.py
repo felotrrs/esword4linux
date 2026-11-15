@@ -35,6 +35,7 @@ class ImageViewer(QWidget):
     """Visor de imagen con zoom (rueda) y arrastre (manita con clic izquierdo)."""
 
     zoom_changed = Signal(float)
+    legend_toggled = Signal(bool)
     # Emitida al cargar una imagen con el texto del tamaño (p. ej. "400 × 300 px").
     image_size = Signal(str)
 
@@ -117,6 +118,12 @@ class ImageViewer(QWidget):
 
     def has_image(self) -> bool:
         return not self.item.pixmap().isNull()
+
+    def is_legend_visible(self) -> bool:
+        return True  # El visor no gestiona la leyenda; lo hace LibraryView.
+
+    def set_legend_visible(self, visible: bool) -> None:
+        self.legend_toggled.emit(bool(visible))
 
     def zoom(self, factor: float) -> None:
         """Aplica un factor de zoom relativo al nivel actual."""

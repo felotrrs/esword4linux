@@ -32,6 +32,7 @@ class CommentaryPane(QWidget):
         self._book = 0
         self._chapter = 0
         self._label = ""
+        self._matched_rel: str = ""
         self.setMinimumHeight(120)
         self._build_ui()
         self.reload_modules()
@@ -54,6 +55,8 @@ class CommentaryPane(QWidget):
         self.match_label = QLabel("")
         self.match_label.setObjectName("matchBadge")
         self.match_label.hide()
+        self.match_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.match_label.mouseReleaseEvent = lambda _: self._open_matched_commentary()
         row.addWidget(self.match_label)
 
         self.combo = QComboBox()
@@ -144,7 +147,8 @@ class CommentaryPane(QWidget):
             return
         self.browser.scrollToAnchor(f"cv{verse}")
 
-    def set_match_badge(self, text: str) -> None:
+    def set_match_badge(self, text: str, matched_rel: str = "") -> None:
+        self._matched_rel = matched_rel
         self.match_label.setText(text)
         self.match_label.setVisible(bool(text))
 
@@ -203,6 +207,17 @@ class CommentaryPane(QWidget):
         self.refresh()
 
     # ── eventos ──────────────────────────────────────────────────────────
+    def _open_matched_commentary(self) -> None:
+        """Abre el comentario emparejado como entrada completa."""
+        if not self._matched_rel:
+            return
+        row = self.ctx.catalog.by_rel_path(self._matched_rel)
+        if row is not None:
+            ref = ""
+            if self._book and self._chapter:
+                ref = f"{self._book}:{self._chapter}:1"
+            self.open_module.emit(row["id"], ref)
+
     def _open_full(self) -> None:
         row = self._module_row()
         if row is None:
