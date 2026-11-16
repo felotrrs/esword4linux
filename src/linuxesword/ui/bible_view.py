@@ -35,7 +35,7 @@ from .commentary_pane import CommentaryPane
 from .rich_browser import RichBrowser
 from .strong_pane import StrongPane
 from .language import language_label, language_sort_key
-from .theme import document_css, palette
+from .theme import document_css_for, palette
 
 _STRONG_COLOR = "#8f6bc4"
 _STRONG_STYLE = f"color:{_STRONG_COLOR};font-size:80%;text-decoration:none;"
@@ -171,6 +171,7 @@ class BiblePane(QWidget):
 
         self.commentary = CommentaryPane(self.ctx)
         self.commentary.open_module.connect(self.open_module)
+        self.commentary.open_inline.connect(self._show_commentary_inline)
         self.commentary.module_changed.connect(self._on_commentary_changed)
         self.strong = StrongPane(self.ctx)
         self.strong.open_module.connect(self.open_module)
@@ -307,8 +308,7 @@ class BiblePane(QWidget):
         return host
 
     def _css(self) -> str:
-        return document_css(self.settings.theme, self.settings.font_size,
-                            self.settings.font_family)
+        return document_css_for(self.settings)
 
     # ── panel inferior ───────────────────────────────────────────────────
     def _set_bottom_page(self, page: str, show: bool = True) -> None:
@@ -338,6 +338,12 @@ class BiblePane(QWidget):
             self._set_bottom_page("", show=False)
         else:
             self._set_bottom_page(page, show=True)
+
+    def _show_commentary_inline(self) -> None:
+        """Muestra el comentario emparejado en el panel inferior y lo enfoca."""
+        self._set_bottom_page("commentary", show=True)
+        if self._current.verse:
+            self.commentary.scroll_to_verse(self._current.verse)
 
     def _on_commentary_closed(self) -> None:
         self._set_bottom_page("", show=False)

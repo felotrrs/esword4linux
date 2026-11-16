@@ -14,7 +14,7 @@ from ..core.catalog import KIND_LABELS, KIND_ORDER
 from ..core.context import AppContext
 from ..core.search import SearchHit
 from ..i18n import tr
-from .theme import document_css
+from .theme import document_css_for
 
 
 class SearchView(QWidget):
@@ -78,7 +78,7 @@ class SearchView(QWidget):
         self.results.setOpenExternalLinks(False)
         self.results.anchorClicked.connect(self._on_anchor)
         self.results.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         layout.addWidget(self.results, 1)
 
@@ -108,7 +108,7 @@ class SearchView(QWidget):
     def run_search(self, explicit: bool = False) -> None:
         query = self.query.text().strip()
         self.results.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         if not query:
             self.info.setText("")

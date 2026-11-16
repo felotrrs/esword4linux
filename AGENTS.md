@@ -161,7 +161,7 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 
 ## Definición de "terminado"
 
-- `make test` en verde (175 pruebas).
+- `make test` en verde (184 pruebas).
 - `make drift` sin deriva inesperada del núcleo vendorizado.
 - La app arranca con `./run.sh` y muestra la Biblia sin índice.
 - Cambio de comportamiento → una línea en `documentacion/CHANGELOG.md`.

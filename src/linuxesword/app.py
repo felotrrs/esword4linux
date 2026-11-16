@@ -13,7 +13,7 @@ from .config import Settings, asset
 from .core.context import AppContext
 from .ui.checkstyle import install as install_check_style
 from .ui.main_window import MainWindow
-from .ui.theme import stylesheet
+from .ui.theme import ui_stylesheet
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,11 +31,11 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationVersion(__version__)
     app.setOrganizationName("linuxEsword")
     app.setStyle("Fusion")
-    app.setFont(QFont("Noto Sans", max(9, settings.font_size - 2)))
+    app.setFont(QFont(settings.ui_font_family, settings.ui_font_size))
     # El proxy debe instalarse antes de la hoja de estilo para que dibuje el
     # indicador (caja + check) en lugar de que el QSS lo sustituya.
     install_check_style(app, settings.theme)
-    app.setStyleSheet(stylesheet(settings.theme, settings.font_size))
+    app.setStyleSheet(ui_stylesheet(settings))
 
     try:
         ctx = AppContext(settings)

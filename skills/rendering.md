@@ -39,10 +39,19 @@ raw (str | bytes)
 
 ## Tipografía
 
-- Escritura: serif (`Noto Serif`, fallback `DejaVu Serif`). Se aplica con
-  `.scripture { font-family: ... }` en `document_css`.
-- UI: sans (`Noto Sans`, `DejaVu Sans`).
-- Tamaño base en `Settings.font_size` (15 por defecto). Todo el CSS deriva de él.
+Tres roles independientes, editables en **Editar → Preferencias**:
+
+- **Interfaz**: `Settings.ui_font_family` / `ui_font_size` (13 px por defecto).
+  Alimenta `app.setFont()` y `ui_stylesheet(settings)`.
+- **Escritura**: `Settings.font_family` / `font_size` (Noto Serif, 15 px).
+  Se aplica con `.scripture` y los títulos en `document_css`.
+- **Texto corriente**: `Settings.content_font_family` / `content_font_size`
+  (Noto Sans, 13 px) para comentarios, diccionarios, léxico y búsqueda. Es la
+  regla `p, div, li, td, th` de `document_css`.
+
+`document_css_for(settings)` es el atajo que usan todas las vistas; no pasar
+constantes sueltas. Qt ignora `body { ... }`, por eso el tamaño corriente se
+declara en los elementos.
 
 ## Temas
 
@@ -52,8 +61,8 @@ raw (str | bytes)
   highlight, comment_bg, verse_num`.
 - En `DARK` los escalones `bg → panel → panel_alt` y el borde tienen
   contraste suficiente para distinguir paneles, entradas y filas alternas.
-- `stylesheet(theme, font_size)` → QSS de la app.
-- `document_css(theme, font_size, serif)` → CSS embebido en cada `QTextBrowser`.
+- `ui_stylesheet(settings)` → QSS de la app (usa la tipografía de UI).
+- `document_css_for(settings)` → CSS embebido en cada `QTextBrowser`.
 
 Añadir un color = añadirlo a **ambas** paletas y usarlo desde `palette()`.
 No escribir hex sueltos en las vistas.

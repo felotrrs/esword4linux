@@ -14,7 +14,7 @@ from ..core.refs import link_references
 from ..core.text import snippet, to_plain, to_rich
 from ..i18n import tr
 from .rich_browser import RichBrowser
-from .theme import document_css, palette
+from .theme import document_css_for, palette
 
 MAX_CHARS = 9000
 
@@ -23,6 +23,7 @@ class CommentaryPane(QWidget):
     """Comentarios del capítulo actual, agrupados por versículo."""
 
     open_module = Signal(int, str)
+    open_inline = Signal()
     module_changed = Signal(str)
 
     def __init__(self, ctx: AppContext, parent=None):
@@ -86,7 +87,7 @@ class CommentaryPane(QWidget):
         self.browser.setOpenExternalLinks(False)
         self.browser.anchorClicked.connect(self._on_anchor)
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         layout.addWidget(self.browser, 1)
 
@@ -154,7 +155,7 @@ class CommentaryPane(QWidget):
 
     def refresh(self) -> None:
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         if not self._book or not self._chapter:
             self.browser.setHtml(f'<p class="muted">{tr("commentary.hint")}</p>')
@@ -171,7 +172,7 @@ class CommentaryPane(QWidget):
 
         pal = palette(self.settings.theme)
         out = [
-            f"<style>{document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)}</style>",
+            f"<style>{document_css_for(self.settings)}</style>",
             f'<div class="entry-title">{_html.escape(self._label)}</div>',
         ]
         for verse in sorted(comments):
@@ -208,15 +209,17 @@ class CommentaryPane(QWidget):
 
     # ── eventos ──────────────────────────────────────────────────────────
     def _open_matched_commentary(self) -> None:
-        """Abre el comentario emparejado como entrada completa."""
+        """Muestra el comentario emparejado aquí mismo, en el panel inferior.
+
+        No abre la ventana emergente: cambia el módulo del panel de comentario
+        y pide al área de Biblia que lo haga visible y se desplace al versículo
+        actual.
+        """
         if not self._matched_rel:
             return
-        row = self.ctx.catalog.by_rel_path(self._matched_rel)
-        if row is not None:
-            ref = ""
-            if self._book and self._chapter:
-                ref = f"{self._book}:{self._chapter}:1"
-            self.open_module.emit(row["id"], ref)
+        if self.commentary_rel() != self._matched_rel:
+            self.set_commentary_rel(self._matched_rel)
+        self.open_inline.emit()
 
     def _open_full(self) -> None:
         row = self._module_row()

@@ -47,8 +47,14 @@ class Settings:
     cache_dir: str = str(DEFAULT_CACHE_DIR)
     locale: str = "es"                 # es | en
     theme: str = "light"               # light | dark
+    # Tipografía por rol: interfaz, Escritura y texto corriente (comentarios,
+    # diccionarios, búsqueda). Se editan en Editar → Preferencias.
+    ui_font_family: str = "Noto Sans"
+    ui_font_size: int = 13
     font_family: str = "Noto Serif"
     font_size: int = 15
+    content_font_family: str = "Noto Sans"
+    content_font_size: int = 13
     bible_module: str = "BIBLIAS/bible_rv1960_es_2.bblx"
     secondary_bible: str = ""
     commentary_modules: list[str] = field(default_factory=list)

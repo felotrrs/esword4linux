@@ -115,8 +115,6 @@ class Sidebar(QWidget):
         self.btn_kind_filter.setMenu(self.kind_menu)
         filter_row.addWidget(self.btn_kind_filter, 0)
 
-        filter_row.addStretch(1)
-
         self.btn_language_filter = QToolButton()
         self.btn_language_filter.setObjectName("organizerFilter")
         self.btn_language_filter.setPopupMode(QToolButton.InstantPopup)
@@ -126,6 +124,7 @@ class Sidebar(QWidget):
         self.language_menu.aboutToShow.connect(self._fill_language_menu)
         self.btn_language_filter.setMenu(self.language_menu)
         filter_row.addWidget(self.btn_language_filter, 0)
+        filter_row.addStretch(1)
 
         org.addLayout(filter_row)
         wrap_org = QWidget()

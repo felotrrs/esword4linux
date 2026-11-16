@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from ..core.context import AppContext
 from ..core.text import to_plain
 from ..i18n import tr
-from .theme import document_css, palette
+from .theme import document_css_for, palette
 
 
 class StrongPane(QWidget):
@@ -73,7 +73,7 @@ class StrongPane(QWidget):
         self.browser.setOpenExternalLinks(False)
         self.browser.anchorClicked.connect(self._on_anchor)
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         layout.addWidget(self.browser, 1)
 
@@ -94,7 +94,7 @@ class StrongPane(QWidget):
 
     def reload_theme(self) -> None:
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         self._rerender()
 
@@ -137,7 +137,7 @@ class StrongPane(QWidget):
 
     def _rerender(self) -> None:
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
         if not self._code:
             self.browser.setHtml(f'<p class="muted">{tr("strong.hint")}</p>')

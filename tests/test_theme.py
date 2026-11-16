@@ -84,3 +84,31 @@ def test_checkbox_draws_checkmark_when_checked():
     # La caja queda rellena de acento y el check se dibuja oscuro encima.
     assert any(c.lightness() > 150 for c in interior)
     assert any(c.lightness() < 80 for c in interior)
+
+
+def test_document_css_separates_reading_and_running_text():
+    from types import SimpleNamespace
+
+    from linuxesword.ui.theme import document_css_for, ui_stylesheet
+
+    settings = SimpleNamespace(
+        theme="light",
+        ui_font_family="DejaVu Sans",
+        ui_font_size=12,
+        font_family="Noto Serif",
+        font_size=18,
+        content_font_family="DejaVu Sans Mono",
+        content_font_size=11,
+    )
+    css = document_css_for(settings)
+    # La Escritura conserva su familia y tamaño propios.
+    assert 'font-family: "Noto Serif"' in css
+    assert "font-size: 18px" in css
+    # El texto corriente usa los suyos.
+    assert 'font-family: "DejaVu Sans Mono"' in css
+    assert "font-size: 11px" in css
+    # La hoja Qt usa la tipografía de la interfaz, no la de lectura.
+    sheet = ui_stylesheet(settings)
+    assert 'font-family: "DejaVu Sans"' in sheet
+    assert "font-size: 12px" in sheet
+    assert "Noto Serif" not in sheet

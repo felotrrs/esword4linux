@@ -7,12 +7,13 @@ import string
 
 from PySide6.QtCore import QByteArray, QSize, Qt, QTimer
 from PySide6.QtGui import (
-    QAction, QActionGroup, QColor, QIcon, QKeySequence, QPainter, QPen, QPixmap,
+    QAction, QActionGroup, QColor, QFont, QIcon, QKeySequence, QPainter, QPen,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
-    QFileDialog, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu, QMessageBox,
-    QProgressBar, QSizePolicy, QSplitter, QTabBar, QTabWidget, QToolButton,
-    QVBoxLayout, QWidget,
+    QApplication, QDialog, QFileDialog, QHBoxLayout, QInputDialog, QLabel,
+    QMainWindow, QMenu, QMessageBox, QProgressBar, QSizePolicy, QSplitter,
+    QTabBar, QTabWidget, QToolButton, QVBoxLayout, QWidget,
 )
 
 from .. import __version__, i18n
@@ -29,9 +30,10 @@ from .sidebar import Sidebar
 from .rich_browser import RichBrowser
 from .tab_bar import ColoredTabBar
 from .tasks import Worker
-from .theme import palette, stylesheet
+from .theme import palette, ui_stylesheet
 from .workspace import Workspace
 from .entry_dialog import EntryDialog
+from .preferences_dialog import PreferencesDialog
 
 # La pestaña 0 es «Buscar» (fija). Las pestañas-vista empiezan en 1.
 FIXED_TABS = 1
@@ -90,7 +92,7 @@ class MainWindow(QMainWindow):
     # ── UI ───────────────────────────────────────────────────────────────
     def _build_ui(self) -> None:
         self.setWindowTitle(tr("app.title"))
-        self.setWindowIcon(QIcon(str(asset("linuxesword3.jpeg"))))
+        self.setWindowIcon(QIcon(str(asset("linuxesword.png"))))
         self.resize(1400, 900)
 
         self.sidebar = Sidebar(self.ctx)
@@ -199,6 +201,12 @@ class MainWindow(QMainWindow):
         act_quit.setShortcut(QKeySequence("Ctrl+Q"))
         act_quit.triggered.connect(self.close)
         m_file.addAction(act_quit)
+
+        m_edit = bar.addMenu(tr("menu.edit"))
+        act_prefs = QAction(tr("menu.edit.preferences"), self)
+        act_prefs.setShortcut(QKeySequence("Ctrl+,"))
+        act_prefs.triggered.connect(self._open_preferences)
+        m_edit.addAction(act_prefs)
 
         m_view = bar.addMenu(tr("menu.view"))
         self.act_sidebar = QAction(tr("menu.view.sidebar"), self)
@@ -565,14 +573,31 @@ class MainWindow(QMainWindow):
         self.ctx.close_all()
         super().closeEvent(event)
 
-    # ── tema / idioma ────────────────────────────────────────────────────
+    # ── preferencias / tema / idioma ─────────────────────────────────────
+    def _open_preferences(self) -> None:
+        """Suite de tipografía: interfaz, Escritura y texto corriente."""
+        dialog = PreferencesDialog(self.ctx, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._apply_typography()
+
+    def _apply_typography(self) -> None:
+        app = QApplication.instance()
+        if app is not None:
+            app.setFont(QFont(self.settings.ui_font_family,
+                              self.settings.ui_font_size))
+        self.setStyleSheet(ui_stylesheet(self.settings))
+        for ws in self._workspaces:
+            ws.reload_theme()
+        self.search.run_search()
+
     def _set_theme(self, theme: str) -> None:
         self.settings.theme = theme
         self.settings.save()
         set_check_style_theme(theme)
         p = palette(theme)
         self.tabs.setTabIcon(0, search_icon(p.muted))
-        self.setStyleSheet(stylesheet(theme, self.settings.font_size))
+        self.setStyleSheet(ui_stylesheet(self.settings))
         self._apply_tab_palette()
         for ws in self._workspaces:
             ws.reload_theme()
@@ -850,7 +875,7 @@ class MainWindow(QMainWindow):
         )
 
     def _about(self) -> None:
-        logo = str(asset("linuxesword-about.png"))
+        logo = str(asset("linuxesword.png"))
         box = QMessageBox(self)
         box.setWindowTitle(tr("dialog.about.title"))
         box.setTextFormat(Qt.RichText)

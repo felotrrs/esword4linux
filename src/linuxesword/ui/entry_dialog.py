@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QDialog, QDialogButtonBox, QTextBrowser, QVBoxLayo
 from ..core.context import AppContext
 from ..core.text import to_rich
 from ..i18n import tr
-from .theme import document_css
+from .theme import document_css_for
 
 
 class EntryDialog(QDialog):
@@ -25,7 +25,7 @@ class EntryDialog(QDialog):
         browser.setOpenLinks(False)
         browser.setOpenExternalLinks(False)
         browser.document().setDefaultStyleSheet(
-            document_css(ctx.settings.theme, ctx.settings.font_size, ctx.settings.font_family)
+            document_css_for(ctx.settings)
         )
         layout.addWidget(browser, 1)
 

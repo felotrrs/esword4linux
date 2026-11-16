@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.7 — 2026-11-15
+
+### Añadido
+
+- **Editar → Preferencias**: suite de tipografía con fuente y tamaño para la
+  interfaz, el texto bíblico y el texto corriente (comentarios, diccionarios,
+  léxico y búsqueda). Incluye vista previa en vivo y «Restablecer».
+- Las preferencias se guardan en `Settings` (`ui_font_*`, `font_*`,
+  `content_font_*`) y se aplican a la QSS y a `document_css` sin reiniciar.
+
+### Corregido
+
+- **Icono oficial**: `linuxesword3.jpeg` pasa a ser el icono real de la app.
+  `tools/make_icons.py` recorta la tarjeta redondeada del JPEG (elimina el
+  damero pintado) y genera `linuxesword.png` con transparencia, que usan la
+  ventana, «Acerca de» y los tamaños hicolor 16–512 px.
+- **Filtros del panel lateral**: «tipo» e «idioma» quedan juntos y alineados a
+  la izquierda; se elimina el `stretch` intermedio.
+- **«Emparejado con…»**: el badge ya no abre una ventana emergente; cambia el
+  comentario del panel inferior y se desplaza al versículo actual.
+
 ## 0.4.6 — 2026-11-15
 
 ### Corregido

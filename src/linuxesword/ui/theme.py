@@ -6,6 +6,19 @@ La tipografía de Escritura usa una serif de sistema; la UI usa sans.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
+
+
+class TypographySettings(Protocol):
+    """Campos de `Settings` que participan en la tipografía."""
+
+    theme: str
+    ui_font_family: str
+    ui_font_size: int
+    font_family: str
+    font_size: int
+    content_font_family: str
+    content_font_size: int
 
 
 @dataclass(frozen=True)
@@ -46,15 +59,17 @@ def palette(theme: str) -> Palette:
     return DARK if theme == "dark" else LIGHT
 
 
-def stylesheet(theme: str, font_size: int = 15) -> str:
+def stylesheet(theme: str, font_size: int = 13,
+               font_family: str = "Noto Sans") -> str:
+    """Hoja de estilo de la interfaz (``font_size`` es el tamaño de la UI)."""
     p = palette(theme)
     return f"""
 * {{ outline: 0; }}
 QWidget {{
     background: {p.bg};
     color: {p.text};
-    font-family: "Noto Sans", "DejaVu Sans", sans-serif;
-    font-size: {font_size - 2}px;
+    font-family: "{font_family}", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size: {font_size}px;
 }}
 QMainWindow, QDialog {{ background: {p.bg}; }}
 
@@ -123,14 +138,14 @@ QFrame#sidebarOrganizer {{
     border-radius: 8px;
 }}
 QLabel#organizerLabel {{
-    color: {p.muted}; font-size: {max(9, font_size - 5)}px;
+    color: {p.muted}; font-size: {max(9, font_size - 3)}px;
     font-weight: 700;
 }}
 QLabel#organizerSep {{ color: {p.muted}; padding: 0 1px; }}
 QComboBox#organizerCombo, QToolButton#organizerFilter {{
     padding: 3px 6px; background: {p.panel}; color: {p.text};
     border: 1px solid {p.border}; border-radius: 5px;
-    font-size: {max(9, font_size - 5)}px;
+    font-size: {max(9, font_size - 3)}px;
 }}
 QComboBox#organizerCombo:focus, QToolButton#organizerFilter:hover {{
     border-color: {p.accent};
@@ -148,7 +163,7 @@ QToolButton#sidebarHandle:hover {{ color: {p.accent_text}; background: {p.accent
 QLabel#matchBadge {{
     color: {p.muted}; background: {p.panel_alt};
     border: 1px solid {p.border}; border-radius: 6px;
-    padding: 1px 8px; font-size: {max(9, font_size - 5)}px;
+    padding: 1px 8px; font-size: {max(9, font_size - 3)}px;
 }}
 QLabel#strongBadge {{ color: {p.accent_text}; background: {p.accent};
     border-radius: 6px; padding: 1px 8px; font-weight: 700; }}
@@ -190,17 +205,29 @@ QToolTip {{
     border: 1px solid {p.border}; padding: 4px;
 }}
 QLabel#sectionTitle {{ color: {p.muted}; font-weight: 600; text-transform: uppercase;
-    font-size: {max(9, font_size - 6)}px; padding: 6px 8px 2px 8px; }}
-QLabel#appTitle {{ font-weight: 700; font-size: {font_size + 1}px; color: {p.text}; }}
-QLabel#appSubtitle {{ color: {p.muted}; font-size: {max(9, font_size - 4)}px; }}
+    font-size: {max(9, font_size - 4)}px; padding: 6px 8px 2px 8px; }}
+QLabel#appTitle {{ font-weight: 700; font-size: {font_size + 3}px; color: {p.text}; }}
+QLabel#appSubtitle {{ color: {p.muted}; font-size: {max(9, font_size - 2)}px; }}
 """
 
 
-def document_css(theme: str, font_size: int, serif_family: str) -> str:
-    """CSS embebido en los QTextBrowser (Qt soporta un subconjunto)."""
+def document_css(theme: str, font_size: int, serif_family: str,
+                 content_family: str = "Noto Sans",
+                 content_size: int | None = None) -> str:
+    """CSS embebido en los QTextBrowser (Qt soporta un subconjunto).
+
+    ``font_size``/``serif_family`` controlan la Escritura; ``content_size`` y
+    ``content_family`` el texto corriente (comentarios, diccionarios, notas).
+    """
     p = palette(theme)
+    if content_size is None:
+        content_size = max(10, font_size - 2)
     return f"""
 body {{ color: {p.text}; }}
+p, div, li, td, th {{
+    font-family: "{content_family}", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size: {content_size}px;
+}}
 p {{ margin: 0 0 6px 0; }}
 .verse {{ margin: 0 0 9px 0; line-height: 155%; }}
 .verse.parallel {{ margin: 0 0 9px 0; line-height: 150%; }}
@@ -210,16 +237,16 @@ p {{ margin: 0 0 6px 0; }}
 .chapter-title {{ color: {p.accent}; font-family: "{serif_family}", Georgia, serif;
     font-size: {font_size + 8}px; font-weight: 700; margin: 2px 0 14px 0; }}
 .comment {{ background: {p.comment_bg}; border-left: 3px solid {p.accent};
-    margin: 2px 0 12px 22px; padding: 7px 12px; font-size: {max(10, font_size - 3)}px;
+    margin: 2px 0 12px 22px; padding: 7px 12px; font-size: {max(10, content_size - 1)}px;
     color: {p.text}; }}
-.comment .ctag {{ color: {p.muted}; font-size: {max(9, font_size - 5)}px;
+.comment .ctag {{ color: {p.muted}; font-size: {max(9, content_size - 4)}px;
     font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }}
 .comment a {{ color: {p.link}; }}
 .muted {{ color: {p.muted}; }}
 .hit {{ margin: 0 0 10px 0; }}
-.hit .meta {{ color: {p.muted}; font-size: {max(9, font_size - 4)}px; }}
+.hit .meta {{ color: {p.muted}; font-size: {max(9, content_size - 2)}px; }}
 .hit a {{ color: {p.link}; text-decoration: none; }}
-.group {{ color: {p.accent}; font-weight: 700; font-size: {max(10, font_size - 1)}px;
+.group {{ color: {p.accent}; font-weight: 700; font-size: {max(10, content_size + 1)}px;
     margin: 16px 0 8px 0; }}
 b {{ color: {p.text}; }}
 a {{ color: {p.link}; }}
@@ -228,3 +255,20 @@ a.strong:hover {{ text-decoration: underline; }}
 .entry-title {{ color: {p.accent}; font-family: "{serif_family}", Georgia, serif;
     font-size: {font_size + 4}px; font-weight: 700; margin-bottom: 10px; }}
 """
+
+
+def ui_stylesheet(settings: TypographySettings) -> str:
+    """Hoja de estilo Qt con la tipografía elegida para la interfaz."""
+    return stylesheet(settings.theme, settings.ui_font_size,
+                      settings.ui_font_family)
+
+
+def document_css_for(settings: TypographySettings) -> str:
+    """CSS de los visores con las preferencias tipográficas actuales."""
+    return document_css(
+        settings.theme,
+        settings.font_size,
+        settings.font_family,
+        content_family=settings.content_font_family,
+        content_size=settings.content_font_size,
+    )

@@ -12,7 +12,7 @@ from ..core.context import AppContext
 from ..core.text import to_plain
 from ..i18n import tr
 from .rich_browser import RichBrowser
-from .theme import document_css, palette
+from .theme import document_css_for, palette
 
 MAX_VERSES = 250
 
@@ -59,8 +59,7 @@ class CitationPane(QWidget):
         self.browser.setOpenExternalLinks(False)
         self.browser.anchorClicked.connect(self._on_anchor)
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size,
-                         self.settings.font_family)
+            document_css_for(self.settings)
         )
         layout.addWidget(self.browser, 1)
 
@@ -87,8 +86,7 @@ class CitationPane(QWidget):
     def show_chain(self, refs: list[Reference], mod) -> None:
         self._refs = list(refs)
         self.browser.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size,
-                         self.settings.font_family)
+            document_css_for(self.settings)
         )
         if not refs:
             self.clear()
@@ -99,7 +97,7 @@ class CitationPane(QWidget):
             return
 
         pal = palette(self.settings.theme)
-        out = [f"<style>{document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)}</style>"]
+        out = [f"<style>{document_css_for(self.settings)}</style>"]
         grouped: dict[tuple[int, int], list] = {}
         missing: list[str] = []
         total = 0

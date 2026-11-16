@@ -18,7 +18,7 @@ from ..i18n import tr
 from .bible_view import fill_bible_combo
 from .image_viewer import ImageViewer
 from .rich_browser import RichBrowser
-from .theme import document_css
+from .theme import document_css_for
 
 MAX_ENTRIES = 3000
 LIST_MIN_WIDTH = 220
@@ -203,7 +203,7 @@ class LibraryView(QWidget):
         self.detail.setOpenExternalLinks(False)
         self.detail.anchorClicked.connect(self._on_anchor)
         self.detail.document().setDefaultStyleSheet(
-            document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+            document_css_for(self.settings)
         )
 
         self.detail.setMinimumWidth(DETAIL_MIN_WIDTH)
@@ -380,7 +380,7 @@ class LibraryView(QWidget):
         self._show_page(page)
 
     def _show_page(self, page) -> None:
-        css = document_css(self.settings.theme, self.settings.font_size, self.settings.font_family)
+        css = document_css_for(self.settings)
         parts = [f"<style>{css}</style>"]
         parts.append(f'<div class="entry-title">{_html.escape(page.title)}</div>')
         if page.book and self.mod and self.mod.structure == "commentary":
@@ -450,8 +450,7 @@ class LibraryView(QWidget):
     def reload_theme(self) -> None:
         """Reaplica la hoja de estilo sin recrear la pestaña."""
         self.detail.document().setDefaultStyleSheet(
-            document_css(self.ctx.settings.theme, self.ctx.settings.font_size,
-                         self.ctx.settings.font_family)
+            document_css_for(self.ctx.settings)
         )
         current = self.list.currentItem()
         if current is not None:

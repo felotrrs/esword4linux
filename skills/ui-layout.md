@@ -45,7 +45,9 @@ Workspace
    bíblico. `CommentaryPane` hace **una** consulta por capítulo
    (`chapter_comments`), nunca una por versículo.
 7. **«Leer completo» abre un diálogo, no una pestaña** (`EntryDialog`). Evita
-   proliferación de pestañas.
+   proliferación de pestañas. El badge «emparejado con…» no usa el diálogo:
+   cambia el módulo del `CommentaryPane` y lo muestra en el panel inferior
+   (`open_inline` → `BiblePane._show_commentary_inline`).
 8. **Todo trabajo largo va por `ui/tasks.py:Worker`** con conexiones SQLite
    creadas dentro del hilo. El panel lateral se deshabilita mientras corre.
 
@@ -70,6 +72,8 @@ Workspace
 - Con el panel **visible** el `QSplitter` no es colapsable y el dock tiene
   mínimo `SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH` (240 + 15 px). Arrastrar
   el divisor nunca lo deja desaparecer; al ocultarlo queda solo el asa de 15 px.
+- Los botones de filtro «tipo» e «idioma» van pegados y alineados a la
+  izquierda: no insertar un `stretch` entre ellos.
 
 ## BiblePane
 
