@@ -77,6 +77,7 @@ class EswordModule:
         self.warnings: list[str] = []
         self._details: dict | None = None
         self._codepages: dict[int, str] | None = None
+        self._graphics_index: dict[str, int] | None = None
         if not self.path.is_file():
             raise ModuleError(f"no existe: {self.path}")
         try:
@@ -296,15 +297,39 @@ class EswordModule:
         return ""
 
     def count_entries(self) -> int:
+        # Un comentario puede tener solo comentarios de libro (ABN-Manley,
+        # Pearlman, Willmington): elegir la primera tabla existente devolvía 0
+        # y el catálogo ocultaba el módulo. Se suman todas las tablas reales.
+        if self.structure == "commentary":
+            total = 0
+            for table, _level in self._comment_specs():
+                try:
+                    total += int(self.conn.execute(
+                        f'SELECT COUNT(*) FROM "{table}"'
+                    ).fetchone()[0])
+                except sqlite3.Error:
+                    pass
+            return total
+        # La unidad navegable de una armonía es la sección (un acontecimiento
+        # con sus pasajes paralelos), no cada fila de `Parts`.
+        if self.structure == "harmony":
+            try:
+                total = int(self.conn.execute(
+                    "SELECT COUNT(DISTINCT Section) FROM Parts"
+                ).fetchone()[0])
+                if total:
+                    return total
+                return int(self.conn.execute(
+                    "SELECT COUNT(*) FROM Sections"
+                ).fetchone()[0])
+            except sqlite3.Error:
+                return 0
         table = {
             "bible": "Bible",
-            "commentary": "VerseCommentary" if "VerseCommentary" in self.tables
-                          else ("Verses" if "Verses" in self.tables else "BookCommentary"),
             "dictionary": "Dictionary",
             "lexicon": "Lexicon",
             "devotion": "Devotions" if "Devotions" in self.tables else "Devotional",
             "topic": "Topics",
-            "harmony": "Parts",
             "maps": "Graphics",
             "reference": "Reference",
             "twm": "topics",
@@ -317,6 +342,21 @@ class EswordModule:
             return 0
 
     # ── descifrado ───────────────────────────────────────────────────────
+    @staticmethod
+    def _text_value(value) -> str:
+        """Texto de una columna que puede venir como bytes legacy.
+
+        En `.mapx` antiguos el título se guarda como UTF-16LE sin BOM dentro de
+        una columna BLOB. `str(bytes)` produce ``b'1\\x000\\x00...'`` y rompe
+        tanto la lista como la búsqueda posterior por título.
+        """
+        if value is None:
+            return ""
+        if isinstance(value, (bytes, bytearray)):
+            from ..text import decode_raw
+            return decode_raw(bytes(value))
+        return str(value)
+
     def _decode(self, value, table: str, ident) -> str:
         if value is None:
             return ""
@@ -326,11 +366,58 @@ class EswordModule:
                     "utf-8", "replace"
                 )
             except SQLitePlusError:
+                # Algunos `.mapx` guardan la leyenda cifrada pero SIN comprimir
+                # (texto RTF UTF-16LE). El descifrador SQLitePlus estándar
+                # intenta descomprimir zlib y falla; se decodifica aparte.
+                if table == "Graphics":
+                    text = self._decode_uncompressed_sqliteplus(bytes(value))
+                    if text is not None:
+                        return text
                 # No es un blob SQLitePlus cifrado: decodificar como texto
                 # plano (puede ser UTF-16LE, UTF-8 o latin-1).
                 from ..text import decode_raw
                 return decode_raw(value)
         return str(value)
+
+    def _decode_uncompressed_sqliteplus(self, blob: bytes) -> str | None:
+        """Descifra un blob SQLitePlus sin zlib (texto plano UTF-16LE/UTF-8).
+
+        Formato observado en `map_larkin_es.mapx`: cabecera de 5 bytes
+        (checksum, tamaño u24, magia ``0x1F``) seguida del texto RTF sin
+        comprimir, rellenado a bloques de 16 bytes. Devuelve ``None`` si el
+        blob no sigue este formato.
+        """
+        if not blob:
+            return None
+        from ..text import decode_raw
+        from .sqliteplus import _derive_key
+        from .twofish import Twofish128
+
+        try:
+            tf = Twofish128(_derive_key(self.crypt_key))
+            plain = bytearray()
+            for offset in range(0, len(blob), 16):
+                plain += tf.decrypt_block(
+                    blob[offset:offset + 16].ljust(16, b"\x00")
+                )
+            if len(plain) < 5 or plain[4] != 0x1F:
+                return None
+            size = plain[1] | (plain[2] << 8) | (plain[3] << 16)
+            if size <= 0 or size > len(plain) - 5:
+                return None
+            payload = bytes(plain[5:5 + size])
+            if len(payload) % 2:
+                payload = payload[:-1]  # UTF-16LE truncado: descartar resto
+            return decode_raw(payload)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _clean_title(value) -> str:
+        """Título de una entrada sin RTF/HTML y en una sola línea."""
+        from ..text import to_plain
+
+        return " ".join(to_plain(value).split())
 
     def _rows(self, sql: str, params: tuple = ()) -> Iterator[sqlite3.Row]:
         try:
@@ -498,25 +585,56 @@ class EswordModule:
                 order=int(m) * 100 + int(d),
             )
 
-    def _pages_harmony(self) -> Iterator[Page]:
-        sections = {
-            r["ID"]: r["Title"]
-            for r in self._rows("SELECT ID, Title FROM Sections")
+    def _harmony_section_key(self, value) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def _harmony_titles(self) -> dict[str, str]:
+        return {
+            str(row["ID"]): self._clean_title(row["Title"])
+            for row in self._rows("SELECT ID, Title FROM Sections")
         }
-        for row in self._rows("SELECT Section, Part, Reference FROM Parts ORDER BY Section, Part"):
-            sec, part = row["Section"], row["Part"]
+
+    def _harmony_groups(self) -> dict[str, list[str]]:
+        """Referencias de `Parts` agrupadas por sección, sin duplicados.
+
+        `Parts` tiene una fila por referencia, así que varias filas comparten
+        ``(Section, Part)``. La entrada navegable es la sección completa; de
+        otro modo la lista mostraba el mismo registro varias veces y el índice
+        FTS5 solo conservaba el último (la clave es ``ref``).
+        """
+        groups: dict[str, list[str]] = {}
+        for row in self._rows(
+            "SELECT Section, Part, Reference FROM Parts "
+            "ORDER BY CAST(Section AS INTEGER), CAST(Part AS INTEGER), rowid"
+        ):
+            sec = str(row["Section"])
+            ref = self._decode(row["Reference"], "Parts", sec).strip()
+            if not ref:
+                continue
+            bucket = groups.setdefault(sec, [])
+            if ref not in bucket:
+                bucket.append(ref)
+        return groups
+
+    def _pages_harmony(self) -> Iterator[Page]:
+        titles = self._harmony_titles()
+        groups = self._harmony_groups()
+        for sec in sorted(groups, key=self._harmony_section_key):
             yield Page(
-                ref=f"{sec}:{part}",
-                title=str(sections.get(sec, "") or f"Sección {sec}"),
-                raw=self._decode(row["Reference"], "Parts", f"{sec}:{part}"),
-                order=int(sec) * 1000 + int(part),
+                ref=sec,
+                title=titles.get(sec) or f"Sección {sec}",
+                raw="\n".join(groups[sec]),
+                order=self._harmony_section_key(sec),
             )
 
     def _pages_maps(self) -> Iterator[Page]:
         for i, row in enumerate(self._rows(
             "SELECT Title, Details FROM Graphics ORDER BY rowid"
         )):
-            title = str(row["Title"] or "")
+            title = self._text_value(row["Title"])
             yield Page(
                 ref=title, title=title,
                 raw=self._decode(row["Details"], "Graphics", title), order=i,
@@ -578,14 +696,31 @@ class EswordModule:
         `contains=True` se usa para el cuadro de filtro (coincidencia en
         cualquier posición); por defecto el prefijo alimenta el salto A-Z.
         """
+        if self.structure == "maps":
+            # El título puede ser BLOB UTF-16LE: LIKE no lo puede comparar
+            # contra el texto que teclea el usuario.  Son pocas entradas
+            # (decenas), así que se decodifican y ordenan en memoria.
+            needle = prefix.casefold()
+            titles: list[str] = []
+            for row in self._rows("SELECT Title FROM Graphics"):
+                title = self._text_value(row["Title"])
+                if needle:
+                    haystack = title.casefold()
+                    if contains:
+                        if needle not in haystack:
+                            continue
+                    elif not haystack.startswith(needle):
+                        continue
+                titles.append(title)
+            titles.sort(key=str.casefold)
+            return [(title, title) for title in titles[:limit]]
         table = {
             "dictionary": "Dictionary", "lexicon": "Lexicon", "topic": "Topics",
-            "reference": "Reference", "maps": "Graphics",
+            "reference": "Reference",
         }.get(self.structure)
         if table:
             col = "Topic" if table in ("Dictionary", "Lexicon") else \
-                  ("Chapter" if table == "Reference" else
-                   ("Title" if table in ("Topics", "Graphics") else "Topic"))
+                  ("Chapter" if table == "Reference" else "Title")
             sql = f'SELECT "{col}" AS k FROM "{table}"'
             params: tuple = ()
             if prefix:
@@ -617,10 +752,24 @@ class EswordModule:
                 for r in self._rows("SELECT id, subject FROM topics ORDER BY rel_order, id LIMIT ?", (limit,))
             ]
         if self.structure == "harmony":
-            return [
-                (f"{r['Section']}:{r['Part']}", f"{r['Section']}.{r['Part']}")
-                for r in self._rows("SELECT Section, Part FROM Parts ORDER BY Section, Part LIMIT ?", (limit,))
-            ]
+            titles = self._harmony_titles()
+            sections = sorted(
+                {str(r["Section"]) for r in self._rows("SELECT Section FROM Parts")},
+                key=self._harmony_section_key,
+            )
+            needle = prefix.casefold()
+            out: list[tuple[str, str]] = []
+            for sec in sections:
+                title = titles.get(sec) or f"Sección {sec}"
+                if needle:
+                    haystack = f"{title} {sec}".casefold()
+                    if contains:
+                        if needle not in haystack:
+                            continue
+                    elif not haystack.startswith(needle):
+                        continue
+                out.append((sec, title))
+            return out[:limit]
         if self.structure == "commentary":
             from ..books import book_name
 
@@ -719,7 +868,25 @@ class EswordModule:
                             raw=self._decode(row["Devotion"], table, ref))
             if self.structure == "commentary":
                 parts = ref.split(":")
-                if len(parts) < 2:
+                if len(parts) == 1:
+                    # Comentarios de libro (ABN-Manley, Pearlman, Willmington):
+                    # el ref es solo el número de libro, sin capítulo.
+                    try:
+                        b = int(parts[0])
+                    except ValueError:
+                        return None
+                    for table, level in self._comment_specs():
+                        if level != "book":
+                            continue
+                        row = self.conn.execute(
+                            f'SELECT Comments FROM "{table}" WHERE Book=?', (b,)
+                        ).fetchone()
+                        if row:
+                            return Page(
+                                ref=str(b), title=book_name(b),
+                                raw=self._decode(row["Comments"], table, b),
+                                book=b, order=b * 1_000_000,
+                            )
                     return None
                 try:
                     b = int(parts[0])
@@ -747,46 +914,79 @@ class EswordModule:
                 return Page(ref=str(row["id"]), title=str(row["subject"] or ""),
                             raw=self._decode(row["data"], "content", ref))
             if self.structure == "maps":
+                rowid = self._graphics_rowid(ref)
+                if rowid is None:
+                    return None
                 row = self.conn.execute(
-                    "SELECT Title, Details FROM Graphics WHERE Title=?", (ref,)
+                    "SELECT Title, Details FROM Graphics WHERE rowid=?", (rowid,)
                 ).fetchone()
                 if not row:
                     return None
-                return Page(ref=str(row["Title"]), title=str(row["Title"]),
-                            raw=self._decode(row["Details"], "Graphics", ref))
+                title = self._text_value(row["Title"])
+                return Page(ref=title, title=title,
+                            raw=self._decode(row["Details"], "Graphics", title))
             if self.structure == "harmony":
-                sec, _, part = ref.partition(":")
-                row = self.conn.execute(
-                    "SELECT Section, Part, Reference FROM Parts WHERE Section=? AND Part=?",
-                    (int(sec), int(part or 0)),
-                ).fetchone()
-                if not row:
+                # Compatibilidad: acepta tanto `sección` como el antiguo
+                # `sección:parte`; la entrada navegable es la sección completa.
+                sec = ref.partition(":")[0].strip()
+                if not sec:
                     return None
-                title = self.conn.execute(
-                    "SELECT Title FROM Sections WHERE ID=?", (int(sec),)
+                row = self.conn.execute(
+                    "SELECT ID, Title FROM Sections WHERE ID=?", (sec,)
                 ).fetchone()
+                groups = self._harmony_groups()
+                key = str(row["ID"]) if row is not None else sec
+                references = groups.get(key)
+                if not references:
+                    return None
+                title = (
+                    self._clean_title(row["Title"]) if row is not None else ""
+                ) or f"Sección {key}"
                 return Page(
-                    ref=ref, title=str(title[0] if title else sec),
-                    raw=self._decode(row["Reference"], "Parts", ref),
-                    order=int(sec) * 1000 + int(part or 0),
+                    ref=key, title=title, raw="\n".join(references),
+                    order=self._harmony_section_key(key),
                 )
         except (ValueError, sqlite3.Error):
             return None
         return self.get_page(ref)
 
+    def _graphics_rowid(self, ref: str) -> int | None:
+        """rowid de una entrada de `Graphics` a partir de su título decodificado."""
+        if self._graphics_index is None:
+            index: dict[str, int] = {}
+            for row in self._rows("SELECT rowid, Title FROM Graphics ORDER BY rowid"):
+                title = self._text_value(row["Title"])
+                index.setdefault(title, int(row["rowid"]))
+            self._graphics_index = index
+        return self._graphics_index.get(ref)
+
+    @staticmethod
+    def _unwrap_picture(data: bytes) -> bytes:
+        """Quita la cabecera propia de algunos `.mapx` (``lt\\0\\0`` + tamaño).
+
+        Algunos módulos guardan la imagen como ``lt`` + 4 bytes + BMP.  Qt no
+        reconoce ese envoltorio y la entrada se mostraba como «sin imagen».
+        """
+        if len(data) > 8 and data.startswith(b"lt\x00\x00"):
+            return data[8:]
+        return data
+
     def map_picture(self, ref: str) -> bytes | None:
         """Imagen de una entrada de mapas (.mapx)."""
         if self.structure != "maps":
             return None
+        rowid = self._graphics_rowid(ref)
+        if rowid is None:
+            return None
         try:
             row = self.conn.execute(
-                "SELECT Picture FROM Graphics WHERE Title=?", (ref,)
+                "SELECT Picture FROM Graphics WHERE rowid=?", (rowid,)
             ).fetchone()
         except sqlite3.Error:
             return None
         if not row or not row["Picture"]:
             return None
-        return bytes(row["Picture"])
+        return self._unwrap_picture(bytes(row["Picture"]))
 
     def pages_for_verse(self, book: int, chapter: int, verse: int) -> list[Page]:
         """Comentarios que aplican a un versículo (para mostrar junto al texto)."""

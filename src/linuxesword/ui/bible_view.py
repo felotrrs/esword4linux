@@ -416,7 +416,8 @@ class BiblePane(QWidget):
             else:
                 self.commentary.set_match_badge(
                     tr("commentary.matched",
-                       bible=bible.get("abbreviation") or bible.get("title", ""))
+                       bible=bible.get("abbreviation") or bible.get("title", "")),
+                    matched_rel=matched["rel_path"],
                 )
             # Recargar el panel de comentario para mostrar el nuevo comentario.
             self.commentary.refresh()

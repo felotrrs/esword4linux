@@ -28,12 +28,12 @@ page_fts USING fts5(body, title,
 | `kind` | Página | `ref` |
 |---|---|---|
 | `bible` | un versículo | `43:3:16` |
-| `commentary` | un comentario de versículo/capítulo/libro | `43:3:16` / `43:3` |
+| `commentary` | un comentario de versículo/capítulo/libro | `43:3:16` / `43:3` / `43` |
 | `dictionary`, `lexicon` | una entrada | el `Topic` |
 | `reference` | un capítulo temático | el `Chapter` |
 | `topic` | un tema | el `Title` |
 | `devotion` | un día | `03-16` |
-| `harmony` | una parte | `sección:parte` |
+| `harmony` | una sección (con sus pasajes paralelos) | `sección` |
 | `maps` | una entrada (título + pie) | el `Title` |
 | `twm` | un tema | el `id` |
 

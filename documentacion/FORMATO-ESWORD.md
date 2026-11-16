@@ -94,6 +94,9 @@ Sections (ID, Title)
 Parts    (Section, Part, Reference)
 ```
 
+`Parts` tiene una fila por referencia: `(Section, Part)` se repite. La unidad
+navegable es la sección; sus referencias se deduplican al listar.
+
 ### Mapas — `.mapx`
 
 ```sql
@@ -102,7 +105,8 @@ Graphics (Title, Details, Picture BLOB)
 ```
 
 `Picture` es la imagen (PNG/JPEG). **No** se descifra: no es una columna de
-contenido textual.
+contenido textual. `Details` es la leyenda; algunos módulos la cifran con
+SQLitePlus sin comprimir (RTF UTF-16LE con cabecera de 5 bytes).
 
 ### TWM — `.twm`
 

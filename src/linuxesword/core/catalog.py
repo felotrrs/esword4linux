@@ -119,7 +119,7 @@ def work_year(title: str) -> str:
 # Versión del bloque de metadatos que depende de la detección de idioma y tipo.
 # Al cambiarla, el próximo escaneo re-procesa todos los módulos (sin tocar
 # los índices de contenido).
-METADATA_VERSION = "2026-11-12-heuristic"
+METADATA_VERSION = "2026-11-15-clasificacion"
 
 LANGUAGE_ORDER = ["es", "en", "fr", "pt", "de", "it", "la", "grc", "hbo", "und"]
 
@@ -350,8 +350,12 @@ class Catalog:
         result.total = len(files)
         force_meta = self.needs_metadata_refresh()
         existing = {
-            r["path"]: (r["size"], r["mtime"], r["index_status"])
-            for r in self.conn.execute("SELECT path, size, mtime, index_status FROM module")
+            r["path"]: (r["size"], r["mtime"], r["index_status"],
+                        r["kind"], r["structure"], r["entries"])
+            for r in self.conn.execute(
+                "SELECT path, size, mtime, index_status, kind, structure, entries "
+                "FROM module"
+            )
         }
 
         for i, path in enumerate(files, 1):
@@ -376,6 +380,13 @@ class Catalog:
             status = prev[2] if prev else "pending"
             if prev and (prev[0] != stat.st_size):
                 status = "pending"  # el archivo cambió: reindexar
+            # Si cambió la clasificación o el número de entradas (p. ej. una
+            # versión nueva agrupa mejor las armonías), el índice FTS5 viejo ya
+            # no representa al módulo: hay que reconstruirlo.
+            if prev and (prev[3] != meta["kind"]
+                         or prev[4] != meta["structure"]
+                         or prev[5] != meta["entries"]):
+                status = "pending"
             self._upsert(key, root, path, stat, meta, status)
             if prev:
                 result.updated += 1
@@ -455,6 +466,13 @@ class Catalog:
             # elemento bajo «TWM»). No se modifica el módulo, solo su clasificación.
             if structure == "twm" and "diccionario" in f"{title} {abbreviation}".lower():
                 kind = "dictionary"
+            # Algunos comentarios se distribuyen con esquema de diccionario
+            # (una entrada por capítulo). La estructura sigue siendo
+            # `dictionary`, pero en el catálogo son Comentarios.
+            if structure == "dictionary":
+                identidad = f"{title} {abbreviation}".lower()
+                if re.search(r"\b(comentario|commentary)\b", identidad):
+                    kind = "commentary"
             return {
                 "structure": structure,
                 "kind": kind,

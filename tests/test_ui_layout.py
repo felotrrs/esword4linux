@@ -23,6 +23,8 @@ def test_library_term_list_has_minimum_and_toggle():
     original_save = Settings.save
     Settings.save = lambda self: None
     ctx = AppContext(Settings.load())
+    # El test asume el panel visible; no depender de la preferencia persistida.
+    ctx.settings.library_list_visible = True
     row = next((m for m in ctx.catalog.modules(kind="dictionary")), None)
     if row is None:
         ctx.close_all()

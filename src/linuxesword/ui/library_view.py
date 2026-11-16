@@ -389,10 +389,12 @@ class LibraryView(QWidget):
                 f'{_html.escape(page.title, quote=True)}">{tr("common.open")} →</a></p>'
             )
         parts.append(link_references(to_rich(page.raw, hint=self.mod.stem if self.mod else "", codepages=self.mod.codepages if self.mod else None)))
-        if self.mod and self.mod.structure == "maps":
+        is_maps = bool(self.mod and self.mod.structure == "maps")
+        has_img = False
+        if is_maps:
             pixmap = self.mod.map_picture(page.ref)
             self.image_viewer.show()
-            has_img = False
+            self.map_toolbar.show()
             if pixmap:
                 from PySide6.QtCore import QByteArray
 
@@ -408,7 +410,13 @@ class LibraryView(QWidget):
             self.map_toolbar.hide()
             self.lbl_map_size.hide()
         self.detail.setHtml("".join(parts))
-        self.detail.setVisible(self.mod is None or self.mod.structure != "maps")
+        # La leyenda (texto Details) del mapa se puede ocultar con su botón.
+        # Si no hay imagen, el detalle debe verse igualmente para mostrar el
+        # aviso en lugar de dejar todo el panel en blanco.
+        if is_maps:
+            self.detail.setVisible(self._legend_visible or not has_img)
+        else:
+            self.detail.setVisible(True)
         self.detail.verticalScrollBar().setValue(0)
 
     def _toggle_legend(self, checked: bool) -> None:

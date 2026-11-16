@@ -35,6 +35,11 @@ Por eso `EswordModule._detect_structure()` decide por tablas, en este orden:
 | `topic` | `Topics` | `topic` \| `book` |
 | `twm` | `topics` (+ `config`, `content`) | `dictionary` \| `book` \| `topic` |
 
+**Excepción de catálogo**: algunos comentarios se distribuyen con esquema de
+diccionario (`Dictionary`, una entrada por capítulo). `Catalog._probe()` los
+cataloga como `commentary` si el título o la abreviatura contienen
+«comentario»/«commentary»; la estructura leída sigue siendo `dictionary`.
+
 **Heurística de contenido**: `EswordModule._detect_kind()` analiza el contenido real de
 las tablas:
 - En `Reference`, si las entradas de `Chapter` son citas bíblicas (`libro:cap:ver`), es `reference`;
@@ -74,6 +79,44 @@ la caja del nombre y por la presencia de `config`.
 y `bible_chapter(book, chapter)`, que hacen `SELECT` directo. Un diccionario de
 21.000 entradas no puede recorrer 21.000 filas cada vez que el usuario pulsa
 una letra.
+
+## Mapas e ilustraciones (`.mapx`)
+
+`Graphics` guarda `Title`, `Details` (leyenda) y `Picture` (BLOB de imagen).
+Dos particularidades del corpus, ya resueltas en `EswordModule`:
+
+- **Títulos BLOB UTF-16LE**: en `map_larkin_es.mapx` las entradas 10+ guardan
+  `Title` como bytes. Hay que decodificarlo con `_text_value()` y localizar la
+  fila por `rowid` (`_graphics_rowid()`); un `WHERE Title=?` contra el texto
+  decodificado no encuentra nada.
+- **Envoltorio `lt\0\0` + tamaño**: algunos módulos (`map_usos_y_costumbres…`,
+  `map_lba`, `map_rva`, `map_abb`) anteponen 8 bytes a un BMP. `_unwrap_picture()`
+  los quita para que Qt pueda cargar la imagen.
+- **Leyenda cifrada sin zlib**: `map_larkin_es.mapx` cifra `Details` con
+  SQLitePlus pero guarda RTF UTF-16LE sin comprimir (cabecera de 5 bytes con
+  magia `0x1F`). `decrypt_payload()` falla al buscar el stream zlib;
+  `_decode_uncompressed_sqliteplus()` reconoce ese formato y devuelve el texto.
+
+## Comentarios con solo `BookCommentary`
+
+`ABN-Manley`, `ATB-M-Pearlman` y `ABP-Willmington` tienen
+`VerseCommentary`/`ChapterCommentary` vacías y todo el texto en
+`BookCommentary`. Dos reglas:
+
+- `count_entries()` suma **todas** las tablas de `_comment_specs()`, no solo la
+  primera que exista (antes devolvía 0 y el catálogo ocultaba el módulo).
+- `page_by_ref()` acepta refs de una sola parte (`"43"`) para los comentarios
+  de libro, además de `"43:3"` y `"43:3:16"`.
+
+## Armonías (`.harx`)
+
+`Parts` tiene una fila **por referencia**, de modo que varias filas comparten
+`(Section, Part)`. La unidad navegable es la **sección**: una `Page` por
+`Section` con el título limpio (sin RTF) y todas sus referencias en `raw`
+(deduplicadas, una por línea). `list_entries()` devuelve una entrada por
+sección y `page_by_ref("3")` la reconstruye. El antiguo `"3:1"` se acepta como
+alias, pero el `ref` canónico es la sección.
+
 
 ## Errores esperados
 

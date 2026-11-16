@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.4.6 — 2026-11-15
+
+### Corregido
+
+- **Leyenda de mapas cifrada sin zlib**: `map_larkin_es.mapx` guarda
+  `Graphics.Details` con cifrado SQLitePlus pero RTF UTF-16LE sin comprimir.
+  Se reconoce la cabecera de 5 bytes (magia `0x1F`) y se decodifica el texto,
+  en lugar de mostrar los bytes aleatorios como caracteres extraños.
+- **Imágenes de mapas e ilustraciones**: se decodifican los títulos BLOB
+  UTF-16LE (`map_larkin_es.mapx`) para que la lista, `page_by_ref` y
+  `map_picture` encuentren todas las entradas, y se quita el envoltorio `lt\0\0`
+  + tamaño que algunos `.mapx` anteponen al BMP
+  (`map_usos_y_costumbres_de_las_tierras_es`, `map_lba`, `map_rva`, `map_abb`,
+  entre otros).
+- **Controles de mapa visibles**: la barra con `+`, `-`, `1:1`, «Ajustar» y
+  «Leyenda» vuelve a mostrarse al seleccionar una entrada de mapas. La leyenda
+  respeta su botón y, si falta la imagen, se muestra el aviso en el panel.
+- **Badge «emparejado con…»**: vuelve a ser clickeable y abre el comentario
+  emparejado; ahora conserva la ruta del módulo al pintar el badge.
+- **Comentarios solo de libro**: `ABN-Manley`, `ATB-M-Pearlman` y
+  `ABP-Willmington` tienen `VerseCommentary` vacía y todo el texto en
+  `BookCommentary`. `count_entries()` suma las tablas reales (antes devolvía 0
+  y el catálogo los ocultaba) y `page_by_ref()` acepta refs de libro (`"43"`),
+  así que sus entradas ya muestran texto.
+- **Comentarios con esquema de diccionario**: «Comentario Bíblico Siglo 21»
+  (`.dcti` y `.dctx`) y «Comentario Expositivo del N. T. Mateo de D.Burt» pasan
+  de la categoría Diccionarios a Comentarios sin alterar el módulo.
+- **Armonías**: la unidad navegable es la sección. Cada entrada agrupa todas
+  las referencias de `Parts` (sin registros duplicados), limpia el RTF del
+  `Section.Title` y usa un `ref` único de sección. El índice FTS5 deja de
+  conservar solo la última referencia de cada `(sección, parte)`.
+- **Reindexado por metadatos**: si un escaneo cambia el tipo, la estructura o
+  el número de entradas de un módulo, su índice de contenido queda `pending`
+  para reconstruirlo con la nueva unidad indexable.
+
 ## 0.4.5 — 2026-11-12
 
 ### Añadido
