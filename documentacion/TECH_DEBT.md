@@ -102,7 +102,7 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 | # | Tema | Detalle | Impacto |
 |---|---|---|---|
 | 12 | **Dividir una pestaña en dos grupos** | Las pestañas se reordenan y cada una tiene su split vertical (biblia/comentario) y horizontal (paralela), pero no se pueden tener dos grupos independientes dentro de la misma pestaña. | Medio |
-| 13 | **Idioma en caliente** | Cambiar de idioma pide reiniciar. | Bajo |
+| 13 | **Burbujas y tipografía** | Las burbujas de `ui/tooltip.py` usan un CSS fijo y no siguen las preferencias de fuente. | Bajo |
 | 14 | **Accesibilidad** | Sin atajos configurables ni navegación por teclado más allá de Ctrl+F/Ctrl+R/Ctrl+Q. | Bajo |
 | 15 | **Iconos** | La UI usa glifos de texto (`●○✕🔒`) en vez de un set de iconos. | Bajo |
 
@@ -113,5 +113,5 @@ Trabajo abierto, consciente y no bloqueante. Orden aproximado por impacto.
 | 16 | **Twofish en C** | gcc 13.3 disponible: una extensión C reduciría el descifrado ~50-100×. Hoy se compensa con 16 procesos. | Bajo |
 | 17 | **Migraciones de esquema** | `content.db` no tiene versionado; un cambio de esquema exige borrarlo. | Bajo |
 | 18 | **Empaquetado** | No hay AppImage/Flatpak; se ejecuta desde el checkout con `run.sh`. | Bajo |
-| 19 | **Tests de UI** | 175 pruebas; las de widgets (`test_ui_layout`, `test_theme`, `test_tooltip`) usan `QApplication` en modo `offscreen` sin `pytest-qt`. Falta cubrir más flujos completos de ventana. | Bajo |
+| 19 | **Tests de UI** | 184 pruebas; las de widgets (`test_ui_layout`, `test_theme`, `test_tooltip`) usan `QApplication` en modo `offscreen` sin `pytest-qt`. Falta cubrir más flujos completos de ventana. | Bajo |
 | 20 | **Deriva del núcleo** | `make drift` existe pero no corre en un hook; depende de que alguien lo ejecute. | Bajo |

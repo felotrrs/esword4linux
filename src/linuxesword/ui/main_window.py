@@ -7,8 +7,7 @@ import string
 
 from PySide6.QtCore import QByteArray, QSize, Qt, QTimer
 from PySide6.QtGui import (
-    QAction, QActionGroup, QColor, QFont, QIcon, QKeySequence, QPainter, QPen,
-    QPixmap,
+    QAction, QColor, QFont, QIcon, QKeySequence, QPainter, QPen, QPixmap,
 )
 from PySide6.QtWidgets import (
     QApplication, QDialog, QFileDialog, QHBoxLayout, QInputDialog, QLabel,
@@ -221,28 +220,8 @@ class MainWindow(QMainWindow):
         act_unclass.triggered.connect(self._toggle_show_unclassified)
         m_view.addAction(act_unclass)
         m_view.addSeparator()
-        group = QActionGroup(self)
-        group.setExclusive(True)
-        for theme, key in (("light", "menu.view.theme_light"), ("dark", "menu.view.theme_dark")):
-            act = QAction(tr(key), self)
-            act.setCheckable(True)
-            act.setChecked(self.settings.theme == theme)
-            act.triggered.connect(lambda _=False, t=theme: self._set_theme(t))
-            group.addAction(act)
-            m_view.addAction(act)
-        m_view.addSeparator()
         self.menu_strong = m_view.addMenu(tr("menu.view.strong"))
         self.menu_strong.aboutToShow.connect(self._fill_strong_menu)
-        lang_menu = m_view.addMenu(tr("menu.view.language"))
-        glang = QActionGroup(self)
-        glang.setExclusive(True)
-        for code, label in (("es", "Español"), ("en", "English")):
-            act = QAction(label, self)
-            act.setCheckable(True)
-            act.setChecked(self.settings.locale == code)
-            act.triggered.connect(lambda _=False, c=code: self._set_locale(c))
-            glang.addAction(act)
-            lang_menu.addAction(act)
 
         m_index = bar.addMenu(tr("menu.index"))
         act_enc = QAction(tr("menu.index.encrypted"), self)
@@ -575,10 +554,15 @@ class MainWindow(QMainWindow):
 
     # ── preferencias / tema / idioma ─────────────────────────────────────
     def _open_preferences(self) -> None:
-        """Suite de tipografía: interfaz, Escritura y texto corriente."""
+        """Aplica tema, idioma y tipografía elegidos en Preferencias."""
+        old_theme, old_locale = self.settings.theme, self.settings.locale
         dialog = PreferencesDialog(self.ctx, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
+        if self.settings.theme != old_theme:
+            self._set_theme(self.settings.theme)
+        if self.settings.locale != old_locale:
+            self._set_locale(self.settings.locale)
         self._apply_typography()
 
     def _apply_typography(self) -> None:

@@ -62,6 +62,17 @@ Workspace
   `commentary`, `commentary_rel`, `split`) se persiste en
   `Settings.workspaces` y se restaura en `_restore_state()`.
 
+## Menús y preferencias
+
+- **Archivo** → escanear, carpeta, salir. **Editar** → Preferencias (`Ctrl+,`).
+  **Ver** → panel lateral, sin clasificar y léxico Strong. **Índice** y
+  **Ayuda** cierran la barra.
+- Tema, idioma y tipografía viven **solo** en Preferencias, con pestañas
+  «Apariencia» e «Idioma». No duplicar esas opciones en el menú Ver.
+- Al aceptar: `MainWindow._open_preferences()` aplica tema (`_set_theme`),
+  idioma (`_set_locale` → `_retranslate_ui`) y tipografía
+  (`_apply_typography` → QSS + `reload_theme()` de cada vista).
+
 ## Panel lateral
 
 - **Un solo clic** carga el módulo (`itemClicked` → `_on_click`). Un clic en
@@ -101,8 +112,10 @@ Workspace
 
 ## CommentaryPane
 
-- Cabecera: título · combo de módulos · **Abrir** · **✕** (oculta el panel y
-  desmarca el toggle).
+- Cabecera: título · badge de emparejamiento · combo de módulos · **Abrir** ·
+  **✕** (oculta el panel y desmarca el toggle).
+- El badge «emparejado con…» emite `open_inline`; `BiblePane` muestra este
+  mismo panel y se desplaza al versículo actual. No abre `EntryDialog`.
 - Renderiza por versículo con encabezado «Juan 3:16» y el texto completo.
 - Si el texto supera `MAX_CHARS` (9 000), recorta y ofrece «Leer completo».
 
@@ -115,6 +128,9 @@ Workspace
 - `processEvents()` no dispara un `QTimer` de 180 ms: en pruebas, esperar.
 - `QTabWidget.setMovable(True)` permite mover la pestaña fija; es inocuo
   (el cierre sigue bloqueado por índice).
+- `QFontComboBox` es **editable** por defecto y parece una caja de texto. Para
+  elegir fuente en Preferencias se usa un `QComboBox` no editable con
+  `QFontDatabase.families()`.
 
 ## Barra de pestañas propia (`ui/tab_bar.py`)
 

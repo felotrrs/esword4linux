@@ -270,15 +270,25 @@ def test_preferences_dialog_updates_every_typography_role():
     ctx = AppContext(Settings.load())
     dialog = PreferencesDialog(ctx)
     try:
+        # Las fuentes se eligen en un combo normal, no en una caja de texto.
+        assert not dialog.ui_family.isEditable()
+        assert not dialog.reading_family.isEditable()
+        assert not dialog.content_family.isEditable()
+        assert dialog.ui_family.count() >= 3
         dialog.ui_size.setValue(15)
         dialog.reading_size.setValue(19)
         dialog.content_size.setValue(12)
+        dialog.theme.setCurrentIndex(dialog.theme.findData("dark"))
+        dialog.language.setCurrentIndex(dialog.language.findData("en"))
         dialog._update_preview()
         assert "19px" in dialog.preview.document().toHtml()
+        assert "#f0e9db" in dialog.preview.document().toHtml()
         dialog._accept()
         assert ctx.settings.ui_font_size == 15
         assert ctx.settings.font_size == 19
         assert ctx.settings.content_font_size == 12
+        assert ctx.settings.theme == "dark"
+        assert ctx.settings.locale == "en"
     finally:
         dialog.deleteLater()
         ctx.close_all()

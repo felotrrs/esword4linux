@@ -30,6 +30,9 @@ Windows y sin la UI de pestañas fijas del programa original.
   sus citas (incluidas las de texto plano) y muestran el versículo.
 - **Búsqueda unificada**: referencia (`Juan 3:16`), número Strong (`G2316`) o
   texto libre, con resaltado y salto directo al módulo.
+- **Preferencias** (`Ctrl+,`): tema, idioma de la interfaz y tipografía
+  independiente para la UI, la Escritura y el texto de comentarios,
+  diccionarios y búsqueda, con vista previa en vivo.
 
 ## Estado
 
@@ -43,7 +46,8 @@ Windows y sin la UI de pestañas fijas del programa original.
 | Pestañas-vista con color pleno y botón ＋ | ✅ |
 | Notas/Léxico con burbuja y navegación | ✅ |
 | Diccionarios / léxicos / mapas / devocionales | ✅ |
-| UI bilingüe es/en | ✅ |
+| UI bilingüe es/en (en caliente) | ✅ |
+| Preferencias de tema, idioma y tipografía | ✅ |
 | Bibliografía agrupada/filtrada por tipo e idioma | ✅ |
 | Citas múltiples con vista de colección | ✅ |
 | Iconos de aplicación (hicolor 16–512) | ✅ |

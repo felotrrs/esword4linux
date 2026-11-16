@@ -33,7 +33,9 @@ reglas doradas + el mapa del sistema + los comandos. El detalle vive en
    `KIND_LABELS`. Libros, nombres y alias → `core/books.yaml` (lo carga
    `core/books.py`; `BOOKS` se deriva de ahí). Cadenas de UI →
    `i18n/es.json` + `i18n/en.json` (mismas claves en ambos). Colores y
-   tipografía → `ui/theme.py`. No duplicar listas en otros archivos.
+   tipografía → `ui/theme.py`, alimentados por `Settings`. Tema, idioma y
+   fuentes del usuario se editan **solo** en *Editar → Preferencias*; el menú
+   Ver no los duplica. No duplicar listas en otros archivos.
 
 6. **Nada de `os.environ.get()` disperso.** La configuración va por
    `core/config.py:Settings`; los defaults de entorno, solo en `_xdg()`.
@@ -127,7 +129,8 @@ Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
 | `ui/sidebar.py` | Árbol con agrupaciones combinables (tipo/idioma/obra) y filtros múltiples. |
 | `ui/citation_pane.py` | Colección de versículos de una cadena de citas. |
 | `ui/main_window.py` | Pestañas-vista, nombres/colores, menús, workers, persistencia. |
-| `ui/theme.py` | Paletas claro/oscuro, QSS y CSS de documento. |
+| `ui/preferences_dialog.py` | Preferencias: apariencia (tema + tipografía), idioma y vista previa. |
+| `ui/theme.py` | Paletas claro/oscuro, QSS y CSS de documento desde `Settings`. |
 | `i18n/` | `tr(key, **kwargs)` sobre catálogos JSON `es`/`en`. |
 
 ## Comandos
@@ -177,6 +180,7 @@ c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_coun
 | Tocas FTS5, el indexador o la búsqueda | `skills/search-index.md` |
 | Tocas la ventana, pestañas, panel lateral o vistas | `skills/ui-layout.md` |
 | Tocas RTF/HTML, tipografía o temas | `skills/rendering.md` |
+| Tocas Preferencias (tema, idioma o fuentes) | `skills/ui-layout.md` + `skills/rendering.md` |
 | Tocas libros, alias, referencias o burbujas de pasajes | `skills/book-aliases.md` |
 | Añades cadenas de UI o un idioma | `skills/i18n.md` |
 | Mides rendimiento o cambias el pool | `skills/performance.md` |

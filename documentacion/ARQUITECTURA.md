@@ -18,6 +18,7 @@ de módulos. linuxEsword ataca las dos cosas:
 │ ui/            PySide6. Solo presentación y coordinación.    │
 │  main_window · sidebar · workspace · bible_view ·            │
 │  commentary_pane · library_view · search_view · entry_dialog │
+│  preferences_dialog                                          │
 ├──────────────────────────────────────────────────────────────┤
 │ core/          Lógica pura, sin Qt. Testeable sin pantalla.   │
 │  catalog · indexer · store · search · books · text · context │
@@ -124,6 +125,22 @@ search(query)
 
 `build_match` cita cada término (evita inyección de sintaxis FTS) y convierte el
 último en prefijo. Si `AND` no da resultados, se reintenta con `OR`.
+
+## Configuración y preferencias
+
+`Settings` es la única fuente de configuración. **Editar → Preferencias**
+(`Ctrl+,`) edita dos bloques:
+
+- **Apariencia**: tema claro/oscuro y tres roles tipográficos independientes
+  (interfaz, Escritura y texto corriente). `ui/theme.py` los proyecta a
+  `ui_stylesheet(settings)` (QSS) y `document_css_for(settings)` (visores).
+- **Idioma**: locale de la interfaz (`es`/`en`). Al guardar, `MainWindow`
+  reconstruye los menús y llama al `retranslate()` de cada vista; no se
+  recrean las pestañas ni se pierde el estado.
+
+La vista previa del diálogo usa las mismas funciones de tema que la ventana,
+así que no hay una segunda paleta que mantener. El menú **Ver** no duplica
+tema ni idioma: solo contiene opciones de vista.
 
 ## Persistencia
 

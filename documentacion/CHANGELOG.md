@@ -9,6 +9,11 @@
   léxico y búsqueda). Incluye vista previa en vivo y «Restablecer».
 - Las preferencias se guardan en `Settings` (`ui_font_*`, `font_*`,
   `content_font_*`) y se aplican a la QSS y a `document_css` sin reiniciar.
+- **Preferencias con pestañas**: «Apariencia» reúne el tema y los tres roles
+  tipográficos; «Idioma» cambia la interfaz en caliente al guardar. El menú
+  **Ver** queda solo con opciones de vista (panel, sin clasificar y léxico).
+- Los selectores de fuente son combos no editables con todas las familias
+  instaladas; antes `QFontComboBox` mostraba una caja de texto editable.
 
 ### Corregido
 

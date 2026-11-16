@@ -39,7 +39,8 @@ raw (str | bytes)
 
 ## Tipografía
 
-Tres roles independientes, editables en **Editar → Preferencias**:
+Tres roles independientes, editables en **Editar → Preferencias** (pestaña
+«Apariencia», junto al tema):
 
 - **Interfaz**: `Settings.ui_font_family` / `ui_font_size` (13 px por defecto).
   Alimenta `app.setFont()` y `ui_stylesheet(settings)`.
@@ -53,6 +54,11 @@ Tres roles independientes, editables en **Editar → Preferencias**:
 constantes sueltas. Qt ignora `body { ... }`, por eso el tamaño corriente se
 declara en los elementos.
 
+En Preferencias los selectores de fuente son `QComboBox` no editables
+poblados con `QFontDatabase.families()`; `QFontComboBox` parece una caja de
+texto y confunde. El combo conserva una familia guardada aunque ya no esté
+instalada, para no perder la preferencia.
+
 ## Temas
 
 `ui/theme.py` es la **única fuente** de color:
@@ -65,7 +71,9 @@ declara en los elementos.
 - `document_css_for(settings)` → CSS embebido en cada `QTextBrowser`.
 
 Añadir un color = añadirlo a **ambas** paletas y usarlo desde `palette()`.
-No escribir hex sueltos en las vistas.
+No escribir hex sueltos en las vistas. El tema se elige en **Editar →
+Preferencias** (no en el menú Ver) y la vista previa del diálogo usa la misma
+`palette()`.
 
 ## Reglas
 
