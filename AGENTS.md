@@ -246,3 +246,73 @@ language.
 | You touch books, aliases, references or passage pop-ups | `skills/book-aliases.md` |
 | You add UI strings or a language | `skills/i18n.md` |
 | You measure performance or change the pool | `skills/performance.md` |
+
+## Git Workflow and Repository Management
+
+The project uses a local Git repository synchronized with GitHub through the
+`origin` remote.
+
+### General rules
+
+1. Preserve the existing Git history, branches, tags, and remote configuration.
+2. Never execute destructive Git commands such as `reset --hard`, `clean -fd`,
+   forced pushes, or history rewriting unless explicitly authorized.
+3. Never modify or delete existing commits or tags without explicit
+   authorization.
+4. Do not commit generated files, credentials, secrets, local environment files,
+   or temporary artifacts.
+
+### Session initialization
+
+At the beginning of each development session:
+
+1. Run `git status`.
+2. Identify the current branch.
+3. Check whether the working tree contains uncommitted changes.
+4. Check whether the current branch is synchronized with its upstream branch.
+5. If remote updates exist, report them before integrating changes.
+6. Never discard or overwrite existing local changes.
+
+### During development
+
+- Work normally within the current branch.
+- Do not create commits automatically.
+- Do not push changes automatically.
+- Preserve unrelated user modifications.
+
+### Task completion
+
+When a development task is completed:
+
+1. Run `git status`.
+2. Review changes using `git diff`.
+3. Summarize modified, added, and deleted files.
+4. Report relevant tests and validation results.
+5. Suggest an appropriate commit message.
+
+### Commit policy
+
+Only create commits after explicit user authorization.
+
+Before committing, verify that the staged changes contain only the intended
+files.
+
+### GitHub synchronization
+
+Only execute `git push` after explicit user authorization.
+
+Before pushing:
+
+1. Verify the current branch and upstream.
+2. Check for remote changes.
+3. Ensure the working tree and commit state are understood.
+4. Never use force push unless explicitly authorized.
+
+After pushing, verify the remote references and report the result.
+
+### Release and version tags
+
+- Never create, move, overwrite, or delete release tags automatically.
+- Create annotated version tags only after explicit authorization.
+- Verify that the tag points to the intended commit.
+- Push release tags only after explicit authorization.
