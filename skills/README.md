@@ -1,22 +1,23 @@
-# Skills — convenciones de linuxEsword
+# Skills — esword4linux conventions
 
-Cada archivo describe una convención **obligatoria**. Leer el skill del área
-antes de crear o modificar código ahí.
+Each file describes a **mandatory** convention. Read the skill for an area
+before creating or modifying code there.
 
-## Índice
+## Index
 
-| Skill | Leer cuando… |
+| Skill | Read it when… |
 |---|---|
-| [`esword-modules.md`](esword-modules.md) | Lees un módulo, añades un tipo o una tabla nueva, o tocas `core/esword/module.py`. |
-| [`decryption.md`](decryption.md) | Tocas Twofish, SQLitePlus, claves o el descifrado por columna. |
-| [`search-index.md`](search-index.md) | Tocas FTS5, `build_match`, el indexador, el alcance o los estados de índice. |
-| [`ui-layout.md`](ui-layout.md) | Tocas ventana, pestañas, panel lateral, vistas o persistencia de layout. |
-| [`rendering.md`](rendering.md) | Tocas RTF/HTML, `to_rich`, tipografía, temas o el CSS del documento. |
-| [`book-aliases.md`](book-aliases.md) | Tocas libros, alias, detección de referencias o burbujas de pasajes/Strong. |
-| [`i18n.md`](i18n.md) | Añades cadenas de UI, un idioma o tocas `tr()`. |
-| [`performance.md`](performance.md) | Mides rendimiento, cambias el pool o el tamaño de caché. |
+| [`esword-modules.md`](esword-modules.md) | You read a module, add a new type or table, or touch `src/esword4linux/core/esword/module.py`. |
+| [`decryption.md`](decryption.md) | You touch Twofish, SQLitePlus, keys or per-column decryption. |
+| [`search-index.md`](search-index.md) | You touch FTS5, `build_match`, the indexer, search scope or index states. |
+| [`ui-layout.md`](ui-layout.md) | You touch the window, tabs, sidebar, views or layout persistence. |
+| [`rendering.md`](rendering.md) | You touch RTF/HTML, `to_rich`, typography, themes or the document CSS. |
+| [`book-aliases.md`](book-aliases.md) | You touch books, aliases, reference detection or passage/Strong pop-ups. |
+| [`i18n.md`](i18n.md) | You add UI strings, add a language or touch `tr()`. |
+| [`performance.md`](performance.md) | You measure performance, change the pool or adjust cache size. |
 
-## Regla transversal
+## Cross-cutting rule
 
-Antes de añadir una lista (categorías, libros, colores, cadenas), comprueba si
-ya existe en su fuente única (`AGENTS.md`, regla 5). Duplicarla es un defecto.
+Before adding a list (categories, books, colors, strings), check whether it
+already exists in its single source (`AGENTS.md`, rule 6). Duplicating it is a
+defect.

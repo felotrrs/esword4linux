@@ -1,115 +1,148 @@
-# linuxEsword
+# esword4linux
 
-Lector **nativo para Linux** de módulos de e-Sword. Sin Wine, sin emulación de
-Windows y sin la UI de pestañas fijas del programa original.
+**A native Linux reader for e-Sword modules — no Wine, no bundled content.**
 
-- Abre **cualquier** módulo e-Sword desde **una única carpeta de recursos**.
-- **Clasifica automáticamente** cada módulo por su estructura SQL (no por la
-  extensión: en el corpus real hay `.refx` que son tópicos y `.cmtx` con el
-  esquema antiguo de comentarios).
-- **Panel lateral organizable**: agrupa hasta en tres niveles
-  (**tipo → idioma → obra**) y permite filtrar por varios tipos e idiomas a la
-  vez. Plegable con `Ctrl+B`; conserva un ancho mínimo cuando está visible.
-- **Combo de traducción agrupado por idioma**, igual que el combo de la vista
-  paralela; al desplegarlo se ven todas las versiones ordenadas. La lista de términos de diccionarios se
-  puede ocultar/mostrar con un asa, sin perder el acceso al texto.
-- **Caja de citas múltiples** en la Biblia: `Gn23:1-6, 2:5-7; Mar 2:1; Jn3:16`
-  sustituye la vista del capítulo por la colección de versículos (también en la
-  vista paralela) y permite volver con ↩.
-- **Pestañas-vista**: cada pestaña («Pestaña A», «Pestaña B»…) agrupa su propio
-  recurso principal y, si es una biblia, su biblia paralela y su comentario.
-  Pestaña coloreada completa, texto en negrita al seleccionar, tinte pálido en
-  las demás, botón ＋ estilo navegador y renombrado/color por menú contextual.
-- **Comentario en panel inferior** (división vertical, ~28 %), no dentro del
-  texto bíblico. El panel alterna **Comentario ⇄ Léxico**.
-- **Notas y Léxico navegables**: burbuja propia (ancho adaptable, color
-  distinto) al pasar el ratón; al pulsar `(B)` se abre el comentario emparejado
-  con esa biblia y se salta a la nota; al pulsar `G2316` se abre el léxico
-  elegido.
-- **Burbujas también en la bibliografía**: diccionarios y comentarios enlazan
-  sus citas (incluidas las de texto plano) y muestran el versículo.
-- **Búsqueda unificada**: referencia (`Juan 3:16`), número Strong (`G2316`) o
-  texto libre, con resaltado y salto directo al módulo.
-- **Preferencias** (`Ctrl+,`): tema, idioma de la interfaz y tipografía
-  independiente para la UI, la Escritura y el texto de comentarios,
-  diccionarios y búsqueda, con vista previa en vivo.
+[Español](README.es.md) · [Documentation](docs/README.md) · [Changelog](docs/CHANGELOG.md)
 
-## Estado
+<p align="center">
+  <img src="packaging/icons/hicolor/256x256/apps/esword4linux.png" alt="esword4linux icon" width="128">
+</p>
 
-| Área | Estado |
-|---|---|
-| Lector SQLite e-Sword (11 tipos) | ✅ |
-| Descifrado SQLitePlus (Twofish-128) | ✅ 43 módulos del corpus |
-| Catálogo por estructura + dedup | ✅ 970 archivos |
-| Índice FTS5 bajo demanda | ✅ |
-| Biblia + comentario en panel inferior + paralela | ✅ |
-| Pestañas-vista con color pleno y botón ＋ | ✅ |
-| Notas/Léxico con burbuja y navegación | ✅ |
-| Diccionarios / léxicos / mapas / devocionales | ✅ |
-| UI bilingüe es/en (en caliente) | ✅ |
-| Preferencias de tema, idioma y tipografía | ✅ |
-| Bibliografía agrupada/filtrada por tipo e idioma | ✅ |
-| Citas múltiples con vista de colección | ✅ |
-| Iconos de aplicación (hicolor 16–512) | ✅ |
-| Empaquetado `.desktop` | ✅ |
+esword4linux opens the SQLite modules you already own from **one folder of your
+choice**. It classifies each file by its database structure rather than its
+extension, and never modifies a single byte of your library.
 
-## Arranque rápido
+> **No Bibles, commentaries, dictionaries or other e-Sword modules are included
+> in this repository.** You choose the folder that contains your own modules on
+> first run. e-Sword modules are copyrighted by their respective publishers.
+
+## Features
+
+- **One modules folder.** Read any supported e-Sword module in place, read-only.
+- **Structure-based detection.** `.refx` files that are really topics and
+  `.cmtx` files using the old commentary schema are classified correctly.
+- **Workspace tabs.** Each tab holds its own main resource, parallel Bible and
+  commentary panel. Selecting a module reuses the active tab; `Ctrl+T` creates
+  another workspace.
+- **Organisable sidebar.** Group by type, language and work, combine up to three
+  levels, and filter by several types or languages at once (`Ctrl+B` toggles it).
+- **Bible reading.** Parallel translation, chapter navigation, multi-reference
+  citation chains, verse pop-ups and Strong's number pop-ups.
+- **Commentary and lexicon panels.** Commentary is matched to the active Bible
+  and shown in a bottom panel; Strong's entries open in the same area.
+- **Unified search.** One box understands Bible references, Strong's numbers and
+  free text. The FTS5 index is optional and built only when you ask for it.
+- **Encrypted modules.** SQLitePlus/Twofish-128 modules can be read and indexed.
+- **Bilingual UI.** Spanish and English, switchable at runtime.
+- **Readable typography.** Independent fonts for the interface, Scripture and
+  running text; light and dark themes.
+
+## Requirements
+
+- Linux
+- Python 3.10 or newer
+- PySide6 (Qt 6) and PyYAML, installed automatically by `run.sh` or `pip`
+
+The application starts without network access and without Wine.
+
+## Quick start
 
 ```bash
-cd ~/StorageC/linuxEsword
-./run.sh          # crea el venv la primera vez y abre la app
+git clone https://github.com/felotrrs/esword4linux.git
+cd esword4linux
+./run.sh
 ```
 
-o:
+The first run creates a local virtual environment, installs dependencies and
+opens the app. Alternatively:
 
 ```bash
 make install
 make run
 ```
 
-La primera ejecución escanea la carpeta de recursos y pre-indexa **LBLA**,
-**RV1960** y el **comentario RV1960x** para que la búsqueda funcione de
-inmediato. Leer la Biblia no depende del índice: funciona aunque la indexación
-siga en curso.
+On first launch, esword4linux asks for the folder containing your e-Sword
+modules (`.bblx`, `.bbli`, `.cmtx`, `.cmti`, `.dctx`, `.lexi`, `.refx`,
+`.topx`, `.devx`, `.harx`, `.mapx`, `.twm`, …). If you cancel, the app exits.
+You can change the folder later from **File → Change modules folder**.
 
-## Carpeta de recursos
+## Reading vs. indexing
 
-Por defecto:
+Reading is direct and does not need an index. The first scan only collects
+metadata so the sidebar can show your library.
 
+Build search indexes only when you want them:
+
+- **Index → Index this category** for one kind of module
+- **Index → Index everything** for the whole library
+- **Index → Decrypt encrypted modules** for SQLitePlus modules
+- or from the command line:
+
+```bash
+make scan          # metadata only
+make encrypted     # decrypt and index encrypted modules (explicit)
+python tools/bootstrap.py --kind bible
+python tools/bootstrap.py --all
 ```
-/home/felipe/StorageA/Biblias/Biblias_esword
-```
 
-Se puede cambiar desde **Archivo → Cambiar carpeta de recursos**. linuxEsword
-**nunca escribe** en esa carpeta: la abre en modo `ro`.
+No module is indexed or decrypted automatically at startup.
 
-## Caché
+## Data locations
 
-El catálogo y el índice viven en `~/StorageC/linuxEsword/.cache/` (el home está
-al 81% de uso; StorageC tiene 136 GB libres).
-
-| Archivo | Contenido |
+| What | Where |
 |---|---|
-| `catalog.db` | metadatos de los 970 archivos, estado de indexación |
-| `content.db` | páginas planas + FTS5 (búsqueda) |
+| Modules | Your own folder, read-only |
+| Settings | `~/.config/esword4linux/settings.json` |
+| Catalog | `~/.cache/esword4linux/catalog.db` |
+| Search index | `~/.cache/esword4linux/content.db` |
 
-## Estructura
+The catalog and the search index are regenerable. Deleting the cache is safe;
+your modules are never touched.
 
+## Supported module families
+
+| Family | Typical extensions | Detection |
+|---|---|---|
+| Bibles | `.bblx`, `.bbli` | `Bible` table |
+| Commentaries | `.cmtx`, `.cmti` | `Verses`, `VerseCommentary`, `BookCommentary` or `ChapterCommentary` |
+| Dictionaries | `.dctx`, `.dcti`, `.twm` | `Dictionary`, or `topics` + `config` |
+| Lexicons | `.lexi`, `.lexx` | `Lexicon` |
+| Books / references | `.refx`, `.refi`, `.topx` | `Reference` or `Topics`, refined by content |
+| Devotionals | `.devx` | `Devotions` or `Devotional` |
+| Harmonies | `.harx` | `Sections` + `Parts` |
+| Maps | `.mapx` | `Graphics` |
+
+The extension is only used to discover files. The type always comes from the
+SQL structure.
+
+## Development
+
+```bash
+make install
+make test
 ```
-src/linuxesword/
-  core/esword/   lector SQLite, Twofish/SQLitePlus, RTF (vendorizado)
-  core/          catálogo, índice FTS5, búsqueda, libros (books.yaml), i18n
-  ui/            PySide6: ventana, panel lateral, biblia, biblioteca, búsqueda
-skills/          convenciones del proyecto (leer antes de tocar cada área)
-documentacion/   arquitectura, formato e-Sword, changelog, deuda técnica
+
+The test suite runs without any e-Sword modules. Tests that need real modules
+are skipped unless you point them at a corpus:
+
+```bash
+ESWORD4LINUX_TEST_CORPUS=/path/to/modules .venv/bin/python -m pytest -q
 ```
 
-## Licencia
+Never commit modules to the repository. `.gitignore` blocks the common e-Sword
+extensions on purpose.
 
-**GPL-3.0**. El descifrador Twofish es un port de
+See [AGENTS.md](AGENTS.md) for the project rules, [CONTRIBUTING.md](CONTRIBUTING.md)
+for the development workflow, and [docs/](docs/) for architecture, format notes,
+technical debt and ADRs.
+
+## License
+
+**GPL-3.0**. The Twofish decryptor is a port of
 [KingJamesPureBibleSearch](https://github.com/dewhisna/KingJamesPureBibleSearch)
-(© Donna Whisnant, GPL-3.0). Ver `LICENSE` y la cabecera de
-`core/esword/twofish.py`.
+(© Donna Whisnant, GPL-3.0). See [LICENSE](LICENSE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Los módulos e-Sword son propiedad de sus respectivos titulares. linuxEsword es
-un lector: no distribuye ni modifica su contenido.
+e-Sword modules are the property of their respective rights holders.
+esword4linux is only a reader: it neither distributes nor modifies their
+content.

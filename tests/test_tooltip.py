@@ -1,4 +1,4 @@
-"""Burbujas: texto completo, límite de versículos y ancho ajustable."""
+"""Bubbles: full text, verse cap and adjustable width."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from linuxesword.core.refresolver import MAX_VERSES, RefResolver
+from esword4linux.core.refresolver import MAX_VERSES, RefResolver
 
 
 class _Page:
@@ -78,7 +78,7 @@ def test_chapter_is_capped_to_max_verses():
     out = _resolver(pages).verse_tooltip("Juan 3")
     assert f"{MAX_VERSES} texto {MAX_VERSES}" in out
     assert f"{MAX_VERSES + 1} texto {MAX_VERSES + 1}" not in out
-    assert "… (+20 versículos)" in out
+    assert "… (+20 verses)" in out
 
 
 def test_bubble_width_grows_and_is_capped():
@@ -87,7 +87,7 @@ def test_bubble_width_grows_and_is_capped():
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.tooltip import MAX_WIDTH, TipBubble
+    from esword4linux.ui.tooltip import MAX_WIDTH, TipBubble
 
     app = QApplication.instance() or QApplication([])
     bubble = TipBubble()
@@ -105,7 +105,7 @@ def test_bubble_width_grows_and_is_capped():
 
 
 def test_strong_header_uses_abbreviation_not_full_title():
-    from linuxesword.core.strong import StrongIndex
+    from esword4linux.core.strong import StrongIndex
 
     strong = StrongIndex.__new__(StrongIndex)
     strong.lookup = lambda _code: "texto de la entrada " * 100
@@ -129,7 +129,7 @@ def test_bible_browser_fills_the_available_width():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication, QWidget
 
-    from linuxesword.ui.bible_view import BiblePane
+    from esword4linux.ui.bible_view import BiblePane
 
     app = QApplication.instance() or QApplication([])
     browser = QWidget()
@@ -149,13 +149,13 @@ def test_bubble_height_never_clips_last_line():
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.theme import stylesheet
-    from linuxesword.ui.tooltip import BOTTOM_EXTRA, PAD_V, TipBubble
+    from esword4linux.ui.theme import stylesheet
+    from esword4linux.ui.tooltip import BOTTOM_EXTRA, PAD_V, TipBubble
 
     app = QApplication.instance() or QApplication([])
     previous = app.styleSheet()
     try:
-        # El QSS global es el que provocaba el recorte con QTextBrowser.
+        # The global QSS is what used to clip the QTextBrowser.
         app.setStyleSheet(stylesheet("dark", 15))
         bubble = TipBubble()
         lines = [f"{i} Línea de prueba con texto suficiente para envolver." for i in range(1, 13)]
@@ -179,7 +179,7 @@ def test_bubble_keeps_hebrew_line_visible():
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.tooltip import TipBubble
+    from esword4linux.ui.tooltip import TipBubble
 
     app = QApplication.instance() or QApplication([])
     bubble = TipBubble()
@@ -190,14 +190,14 @@ def test_bubble_keeps_hebrew_line_visible():
     app.processEvents()
     doc = bubble.document()
     assert "תָּפַר" in doc.toPlainText()
-    assert doc.blockCount() == 4  # cabecera + palabra + transliteración + definición
+    assert doc.blockCount() == 4  # header + word + transliteration + definition
     last = doc.lastBlock()
     bottom = doc.documentLayout().blockBoundingRect(last).bottom()
     assert bottom <= bubble.content_height + 1
 
 
 def test_strong_tooltip_preserves_source_lines():
-    from linuxesword.core.strong import StrongIndex
+    from esword4linux.core.strong import StrongIndex
 
     strong = StrongIndex.__new__(StrongIndex)
     strong.lookup = lambda _code: "תָּפַר\ntafár\nraíz primaria; coser:- coser."
@@ -217,7 +217,7 @@ def test_rich_browser_clear_all_caches():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.rich_browser import RichBrowser
+    from esword4linux.ui.rich_browser import RichBrowser
 
     app = QApplication.instance() or QApplication([])
     first, second = RichBrowser(), RichBrowser()
@@ -233,7 +233,7 @@ def test_rich_browser_removes_single_quoted_titles():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.rich_browser import RichBrowser
+    from esword4linux.ui.rich_browser import RichBrowser
 
     app = QApplication.instance() or QApplication([])
     browser = RichBrowser()
@@ -245,7 +245,7 @@ def test_rich_browser_removes_single_quoted_titles():
 
 
 def test_bubble_body_has_no_blank_lines_or_tags():
-    from linuxesword.ui.tooltip import to_bubble_html
+    from esword4linux.ui.tooltip import to_bubble_html
 
     html = to_bubble_html("Cabecera\nuno\n\n</p>dos   \ntres\n")
     assert '<div class="ln">uno</div>' in html

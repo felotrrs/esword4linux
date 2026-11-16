@@ -1,4 +1,4 @@
-"""Referencias, emparejamiento biblia↔comentario e índice Strong."""
+"""References, Bible↔commentary pairing and the Strong index."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from linuxesword.core.refs import find_reference_spans, link_references
+from esword4linux.core.refs import find_reference_spans, link_references
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
+from support import CORPUS, requires_corpus
 
 
-# ── referencias ──────────────────────────────────────────────────────────
+# ── references ───────────────────────────────────────────────────────────
 @pytest.mark.parametrize(
     "text,expected",
     [
@@ -20,7 +20,7 @@ CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
         ("Exo_28:1; Heb_5:4", ["Éxodo 28:1", "Hebreos 5:4"]),
         ("1 Corintios 13:4-7", ["1 Corintios 13:4-7"]),
         ("Sal 23", ["Salmos 23"]),
-        # Abreviaturas de otras tradiciones que aparecen en la bibliografía.
+        # Abbreviations from other traditions found in the bibliographies.
         ("Luk 1:1-4", ["Lucas 1:1-4"]),
         ("Jhn 1:1-5", ["Juan 1:1-5"]),
         ("Deu 12:16", ["Deuteronomio 12:16"]),
@@ -30,9 +30,9 @@ CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
         ("Ezk 16:8", ["Ezequiel 16:8"]),
         ("Mrk 15:34", ["Marcos 15:34"]),
         ("Jua 1:51", ["Juan 1:51"]),
-        # Marcador de nota «i» delante de la cita: no debe impedir el enlace.
+        # Note marker «i» before the citation: it must not block the link.
         ("i Mat 24:30", ["Mateo 24:30"]),
-        # Prefijos y nombres de varios idiomas.
+        # Prefixes and names from several languages.
         ("I Samuel 1:1", ["1 Samuel 1:1"]),
         ("II Reyes 2:1", ["2 Reyes 2:1"]),
         ("Primera de Corintios 13:4", ["1 Corintios 13:4"]),
@@ -76,8 +76,8 @@ def test_continuation_spans(text, expected):
 
 @pytest.mark.parametrize("text", ["1 Esdras 8:2", "2 Esdras 1:2", "3 Macc 3:21"])
 def test_unsupported_books_are_not_linked(text):
-    # No están en la numeración e-Sword 1–73: enlazar «Esdras» o «Macc»
-    # mostraría un pasaje de otro libro.
+    # Not in the e-Sword 1–73 numbering: linking «Esdras» or «Macc»
+    # would show a passage from another book.
     assert find_reference_spans(text) == []
 
 
@@ -101,20 +101,18 @@ def test_link_references_skips_existing_anchors():
     assert 'href="ref:Salmos 23"' in out
 
 
-# ── emparejamiento y Strong ──────────────────────────────────────────────
-pytestmark_corpus = pytest.mark.skipif(not CORPUS.is_dir(), reason="corpus no disponible")
+# ── pairing and Strong ───────────────────────────────────────────────────
+pytestmark_corpus = requires_corpus
 
 
 @pytestmark_corpus
-def test_commentary_match_rv1960():
-    from linuxesword.config import Settings
-    from linuxesword.core.commentary import best_commentary
-    from linuxesword.core.context import AppContext
+def test_commentary_match_rv1960(corpus_context):
+    from esword4linux.core.commentary import best_commentary
 
-    ctx = AppContext(Settings.load())
+    ctx = corpus_context
     bible = ctx.catalog.by_rel_path("BIBLIAS/bible_rv1960_es_2.bblx")
     if bible is None:
-        pytest.skip("RV1960 ausente")
+        pytest.skip("RV1960 not available")
     matched = best_commentary(
         bible, ctx.commentaries(),
         bible_module=ctx.module(bible), open_module=ctx.module,
@@ -124,15 +122,13 @@ def test_commentary_match_rv1960():
 
 
 @pytestmark_corpus
-def test_commentary_match_avoids_false_positive():
-    from linuxesword.config import Settings
-    from linuxesword.core.commentary import best_commentary
-    from linuxesword.core.context import AppContext
+def test_commentary_match_avoids_false_positive(corpus_context):
+    from esword4linux.core.commentary import best_commentary
 
-    ctx = AppContext(Settings.load())
+    ctx = corpus_context
     bible = ctx.catalog.by_rel_path("BIBLIAS/Nueva Biblia Viva.bbli")
     if bible is None:
-        pytest.skip("NBV ausente")
+        pytest.skip("NBV not available")
     assert best_commentary(
         bible, ctx.commentaries(),
         bible_module=ctx.module(bible), open_module=ctx.module,
@@ -140,13 +136,10 @@ def test_commentary_match_avoids_false_positive():
 
 
 @pytestmark_corpus
-def test_strong_index_lookup():
-    from linuxesword.config import Settings
-    from linuxesword.core.context import AppContext
-
-    ctx = AppContext(Settings.load())
+def test_strong_index_lookup(corpus_context):
+    ctx = corpus_context
     assert ctx.strong.available()
     body = ctx.strong.lookup("G2316")
-    assert body, "G2316 debe tener entrada"
+    assert body, "G2316 must have an entry"
     assert "θεός" in body or "Dios" in body
     assert ctx.strong.lookup("Z99999") == ""

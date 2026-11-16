@@ -1,4 +1,4 @@
-"""Agrupación por obra y burbuja de ancho limitado."""
+"""Work grouping and the width-capped bubble."""
 
 from __future__ import annotations
 
@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from linuxesword.core.catalog import work_key, work_year
+from esword4linux.core.catalog import work_key, work_year
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
+from support import CORPUS, requires_corpus
 
 
 def test_work_key_strips_year_and_accents():
@@ -24,30 +24,21 @@ def test_work_year():
     assert work_year("Biblia sin año") == ""
 
 
-pytestmark = pytest.mark.skipif(not CORPUS.is_dir(), reason="corpus no disponible")
-
-
-def test_works_groups_the_same_work():
-    from linuxesword.config import Settings
-    from linuxesword.core.catalog import Catalog
-
-    catalog = Catalog(Settings.load().catalog_db)
-    works = catalog.works()
-    assert works, "debe haber obras"
+@requires_corpus
+def test_works_groups_the_same_work(corpus_catalog):
+    works = corpus_catalog.works()
+    assert works, "there must be works"
     multi = [w for w in works if len(w["modules"]) > 1]
-    assert multi, "debe haber obras con varios módulos"
-    # ninguna obra repite el mismo módulo
+    assert multi, "there must be works with several modules"
+    # no work repeats the same module
     for work in works:
         ids = [m["id"] for m in work["modules"]]
         assert len(ids) == len(set(ids))
 
 
-def test_works_separates_editions_by_year():
-    from linuxesword.config import Settings
-    from linuxesword.core.catalog import Catalog
-
-    catalog = Catalog(Settings.load().catalog_db)
-    works = {w["title"]: w for w in catalog.works()}
+@requires_corpus
+def test_works_separates_editions_by_year(corpus_catalog):
+    works = {w["title"]: w for w in corpus_catalog.works()}
     rv60 = [t for t in works if "Reina-Valera (1960)" in t]
     rv95 = [t for t in works if "Reina-Valera (1995)" in t]
     if rv60 and rv95:
@@ -61,7 +52,7 @@ def test_bubble_width_is_capped():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.tooltip import MAX_WIDTH, TipBubble
+    from esword4linux.ui.tooltip import MAX_WIDTH, TipBubble
 
     app = QApplication.instance() or QApplication([])
     bubble = TipBubble()

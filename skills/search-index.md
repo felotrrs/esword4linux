@@ -1,14 +1,29 @@
-# Índice y búsqueda (FTS5)
+# Index and search (FTS5)
 
-## Principio
+## Principle
 
-**Leer no depende del índice.** El visor consulta el módulo y descifra lo que
-muestra. El índice existe solo para buscar.
+**Reading does not depend on the index.** The viewer queries the module and
+decrypts what it displays. The index exists only for searching.
 
-Consecuencia de diseño: la app es usable desde el primer segundo, aunque no
-haya nada indexado; la búsqueda avisa `search.no_index` hasta que se indexe.
+Design consequence: the app is usable from the first second even when nothing
+has been indexed; search reports `search.no_index` until the relevant modules
+are indexed.
 
-## Esquema (`content.db`)
+## Build scope is explicit
+
+Nothing is indexed at startup. A scan reads metadata only. Indexing runs when
+the user asks for it:
+
+- *Index* menu: all categories, pending modules, encrypted modules, or one
+  category. The sidebar context menu can index one category or one module.
+- `tools/bootstrap.py --all` / `--kind KIND` for the CLI.
+- `tools/prepare_encrypted.py` (`make encrypted`) for encrypted modules.
+
+There is no preindex list and no default module set. Each module keeps its own
+`pending → indexing → ready | failed` state, so categories can be indexed
+independently.
+
+## Schema (`content.db`)
 
 ```sql
 page(id PK, module_id, kind, ref, title, body, book, chapter, verse, ord)
@@ -18,83 +33,87 @@ page_fts USING fts5(body, title,
                     tokenize="unicode61 remove_diacritics 2")
 ```
 
-- `content='page'` → FTS5 de contenido externo: el texto no se duplica.
-- `remove_diacritics 2` → `amor` encuentra `amór`, `Génesis` = `Genesis`.
-- Triggers `page_ai` / `page_ad` / `page_au` mantienen FTS en sincronía. No
-  insertar en `page_fts` a mano.
+- `content='page'` → external-content FTS5: the text is not duplicated.
+- `remove_diacritics 2` → `amor` finds `amór`, `Genesis` = `Génesis`.
+- Triggers `page_ai` / `page_ad` / `page_au` keep FTS in sync. Never insert
+  into `page_fts` by hand.
 
-## Unidad indexable por tipo
+## Indexable unit per type
 
-| `kind` | Página | `ref` |
+| `kind` | Page | `ref` |
 |---|---|---|
-| `bible` | un versículo | `43:3:16` |
-| `commentary` | un comentario de versículo/capítulo/libro | `43:3:16` / `43:3` / `43` |
-| `dictionary`, `lexicon` | una entrada | el `Topic` |
-| `reference` | un capítulo temático | el `Chapter` |
-| `topic` | un tema | el `Title` |
-| `devotion` | un día | `03-16` |
-| `harmony` | una sección (con sus pasajes paralelos) | `sección` |
-| `maps` | una entrada (título + pie) | el `Title` |
-| `twm` | un tema | el `id` |
+| `bible` | one verse | `43:3:16` |
+| `commentary` | one verse/chapter/book comment | `43:3:16` / `43:3` / `43` |
+| `dictionary`, `lexicon` | one entry | the `Topic` |
+| `reference` | one thematic chapter | the `Chapter` |
+| `topic` | one topic | the `Title` |
+| `devotion` | one day | `03-16` |
+| `harmony` | one section (with its parallel passages) | `section` |
+| `maps` | one entry (title + caption) | the `Title` |
+| `twm` | one topic | the `id` |
 
 ## `build_match`
 
-Entrada de usuario → expresión MATCH.
+User input → MATCH expression.
 
 ```
-"amor"             → "amor"*
-"amor de dios"     → "amor" AND "de" AND "dios"*
-'"en el principio"' → "en el principio"
+"love"              → "love"*
+"love of god"       → "love" AND "of" AND "god"*
+'"in the beginning"' → "in the beginning"
 ```
 
-- El **último** término se hace prefijo: búsqueda mientras se escribe.
-- Si el `AND` no devuelve nada, `ContentStore.search()` reintenta con
-  `build_match_or` (OR de términos). No cambiar este fallback sin medir: es lo
-  que hace que "amor de dios" no quede vacío.
-- Los términos se citan siempre: evita que `AND`, `OR`, `NEAR`, `*` o `-` del
-  usuario rompan la consulta.
+- The **last** term becomes a prefix: search-as-you-type.
+- If `AND` returns nothing, `ContentStore.search()` retries with
+  `build_match_or` (OR of terms). Do not change this fallback without
+  measuring: it is what keeps a multi-word query from coming back empty.
+- Terms are always quoted: this prevents user-supplied `AND`, `OR`, `NEAR`,
+  `*` or `-` from breaking the query.
 
-**Nunca** interpolar el texto del usuario directamente en el SQL de MATCH.
+**Never** interpolate user text directly into the MATCH SQL.
 
-## Estado de indexación
+## Indexing state
 
-Vive en `catalog.db`:
+Lives in `catalog.db`:
 
 ```
 pending → indexing → ready | failed
 ```
 
-- `indexer.index_module()` marca `indexing`, escribe páginas y marca `ready`.
-- Un fallo deja `failed` + `index_error` (primeros 400 chars).
-- Las páginas se borran y reinsertan por módulo: `store.delete_module()`.
-- El catálogo no reindexa si `size`+`mtime` no cambian (escaneo incremental).
+- `indexer.index_module()` marks `indexing`, writes pages and marks `ready`.
+- A failure leaves `failed` + `index_error` (first 400 chars).
+- Pages are deleted and reinserted per module: `store.delete_module()`.
+- The catalog does not reindex when `size`+`mtime` are unchanged (incremental
+  scan). A metadata change that alters type, structure or entry count resets
+  the content index to `pending`.
 
-## Alcance de la búsqueda
+## Search scope
 
-`SearchEngine.indexed_module_ids(kinds)` devuelve solo módulos `ready`. El
-`SearchView` filtra por categoría con el combo de alcance. Si el alcance queda
-vacío, la UI explica que hay que indexar.
+`SearchEngine.indexed_module_ids(kinds)` returns only `ready` modules. The
+`SearchView` filters by category with the scope combo. If the scope is empty,
+the UI explains that modules must be indexed first.
 
-## Intenciones
+## Intents
 
-`core/search.py:search()` decide en este orden:
+`src/esword4linux/core/search.py:search()` decides in this order:
 
-1. `parse_reference()` → `intent="reference"` (no toca FTS).
-2. `^[GH]\d+$` → `intent="strong"`, alcance léxicos + diccionarios.
-3. resto → `intent="text"`, FTS con `bm25()` + `snippet()`.
+1. `parse_reference()` → `intent="reference"` (does not touch FTS).
+2. `^[GH]\d+$` → `intent="strong"`, scope: lexicons + dictionaries.
+3. everything else → `intent="text"`, FTS with `bm25()` + `snippet()`.
 
-El orden importa: `Juan 3:16` no debe llegar nunca a FTS.
+The order matters: `John 3:16` must never reach FTS.
 
-## Reglas de rendimiento
+## Performance rules
 
-- `LIMIT` siempre. La UI pide 200; se muestran 80 por grupo.
-- `snippet()` con 24 tokens es suficiente; subirlo multiplica el coste.
-- Indexar una biblia plana: ~6 s (35k versículos). Cifrada: ~13 s con pool.
-- El índice completo del corpus son ~3,4 M páginas; **nunca** se construye de
-  golpe salvo que el usuario lo pida explícitamente.
+- Always use `LIMIT`. The UI asks for 200; 80 are shown per group.
+- `snippet()` with 24 tokens is enough; raising it multiplies the cost.
+- Indexing a plain Bible takes a few seconds; an encrypted Bible takes longer
+  and uses the process pool.
+- The full index of a large library can reach millions of pages; **never**
+  build it wholesale unless the user explicitly asks.
 
-## Migrar el esquema
+## Migrating the schema
 
-Si cambia `SCHEMA` en `core/store.py`, el `CREATE TABLE IF NOT EXISTS` no
-actualiza una base existente. Borra `.cache/content.db` (es regenerable) y
-documenta el cambio. No hay migraciones incrementales: el índice es caché.
+If `SCHEMA` in `src/esword4linux/core/store.py` changes,
+`CREATE TABLE IF NOT EXISTS` will not update an existing database. Delete
+`~/.cache/esword4linux/content.db` (it is regenerable) and document the change.
+There are no incremental migrations: the index is a cache.

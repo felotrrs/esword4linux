@@ -1,13 +1,13 @@
-"""Pruebas para el sistema heurístico de clasificación y el visor de imágenes."""
+"""Tests for the heuristic classification system and the image viewer."""
 
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication
 
-from linuxesword.core.catalog import KIND_ORDER, KIND_LABELS, ROLE_LABELS
-from linuxesword.ui.image_viewer import ImageViewer
-from linuxesword.ui.tab_bar import ColoredTabBar
+from esword4linux.core.catalog import KIND_ORDER, KIND_LABELS, ROLE_LABELS
+from esword4linux.ui.image_viewer import ImageViewer
+from esword4linux.ui.tab_bar import ColoredTabBar
 
 
 def test_kind_labels_and_roles_contain_book():
@@ -29,7 +29,7 @@ def test_image_viewer_zoom_and_fit():
     viewer.show()
     app.processEvents()
 
-    # Pixmap de prueba
+    # Test pixmap
     pm = QPixmap(400, 300)
     pm.fill(Qt.GlobalColor.blue)
     viewer.set_pixmap(pm, "Mapa de prueba")
@@ -63,7 +63,7 @@ def test_tab_bar_with_icon():
     tab_bar.addTab("Pestaña 1")
     tab_bar.addTab("Buscar")
 
-    # Icono dummy
+    # Dummy icon
     icon_pm = QPixmap(16, 16)
     icon_pm.fill(Qt.GlobalColor.red)
     from PySide6.QtGui import QIcon
@@ -71,7 +71,7 @@ def test_tab_bar_with_icon():
     tab_bar.show()
     app.processEvents()
 
-    # tabSizeHint debe considerar el ancho del icono
+    # tabSizeHint must account for the icon width
     size = tab_bar.tabSizeHint(1)
     assert size.width() >= 90
     tab_bar.deleteLater()

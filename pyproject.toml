@@ -1,15 +1,30 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "linuxesword"
-version = "0.4.4"
-description = "Lector nativo de módulos e-Sword para Linux (sin Wine)"
+name = "esword4linux"
+dynamic = ["version"]
+description = "Native Linux reader for e-Sword modules, without Wine"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "GPL-3.0-only"
-authors = [{ name = "linuxEsword" }]
+license-files = ["LICENSE"]
+authors = [{ name = "felipe", email = "felotrrs@gmail.com" }]
+keywords = ["bible", "esword", "linux", "qt6", "pyside6", "sqlite"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Religion",
+    "Topic :: Text Processing :: Markup",
+]
 dependencies = [
     "PySide6-Essentials>=6.6",
     "PyYAML>=6.0",
@@ -18,16 +33,25 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 
+[project.urls]
+Homepage = "https://github.com/felotrrs/esword4linux"
+Repository = "https://github.com/felotrrs/esword4linux"
+Issues = "https://github.com/felotrrs/esword4linux/issues"
+Changelog = "https://github.com/felotrrs/esword4linux/blob/main/docs/CHANGELOG.md"
+
 [project.scripts]
-linuxesword = "linuxesword.app:main"
+esword4linux = "esword4linux.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "esword4linux.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"linuxesword.i18n" = ["*.json"]
-"linuxesword.core" = ["*.yaml"]
-"linuxesword" = ["assets/*.png", "assets/*.webp"]
+"esword4linux.i18n" = ["*.json"]
+"esword4linux.core" = ["*.yaml"]
+"esword4linux" = ["assets/*.png", "assets/*.webp", "assets/*.jpeg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

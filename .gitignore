@@ -1,24 +1,43 @@
-# Entorno
+# Environment
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.coverage
 
-# Caché de datos (catálogo + índice FTS5). Nunca se versiona.
+# Application cache (catalog + FTS5 index). Never versioned.
 .cache/
 *.db
 *.db-wal
 *.db-shm
 
-# Configuración local
+# Local settings and generated reports
 *.local.json
+reports/
+_duplicados/
 
-# Editores
+# e-Sword modules and other Bible software content.
+# This project never bundles or distributes copyrighted modules.
+*.bbl *.bbli *.bblx
+*.cmt *.cmti *.cmtx
+*.dct *.dcti *.dctx
+*.lex *.lexi *.lexx
+*.top *.topi *.topx
+*.dev *.devx
+*.ref *.refi *.refx
+*.har *.harx
+*.map *.mapx
+*.twm
+*.lanx
+*.ocx
+*.dat
+
+# Editors
 .idea/
 .vscode/
 *.swp
 
-# Artefactos de build
+# Build artifacts
 *.egg-info/
 build/
 dist/

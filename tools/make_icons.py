@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Genera el icono oficial y los PNG de hicolor desde `linuxesword3.jpeg`.
+"""Generate the app icon and hicolor PNGs from ``esword4linux3.jpeg``.
 
-El JPEG elegido trae un damero de transparencia pintado y una tarjeta
-redondeada con el pingüino, la espada y el libro. El damero no debe acabar en
-el icono, así que se recorta la tarjeta por geometría: un cuadrado centrado
-(64,3 % del lienzo) con esquinas redondeadas. El resultado se guarda con
-transparencia real en `linuxesword.png`, que es el icono que usan la ventana,
-el lanzador y hicolor.
+The chosen JPEG contains a painted transparency checkerboard and a rounded
+card with the penguin, sword and book. The checkerboard must not reach the
+icon, so the card is cropped geometrically: a centred square (64.3 % of the
+canvas) with rounded corners. The result is saved with real transparency as
+``esword4linux.png``, used by the window, launcher and hicolor sizes.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -23,20 +23,20 @@ from PySide6.QtGui import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "src" / "linuxesword" / "assets" / "linuxesword3.jpeg"
-CLEAN = ROOT / "src" / "linuxesword" / "assets" / "linuxesword.png"
+SOURCE = ROOT / "src" / "esword4linux" / "assets" / "esword4linux3.jpeg"
+CLEAN = ROOT / "src" / "esword4linux" / "assets" / "esword4linux.png"
 SIZES = (16, 22, 24, 32, 48, 64, 128, 256, 512)
 
-# La tarjeta del JPEG ocupa de 17,87 % a 82,18 % en X y de 17,68 % a 82,08 %
-# en Y (medido sobre el original de 2048×2048). Se recorta un cuadrado
-# centrado y se encoge un 0,5 % para no incluir la sombra ni el borde del JPEG.
+# The card occupies 17.87 %–82.18 % in X and 17.68 %–82.08 % in Y
+# (measured on the 2048×2048 original). Crop a centred square and shrink it
+# by 0.5 % to avoid the shadow and JPEG border.
 CARD_SIDE = 0.6431
 CARD_INSET = 0.005
 CORNER_RADIUS = 0.20
 
 
 def extract_card_icon(source: QImage) -> QImage:
-    """Recorta la tarjeta redondeada y deja transparente el damero exterior."""
+    """Crop the rounded card and make the outer checkerboard transparent."""
     image = source.convertToFormat(QImage.Format.Format_ARGB32)
     w, h = image.width(), image.height()
     side = min(w, h) * CARD_SIDE
@@ -66,19 +66,24 @@ def extract_card_icon(source: QImage) -> QImage:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    dest = Path(args[0]).expanduser() if args else Path.home() / ".local/share/icons/hicolor"
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "dest", nargs="?", default=str(Path.home() / ".local/share/icons/hicolor"),
+        help="hicolor icon root (default: ~/.local/share/icons/hicolor)",
+    )
+    args = ap.parse_args(argv)
+    dest = Path(args.dest).expanduser()
     app = QGuiApplication.instance() or QGuiApplication([])  # noqa: F841
     source = QImage(str(SOURCE))
     if source.isNull():
-        print(f"No se pudo leer {SOURCE}", file=sys.stderr)
+        print(f"Could not read {SOURCE}", file=sys.stderr)
         return 1
     icon = extract_card_icon(source).scaled(
         512, 512, Qt.AspectRatioMode.KeepAspectRatio,
         Qt.TransformationMode.SmoothTransformation,
     )
     if not icon.save(str(CLEAN), "PNG"):
-        print(f"No se pudo escribir {CLEAN}", file=sys.stderr)
+        print(f"Could not write {CLEAN}", file=sys.stderr)
         return 1
     for size in SIZES:
         target = dest / f"{size}x{size}" / "apps"
@@ -87,11 +92,11 @@ def main(argv: list[str] | None = None) -> int:
             size, size, Qt.AspectRatioMode.KeepAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
-        out = target / "linuxesword.png"
+        out = target / "esword4linux.png"
         if not scaled.save(str(out), "PNG"):
-            print(f"No se pudo escribir {out}", file=sys.stderr)
+            print(f"Could not write {out}", file=sys.stderr)
             return 1
-    print(f"Iconos generados desde {SOURCE.name}: {dest}")
+    print(f"Icons generated from {SOURCE.name}: {dest}")
     return 0
 
 

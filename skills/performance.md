@@ -1,65 +1,82 @@
-# Rendimiento — presupuestos y mediciones
+# Performance — budgets and measurements
 
-## Presupuestos
+## Budgets
 
-| Operación | Presupuesto | Real |
+Measured on the maintainer's reference machine. Treat the budget as the limit,
+not the expected value.
+
+| Operation | Budget | Measured |
 |---|---|---|
-| Abrir la app y mostrar la Biblia | < 1,5 s | ~0,9 s (sin indexar) |
-| Cambiar de capítulo | < 60 ms | ~10-25 ms |
-| Buscar en 72k páginas indexadas | < 100 ms | ~10-20 ms |
-| Escanear 970 archivos (incremental) | < 1 s | ~0,1 s |
-| Escanear desde cero | < 10 s | ~3 s |
-| Indexar una biblia plana (35k v.) | < 15 s | ~6 s |
-| Indexar una biblia cifrada (31k v.) | < 30 s | ~13 s (pool) |
-| Mostrar un capítulo con comentario | < 100 ms | ~30 ms |
+| Start the app and show the Bible | < 1.5 s | ~1 s (no index) |
+| Change chapter | < 60 ms | ~10–25 ms |
+| Search tens of thousands of indexed pages | < 100 ms | ~10–20 ms |
+| Incremental scan | < 1 s | ~0.1 s |
+| Cold scan | < 10 s | a few seconds |
+| Index a plain Bible | < 15 s | a few seconds |
+| Index an encrypted Bible | < 30 s | depends on size and CPU count; uses the pool |
+| Show a chapter with commentary | < 100 ms | ~30 ms |
 
-Si un cambio empeora un presupuesto > 2×, se justifica en el PR o se revierte.
+If a change makes a budget more than 2× worse, justify it in the PR or revert
+it.
 
-## Dónde se va el tiempo
+## Where time goes
 
-1. **Descifrado Twofish** (Python puro, ~284 reg/s/núcleo). Es el único coste
-   real. Se paraleliza con `ProcessPoolExecutor` en
-   `core/indexer.py:_parallel_decrypt`, con `workers = min(16, cpus-1)` y
-   `chunks = ceil(n/workers)`. El pickling de 31k blobs (~3 MB) es despreciable.
-2. **RTF → texto** al indexar. ~0,15 ms por versículo. Aceptable.
-3. **FTS5**: la inserción dispara los triggers. ~6 s para 35k versículos.
+1. **Twofish decryption** (pure Python, ~284 records/s/core). This is the only
+   real cost. It is parallelized with `ProcessPoolExecutor` in
+   `src/esword4linux/core/indexer.py:_parallel_decrypt`, with
+   `workers = min(16, cpus-1)` and `chunks = ceil(n/workers)`. Pickling the
+   blobs is negligible compared with decryption.
+2. **RTF → text** while indexing. ~0.15 ms per verse. Acceptable.
+3. **FTS5**: insertion fires the triggers. Several seconds for tens of
+   thousands of verses.
 
-## Reglas
+## Rules
 
-1. **No descifrar lo que no se va a usar.** `iter_pages()` es un generador; el
-   visor usa `bible_chapter()` / `page_by_ref()`, no `iter_pages()`.
-2. **No indexar todo al arrancar.** Solo `Settings.preindex` (LBLA, RV1960,
-   comentario RV1960x). El resto, bajo demanda.
-3. **Pool solo para lotes grandes.** `_parallel_decrypt` cae a secuencial si
-   `len(blobs) < 2000`: el arranque del pool cuesta ~1 s y no compensa.
-4. **Una consulta por capítulo, no por versículo.** `chapter_comments()`.
-5. **`LIMIT` siempre** en listas y búsquedas.
-6. **Caché en StorageC, no en el home.** El home tiene 25 GB libres (81% usado);
-   StorageC tiene 136 GB. `Settings.cache_dir` apunta a
-   `~/StorageC/linuxEsword/.cache`.
+1. **Do not decrypt what will not be used.** `iter_pages()` is a generator;
+   the viewer uses `bible_chapter()` / `page_by_ref()`, not `iter_pages()`.
+2. **Never index at startup.** There is no preindex list and no default module
+   set. Indexing and decryption are explicit: *Index* menu, sidebar context
+   menu or the CLI tools. `make scan` only scans metadata; `make encrypted`
+   decrypts and indexes encrypted modules on request.
+3. **Pool only for large batches.** `_parallel_decrypt` falls back to
+   sequential when `len(blobs) < 2000`: starting the pool costs ~1 s and does
+   not pay off for small batches.
+4. **One query per chapter, not per verse.** `chapter_comments()`.
+5. **Always `LIMIT`** in lists and searches.
+6. **Cache in the XDG cache directory, never in the modules folder.** The
+   catalog and index live in `~/.cache/esword4linux` (honoring
+   `XDG_CACHE_HOME`). They are regenerable; the user's modules are read-only.
+7. **Tests use isolated paths.** A test cache is a temporary directory, and
+   real-module tests read `ESWORD4LINUX_TEST_CORPUS`; tests never measure
+   against the developer's cache.
 
-## Medir
+## Measuring
 
 ```bash
-# Escaneo + indexación base con tiempos
-.venv/bin/python tools/bootstrap.py
+# Metadata scan with timings (indexing is opt-in)
+.venv/bin/python tools/bootstrap.py --resources <MODULES_DIR>
 
-# Tiempo de búsqueda
+# Add --all, or --kind bible --kind commentary, to index explicitly.
+```
+
+```bash
+# Search timing
 .venv/bin/python - <<'PY'
-from linuxesword.config import Settings
-from linuxesword.core.context import AppContext
+from esword4linux.config import Settings
+from esword4linux.core.context import AppContext
 ctx = AppContext(Settings.load())
-for q in ["amor", "fe", "principio", "Juan 3:16"]:
+for q in ["love", "faith", "beginning", "John 3:16"]:
     r = ctx.search.search(q)
     print(f"{q!r:16} {r.intent:9} {len(r.hits):4} hits  {r.elapsed_ms:6.1f} ms")
 PY
 ```
 
-## Tamaño de la caché
+## Cache size
 
-| Corpus | Páginas | `content.db` |
+| Library | Pages | `content.db` |
 |---|---|---|
-| 3 módulos base | 72.102 | ~25 MB |
-| Todo el corpus (estimado) | ~3,4 M | ~1,5-2,5 GB |
+| A few modules | tens of thousands | ~25 MB |
+| A large library (estimated) | millions | ~1–2 GB |
 
-`content.db` es **regenerable**: ante corrupción o cambio de esquema, se borra.
+`content.db` is **regenerable**: if it is corrupted or the schema changes,
+delete it and rebuild the parts you need.

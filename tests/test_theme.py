@@ -1,4 +1,4 @@
-"""Contraste del tema oscuro y recursos de marca."""
+"""Dark theme contrast and branding assets."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def _contrast(a: str, b: str) -> float:
 
 
 def test_dark_palette_has_visible_steps():
-    from linuxesword.ui.theme import DARK
+    from esword4linux.ui.theme import DARK
 
     assert _contrast(DARK.bg, DARK.panel) >= 1.10
     assert _contrast(DARK.panel, DARK.panel_alt) >= 1.15
@@ -37,10 +37,10 @@ def test_new_icon_is_readable():
     from PySide6.QtGui import QImage
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.config import asset
+    from esword4linux.config import asset
 
     app = QApplication.instance() or QApplication([])  # noqa: F841
-    image = QImage(str(asset("linuxesword.png")))
+    image = QImage(str(asset("esword4linux.png")))
     assert not image.isNull()
     assert image.width() == image.height()
     assert image.pixelColor(0, 0).alpha() == 0
@@ -54,11 +54,11 @@ def test_checkbox_draws_checkmark_when_checked():
     from PySide6.QtGui import QImage, QPainter
     from PySide6.QtWidgets import QApplication, QStyle, QStyleOptionButton
 
-    from linuxesword.ui.checkstyle import CheckMarkStyle
-    from linuxesword.ui.theme import stylesheet
+    from esword4linux.ui.checkstyle import CheckMarkStyle
+    from esword4linux.ui.theme import stylesheet
 
     app = QApplication.instance() or QApplication([])
-    # El QSS ya no debe sustituir el indicador dibujado por el proxy style.
+    # The QSS must no longer override the indicator drawn by the proxy style.
     assert "QCheckBox::indicator" not in stylesheet("dark", 15)
 
     style = CheckMarkStyle(None, "dark")
@@ -81,7 +81,7 @@ def test_checkbox_draws_checkmark_when_checked():
         for x in range(4, 12)
         if image.pixelColor(x, y).alpha() > 0
     ]
-    # La caja queda rellena de acento y el check se dibuja oscuro encima.
+    # The box ends up filled with the accent and the check is drawn dark on top.
     assert any(c.lightness() > 150 for c in interior)
     assert any(c.lightness() < 80 for c in interior)
 
@@ -89,7 +89,7 @@ def test_checkbox_draws_checkmark_when_checked():
 def test_document_css_separates_reading_and_running_text():
     from types import SimpleNamespace
 
-    from linuxesword.ui.theme import document_css_for, ui_stylesheet
+    from esword4linux.ui.theme import document_css_for, ui_stylesheet
 
     settings = SimpleNamespace(
         theme="light",
@@ -101,13 +101,13 @@ def test_document_css_separates_reading_and_running_text():
         content_font_size=11,
     )
     css = document_css_for(settings)
-    # La Escritura conserva su familia y tamaño propios.
+    # Scripture keeps its own family and size.
     assert 'font-family: "Noto Serif"' in css
     assert "font-size: 18px" in css
-    # El texto corriente usa los suyos.
+    # Running text uses its own.
     assert 'font-family: "DejaVu Sans Mono"' in css
     assert "font-size: 11px" in css
-    # La hoja Qt usa la tipografía de la interfaz, no la de lectura.
+    # The Qt sheet uses the interface typography, not the reading one.
     sheet = ui_stylesheet(settings)
     assert 'font-family: "DejaVu Sans"' in sheet
     assert "font-size: 12px" in sheet

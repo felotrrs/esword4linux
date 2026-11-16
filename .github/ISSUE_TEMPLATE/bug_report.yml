@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a reproducible problem with esword4linux.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Do not attach e-Sword modules** or other
+        copyrighted content. Describe the module type instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behaviour and what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: module-type
+    attributes:
+      label: Module type
+      description: Kind and extension, for example Bible .bblx or Commentary .cmtx. Do not share the module itself.
+  - type: input
+    id: version
+    attributes:
+      label: esword4linux version
+      placeholder: "0.5.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Distribution, Python version, desktop environment"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output or traceback
+      render: shell

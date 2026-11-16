@@ -1,8 +1,8 @@
-"""Normalización RTF/HTML, saneado para Qt y recorte de snippets."""
+"""RTF/HTML normalisation, sanitising for Qt and snippet trimming."""
 
 from __future__ import annotations
 
-from linuxesword.core.text import snippet, to_plain, to_rich
+from esword4linux.core.text import snippet, to_plain, to_rich
 
 
 def test_rtf_to_plain():
@@ -34,7 +34,7 @@ def test_ref_tag_becomes_anchor():
 
 
 def test_disallowed_tags_never_survive_raw():
-    """Un tag no permitido nunca sale como HTML ejecutable; el texto se conserva."""
+    """A disallowed tag never comes out as executable HTML; the text is kept."""
     rich = to_rich("<marquee>texto</marquee>")
     assert "texto" in rich
     assert "<marquee>" not in rich

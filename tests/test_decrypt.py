@@ -1,4 +1,4 @@
-"""Descifrado SQLitePlus (Twofish-128) sobre vectores y módulos reales."""
+"""SQLitePlus (Twofish-128) decryption over vectors and real modules."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from linuxesword.core.esword.sqliteplus import decrypt_payload, self_test
-from linuxesword.core.esword.twofish import self_test as twofish_self_test
+from esword4linux.core.esword.sqliteplus import decrypt_payload, self_test
+from esword4linux.core.esword.twofish import self_test as twofish_self_test
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
+from support import CORPUS, requires_corpus
 
 
 def test_twofish_vector():
@@ -25,14 +25,14 @@ def test_no_key_fails():
         decrypt_payload(b"\x00" * 16, "clave_incorrecta")
 
 
-@pytest.mark.skipif(not CORPUS.is_dir(), reason="corpus no disponible")
+@requires_corpus
 def test_decrypt_real_bible():
-    """La LBLA está cifrada: el primer versículo debe ser Génesis 1:1."""
-    from linuxesword.core.esword.module import EswordModule
+    """The LBLA is encrypted: its first verse must be Genesis 1:1."""
+    from esword4linux.core.esword.module import EswordModule
 
     path = CORPUS / "BIBLIAS" / "bible_lbla_es.bblx"
     if not path.is_file():
-        pytest.skip("módulo LBLA no disponible")
+        pytest.skip("LBLA module not available")
     with EswordModule(path) as mod:
         assert mod.encrypted
         page = mod.bible_verse(1, 1, 1)
@@ -40,13 +40,13 @@ def test_decrypt_real_bible():
         assert "En el principio" in page.raw
 
 
-@pytest.mark.skipif(not CORPUS.is_dir(), reason="corpus no disponible")
+@requires_corpus
 def test_plaintext_bible_not_encrypted():
-    from linuxesword.core.esword.module import EswordModule
+    from esword4linux.core.esword.module import EswordModule
 
     path = CORPUS / "BIBLIAS" / "bible_rv1960_es_2.bblx"
     if not path.is_file():
-        pytest.skip("módulo RV1960 no disponible")
+        pytest.skip("RV1960 module not available")
     with EswordModule(path) as mod:
         assert not mod.encrypted
         assert mod.structure == "bible"

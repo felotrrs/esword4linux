@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Detecta módulos e-Sword duplicados y deja un ejemplar de cada uno.
+"""Detect duplicate e-Sword modules and keep one copy of each.
 
-Dos copias son duplicadas si tienen **los mismos bytes** (sha256). Los archivos
-del mismo tamaño se agrupan primero para no hashear 5 GB innecesariamente.
+Two copies are duplicates if they have **the same bytes** (sha256). Files of
+the same size are grouped first so large libraries are not hashed needlessly.
 
-Uso:
-    python tools/deduplicate.py                     # informe por pantalla
-    python tools/deduplicate.py --write-report      # + documentacion/DUPLICADOS.md
-    python tools/deduplicate.py --apply             # mueve sobrantes a _duplicados/
+Usage:
+    python tools/deduplicate.py                     # report to the console
+    python tools/deduplicate.py --write-report      # + reports/duplicates.md
+    python tools/deduplicate.py --apply             # move extras to _duplicados/
     python tools/deduplicate.py --apply --mode delete
     python tools/deduplicate.py --apply --dry-run
 
-La cuarentena es **reversible**: los archivos se mueven (no se borran) y se
-escribe un manifiesto con ruta original, sha256 y copia conservada.
+The quarantine is **reversible**: files are moved (not deleted) and a manifest
+is written with the original path, sha256 and the kept copy.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from linuxesword.config import Settings  # noqa: E402
-from linuxesword.core.catalog import Catalog, work_key  # noqa: E402
+from esword4linux.config import Settings  # noqa: E402
+from esword4linux.core.catalog import Catalog, work_key  # noqa: E402
 
 MODULE_EXTS = {
     ".bblx", ".bbli", ".cmtx", ".cmti", ".dctx", ".dcti", ".devx", ".topx",
@@ -43,7 +43,7 @@ MODULE_EXTS = {
     ".lanx", ".en", ".es", ".fr", ".pt",
 }
 
-# Carpeta canónica por tipo de contenido.
+# Canonical folder per content kind.
 KIND_FOLDER = {
     "bible": "BIBLIAS",
     "commentary": "COMENTARIOS",
@@ -62,10 +62,10 @@ NORMALIZED_PREFIX = (
 )
 
 ROLE_ES = {
-    "bible": "Texto", "commentary": "Notas", "dictionary": "Diccionario",
-    "lexicon": "Léxico", "devotion": "Devocional", "topic": "Tópicos",
-    "reference": "Referencia", "harmony": "Armonía", "maps": "Mapas",
-    "twm": "TWM", "unknown": "Otro",
+    "bible": "Text", "commentary": "Notes", "dictionary": "Dictionary",
+    "lexicon": "Lexicon", "devotion": "Devotional", "topic": "Topics",
+    "reference": "Reference", "harmony": "Harmony", "maps": "Maps",
+    "twm": "TWM", "unknown": "Other",
 }
 
 
@@ -95,7 +95,7 @@ def sha256(path: Path) -> str:
 
 
 def keep_score(entry: Entry) -> float:
-    """Cuanto más alto, más merece conservarse."""
+    """Higher score means more worth keeping."""
     score = 0.0
     parts = Path(entry.rel).parts
     folder = parts[0].upper() if len(parts) > 1 else ""
@@ -164,28 +164,28 @@ def duplicate_groups(entries: list[Entry], progress=None) -> list[list[Entry]]:
 
 
 def order_group(group: list[Entry]) -> list[Entry]:
-    """Ordena: primero el que se conserva, luego los sobrantes."""
+    """Sort: keeper first, then the redundant copies."""
     return sorted(group, key=lambda e: (-keep_score(e), e.rel))
 
 
-# ── informe ──────────────────────────────────────────────────────────────
+# ── report ───────────────────────────────────────────────────────────────
 def build_report(root: Path, groups: list[list[Entry]], empty: list[str],
                  works: list[dict]) -> str:
     redundant = sum(len(g) - 1 for g in groups)
     wasted = sum(g[0].size * (len(g) - 1) for g in groups)
     lines = [
-        "# Duplicados en la biblioteca e-Sword",
+        "# Duplicates in the e-Sword library",
         "",
-        f"- **Carpeta de recursos**: `{root}`",
-        f"- **Generado**: {time.strftime('%Y-%m-%d %H:%M')}",
-        f"- **Grupos duplicados exactos**: {len(groups)}",
-        f"- **Copias sobrantes**: {redundant}",
-        f"- **Espacio redundante**: {wasted / 1e6:.1f} MB",
+        f"- **Resources folder**: `{root}`",
+        f"- **Generated**: {time.strftime('%Y-%m-%d %H:%M')}",
+        f"- **Exact duplicate groups**: {len(groups)}",
+        f"- **Redundant copies**: {redundant}",
+        f"- **Redundant space**: {wasted / 1e6:.1f} MB",
         "",
-        "Dos archivos son duplicados si tienen **los mismos bytes** (`sha256`).",
-        "El ✅ es el ejemplar que se conserva; el 🗑 pasaría a cuarentena.",
+        "Two files are duplicates if they have **the same bytes** (`sha256`).",
+        "The ✅ marks the copy that is kept; 🗑 marks what would be quarantined.",
         "",
-        "## Grupos duplicados",
+        "## Duplicate groups",
         "",
     ]
     for i, group in enumerate(groups, 1):
@@ -193,10 +193,10 @@ def build_report(root: Path, groups: list[list[Entry]], empty: list[str],
         keeper = ordered[0]
         lines.append(f"### {i}. {keeper.title or keeper.rel} — {keeper.size / 1e6:.1f} MB")
         lines.append("")
-        lines.append("| | Rol | Archivo | Tipo |")
+        lines.append("| | Role | File | Kind |")
         lines.append("|---|---|---|---|")
         for j, e in enumerate(ordered):
-            mark = "✅ conservar" if j == 0 else "🗑 cuarentena"
+            mark = "✅ keep" if j == 0 else "🗑 quarantine"
             role = ROLE_ES.get(e.kind, e.kind or "?")
             lines.append(f"| {mark} | {role} | `{e.rel}` | `{e.kind or '?'}` |")
         lines.append("")
@@ -205,12 +205,13 @@ def build_report(root: Path, groups: list[list[Entry]], empty: list[str],
 
     if works:
         lines += [
-            "## Misma obra, archivos distintos",
+            "## Same work, different files",
             "",
-            "No son duplicados byte a byte (no se tocan): la misma obra repartida",
-            "en varios módulos. La barra lateral los agrupa en la vista **Por obra**.",
+            "These are not byte-for-byte duplicates (left untouched): the same",
+            "work split across several modules. The sidebar groups them in the",
+            "**By work** view.",
             "",
-            "| Obra | Módulos |",
+            "| Work | Modules |",
             "|---|---|",
         ]
         for work in works:
@@ -223,9 +224,9 @@ def build_report(root: Path, groups: list[list[Entry]], empty: list[str],
 
     if empty:
         lines += [
-            "## Archivos vacíos (0 bytes)",
+            "## Empty files (0 bytes)",
             "",
-            "No son módulos válidos; se pueden borrar sin más.",
+            "Not valid modules; they can simply be deleted.",
             "",
         ]
         lines += [f"- `{rel}`" for rel in empty]
@@ -233,7 +234,7 @@ def build_report(root: Path, groups: list[list[Entry]], empty: list[str],
     return "\n".join(lines)
 
 
-# ── acciones ─────────────────────────────────────────────────────────────
+# ── actions ──────────────────────────────────────────────────────────────
 def apply_groups(root: Path, groups: list[list[Entry]], mode: str,
                  dry_run: bool) -> int:
     if mode == "move":
@@ -254,7 +255,7 @@ def apply_groups(root: Path, groups: list[list[Entry]], mode: str,
                 "mode": mode,
             }
             if dry_run:
-                print(f"  [dry-run] {mode}: {entry.rel}  (conserva {keeper.rel})")
+                print(f"  [dry-run] {mode}: {entry.rel}  (keeping {keeper.rel})")
                 moved += 1
                 continue
             if mode == "move":
@@ -276,7 +277,7 @@ def apply_groups(root: Path, groups: list[list[Entry]], mode: str,
                        ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        print(f"\nManifiesto: {manifest_path}")
+        print(f"\nManifest: {manifest_path}")
     return moved
 
 
@@ -287,19 +288,26 @@ def main() -> int:
     ap.add_argument("--mode", choices=["move", "delete"], default="move")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--write-report", action="store_true")
+    ap.add_argument("--report", default=None,
+                    help="report path (default: reports/duplicates.md)")
     args = ap.parse_args()
 
     settings = Settings.load()
-    root = Path(args.resources or settings.resources_dir)
+    raw_root = args.resources or settings.resources_dir
+    if not raw_root:
+        print("No modules folder selected. Use --resources DIR or choose one "
+              "in the application.")
+        return 2
+    root = Path(raw_root).expanduser()
     if not root.is_dir():
-        print(f"carpeta inexistente: {root}")
+        print(f"Folder not found: {root}")
         return 1
 
     catalog = Catalog(settings.catalog_db)
-    print(f"Analizando {root} …")
+    print(f"Analyzing {root} …")
     entries = collect(root)
     enrich(entries, catalog)
-    print(f"  módulos con contenido: {len(entries)}")
+    print(f"  modules with content: {len(entries)}")
 
     def progress(done: int, total: int) -> None:
         sys.stderr.write(f"\r  hash {done}/{total}")
@@ -317,28 +325,29 @@ def main() -> int:
 
     redundant = sum(len(g) - 1 for g in groups)
     wasted = sum(g[0].size * (len(g) - 1) for g in groups)
-    print(f"\nGrupos duplicados: {len(groups)} · copias sobrantes: {redundant} · "
+    print(f"\nDuplicate groups: {len(groups)} · redundant copies: {redundant} · "
           f"{wasted / 1e6:.1f} MB")
-    print(f"Archivos vacíos: {len(empty)} · obras con varios módulos: {len(works)}")
+    print(f"Empty files: {len(empty)} · works with several modules: {len(works)}")
 
     if args.write_report or not args.apply:
         report = build_report(root, groups, empty, works)
         if args.write_report:
-            out = ROOT / "documentacion" / "DUPLICADOS.md"
+            out = (Path(args.report).expanduser() if args.report
+                   else ROOT / "reports" / "duplicates.md")
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(report, encoding="utf-8")
-            print(f"Informe: {out}")
+            print(f"Report: {out}")
         else:
             print("\n" + report)
 
     if not args.apply:
-        print("\n(usa --apply para mover las copias sobrantes a _duplicados/)")
+        print("\n(use --apply to move redundant copies to _duplicados/)")
         return 0
 
     moved = apply_groups(root, groups, args.mode, args.dry_run)
-    print(f"\n{'Simuladas' if args.dry_run else 'Procesadas'}: {moved} copias")
+    print(f"\n{'Simulated' if args.dry_run else 'Processed'}: {moved} copies")
     if not args.dry_run:
-        print("Reescanea la biblioteca para actualizar el catálogo:  make scan")
+        print("Rescan the library to update the catalog:  make scan")
     return 0
 
 

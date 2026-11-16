@@ -1,4 +1,4 @@
-"""Pseudo-tags de e-Sword y codepages legacy."""
+"""e-Sword pseudo-tags and legacy codepages."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from linuxesword.core.text import is_markup, to_plain, to_rich
+from esword4linux.core.text import is_markup, to_plain, to_rich
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
+from support import CORPUS, requires_corpus
 
 
 # ── pseudo-tags ──────────────────────────────────────────────────────────
 def test_red_tag_is_markup_not_literal():
-    """Regresión: `<red>` se mostraba como `</red>` literal."""
+    """Regression: `<red>` used to show up as a literal `</red>`."""
     raw = "<red>Porque de tal manera amó Dios</red>"
     assert is_markup(raw)
     rich = to_rich(raw)
@@ -66,14 +66,14 @@ def test_unknown_pseudo_tag_still_detected():
 
 
 # ── codepages ────────────────────────────────────────────────────────────
-@pytest.mark.skipif(not CORPUS.is_dir(), reason="corpus no disponible")
+@requires_corpus
 def test_vine_codepage_fixes_greek():
-    """cp1253: sin el hint sale mojibake; con el hint, griego correcto."""
+    """cp1253: without the hint it comes out as mojibake; with it, correct Greek."""
     import sqlite3
 
     path = CORPUS / "DICCIONARIOS" / "dicc_vine_es_nt_es.dctx"
     if not path.is_file():
-        pytest.skip("módulo Vine NT ausente")
+        pytest.skip("Vine NT module not available")
     conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     raw = None
     for (definition,) in conn.execute("select Definition from Dictionary"):
@@ -82,7 +82,7 @@ def test_vine_codepage_fixes_greek():
             break
     conn.close()
     if raw is None:
-        pytest.skip("entrada con griego no encontrada")
+        pytest.skip("Greek entry not found")
     wrong = to_plain(raw)
     right = to_plain(raw, hint="dicc_vine_es_nt_es")
     assert "ἀπόθεσις" in right
@@ -94,8 +94,8 @@ def test_plain_untouched_when_no_hint():
 
 
 def test_orphan_closing_block_tag_becomes_break():
-    # Regresión RVR1960x: un </p> suelto partía el versículo en dos bloques
-    # y dejaba un hueco vertical.
+    # RVR1960x regression: a stray </p> split the verse into two blocks
+    # and left a vertical gap.
     rich = to_rich("La insensatez del hombre tuerce su camino,</p>Y luego se irrita.")
     assert "</p>" not in rich
     assert "<br>" in rich

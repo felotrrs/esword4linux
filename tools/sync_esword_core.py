@@ -1,28 +1,31 @@
 #!/usr/bin/env python3
-"""Control de deriva del núcleo e-Sword vendorizado.
+"""Check drift of the vendored e-Sword core.
 
-Compara los archivos copiados desde `~/StorageC/bible/shared/esword/` con su
-origen. `sqliteplus.py` se compara normalizando la única línea que debe
-cambiar (el import relativo del Twofish).
+Compares the local copies under ``src/esword4linux/core/esword`` with an
+upstream folder. The upstream is private to the maintainer and is not required
+to build or test this project. Set ``ESWORD4LINUX_VENDOR_ORIGIN`` or pass
+``--origin`` to check; otherwise the command exits cleanly.
 
-Uso:
-    python tools/sync_esword_core.py            # solo comprobar (exit 1 si deriva)
-    python tools/sync_esword_core.py --sync     # re-copiar desde el origen
+``sqliteplus.py`` is compared after normalising the only line that must change
+(the relative Twofish import).
+
+Usage:
     python tools/sync_esword_core.py --origin DIR
+    python tools/sync_esword_core.py --origin DIR --sync
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import shutil
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ORIGIN = Path("/home/felipe/StorageC/bible/shared/esword")
 
-# (archivo vendorizado, archivo de origen, ¿normalizar el import?)
+# (vendored file, upstream file, normalise the import?)
 FILES = [
     ("twofish.py", "twofish.py", False),
     ("rtf.py", "rtf_plain.py", False),
@@ -43,17 +46,23 @@ def _digest(path: Path, normalize: bool) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--origin", default=str(DEFAULT_ORIGIN))
-    ap.add_argument("--sync", action="store_true", help="re-copiar desde el origen")
+    ap = argparse.ArgumentParser(description=__doc__)
+    default_origin = os.environ.get("ESWORD4LINUX_VENDOR_ORIGIN", "")
+    ap.add_argument("--origin", default=default_origin)
+    ap.add_argument("--sync", action="store_true", help="copy from upstream")
     args = ap.parse_args()
 
-    origin = Path(args.origin)
-    dest = ROOT / "src" / "linuxesword" / "core" / "esword"
+    if not args.origin:
+        print("Upstream origin not configured; skipping drift check.")
+        print("Set ESWORD4LINUX_VENDOR_ORIGIN or use --origin DIR.")
+        return 0
+
+    origin = Path(args.origin).expanduser()
+    dest = ROOT / "src" / "esword4linux" / "core" / "esword"
 
     if not origin.is_dir():
-        print(f"origen no disponible: {origin}")
-        print("(se omite la comprobación de deriva)")
+        print(f"Upstream origin not available: {origin}")
+        print("(skipping drift check)")
         return 0
 
     drift = False
@@ -61,7 +70,7 @@ def main() -> int:
         vpath = dest / vendored
         spath = origin / source
         if not spath.is_file():
-            print(f"  ?  {vendored:22} origen ausente: {source}")
+            print(f"  ?  {vendored:22} missing upstream file: {source}")
             continue
         if args.sync:
             if vendored == "rtf.py":
@@ -73,29 +82,29 @@ def main() -> int:
                 vpath.write_text(text, encoding="utf-8")
             else:
                 shutil.copyfile(spath, vpath)
-            print(f"  ↻  {vendored:22} sincronizado desde {source}")
+            print(f"  ↻  {vendored:22} synced from {source}")
             continue
         if not vpath.is_file():
-            print(f"  ✕  {vendored:22} FALTA en el proyecto")
+            print(f"  ✕  {vendored:22} MISSING from the project")
             drift = True
             continue
         dv = _digest(vpath, normalize)
         ds = _digest(spath, normalize)
         if dv == ds:
-            print(f"  ✓  {vendored:22} idéntico a {source}")
+            print(f"  ✓  {vendored:22} identical to {source}")
         else:
-            print(f"  ✕  {vendored:22} DERIVA respecto a {source}")
-            print(f"       proyecto {dv[:16]}…  origen {ds[:16]}…")
+            print(f"  ✕  {vendored:22} DRIFTED from {source}")
+            print(f"       project {dv[:16]}…  upstream {ds[:16]}…")
             drift = True
 
     if args.sync:
-        print("\nSincronización completada. Revisa el diff y ejecuta las pruebas.")
+        print("\nSync complete. Review the diff and run the tests.")
         return 0
     if drift:
-        print("\nHay deriva. Si es intencional, documenta el motivo en")
-        print("documentacion/CHANGELOG.md y actualiza este control.")
+        print("\nDrift detected. If intentional, document the reason in")
+        print("docs/CHANGELOG.md and update this check.")
         return 1
-    print("\nNúcleo vendorizado sin deriva.")
+    print("\nVendored core has no drift.")
     return 0
 
 

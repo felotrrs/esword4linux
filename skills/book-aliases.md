@@ -1,22 +1,23 @@
-# Libros, alias y referencias
+# Books, aliases and references
 
-## Fuente única
+## Single source
 
-`core/books.yaml` es la **única** definición de:
+`src/esword4linux/core/books.yaml` is the **only** definition of:
 
-- los 73 libros e-Sword (`id` 1–73);
-- sus nombres en `es`, `en`, `fr` y `pt`;
-- abreviaturas y alias de distintas tradiciones editoriales.
+- the 73 e-Sword books (`id` 1–73);
+- their names in `es`, `en`, `fr` and `pt`;
+- abbreviations and aliases from different publishing traditions.
 
-`core/books.py` carga el YAML, normaliza y expone `BOOKS`, `book_name()`,
-`book_abbrev()`, `resolve_book()` y `parse_reference()`. **No crear listas de
-libros o alias en otros módulos, tests, documentación ni en la UI.**
+`src/esword4linux/core/books.py` loads the YAML, normalizes it and exposes
+`BOOKS`, `book_name()`, `book_abbrev()`, `resolve_book()` and
+`parse_reference()`. **Do not create book or alias lists in other modules,
+tests, documentation or the UI.**
 
-Procedencia: los alias base se importaron de `shared/book_aliases.yaml` del
-proyecto Bible; aquí viven en `core/books.yaml` para que linuxEsword arranque
-sin depender de ese repo.
+Provenance: the base aliases were imported from an earlier internal project.
+They now live in `src/esword4linux/core/books.yaml` so esword4linux starts
+without depending on any external repository.
 
-## Esquema del YAML
+## YAML schema
 
 ```yaml
 books:
@@ -31,68 +32,74 @@ books:
       pt: [gênesis, genesis, gen, gn]
 ```
 
-No hace falta enumerar variantes de acentos, mayúsculas o puntos: el loader
-aplica NFD, minúsculas, quita diacríticos y puntos, y colapsa espacios. Sí hay
-que añadir **ortografías reales distintas** (`gen` y `gn`, `jhn` y `john`).
+You do not need to enumerate accent, case or punctuation variants: the loader
+applies NFD, lowercases, removes diacritics and punctuation, and collapses
+whitespace. You do need to add **genuinely different spellings** (`gen` and
+`gn`, `jhn` and `john`).
 
-## Libros numerados
+## Numbered books
 
-Las series (Samuel, Reyes, Crónicas, Corintios, Tesalonicenses, Timoteo, Pedro,
-cartas de Juan, Macabeos) se declaran una vez en `families`:
+Series (Samuel, Kings, Chronicles, Corinthians, Thessalonians, Timothy, Peter,
+the letters of John, Maccabees) are declared once in `families`:
 
 ```yaml
 families:
   corinthians:
-    default: 46        # forma sin número → 1 Corintios
+    default: 46        # numberless form → 1 Corinthians
     books: {1: 46, 2: 47}
     aliases: [corintios, cor, co, corinthians, corinthiens]
 ```
 
-`resolve_book()` entiende `1`, `2`, `3`, `I`, `II`, `III`,
+`resolve_book()` understands `1`, `2`, `3`, `I`, `II`, `III`,
 `Primera/Segunda/Tercera`, `1ª`, `1a`, `1ra`, `first/second/third`, etc.
-No se duplican alias con prefijo en el YAML.
+Do not duplicate prefixed aliases in the YAML.
 
-`john_letters` tiene `default: null` a propósito: «Juan»/«John» sin número es
-el Evangelio (43), no 1 Juan (62).
+`john_letters` has `default: null` on purpose: "Juan"/"John" without a number
+is the Gospel (43), not 1 John (62).
 
-## Detección en texto (`core/refs.py`)
+## Detection in text (`src/esword4linux/core/refs.py`)
 
-`find_reference_spans()` enlaza las citas de la bibliografía y devuelve un span
-por sub-referencia. Formatos cubiertos:
+`find_reference_spans()` links citations in bibliography text and returns one
+span per sub-reference. Covered formats:
 
 ```
-Ex. 32.1–6      Ex. 7.8ss        (He. 5.4; 7.11)
-(Ex. 4:14, 27-30)   Exo_28:1; Heb_5:4   Jn 3,16
-I Samuel 1:1    Primera de Corintios 13:4   Génesis 1-3
-The Wisdom of Solomon 2:23   Cantar de los Cantares 1:1
+Ex. 32.1–6      Ex. 7.8ss        (Heb. 5.4; 7.11)
+(Ex. 4:14, 27-30)   Exo_28:1; Heb_5:4   John 3,16
+I Samuel 1:1    First Corinthians 13:4   Genesis 1-3
+The Wisdom of Solomon 2:23   Song of Songs 1:1
 ```
 
-- Coma como separador capítulo–versículo (`Jn 3,16`) y como continuación
+- Comma as chapter–verse separator (`John 3,16`) and as continuation
   (`Ex. 4:14, 27-30`).
-- Capítulo–versículo con `.`, `:`, `,` o espacio.
-- Nombres de varias palabras: se intentan extensiones a la izquierda hasta 6
-  palabras (`_extend_book`), sin construir una alternancia gigante.
-- Libros que no existen en la numeración 1–73 (`1 Esdras`, `3 Macc`) **no se
-  enlazan a otro libro**: se descartan.
-- `SCAN_CHARS = 200_000` para que las citas del final de entradas largas también
-  se enlacen.
+- Chapter–verse with `.`, `:`, `,` or a space.
+- Multi-word names: extensions to the left up to 6 words are attempted
+  (`_extend_book`), without building a giant alternation.
+- Books that do not exist in the 1–73 numbering (`1 Esdras`, `3 Macc`) are
+  **not linked to another book**: they are discarded.
+- `SCAN_CHARS = 200_000` so citations near the end of long entries are still
+  linked.
 
-## Burbujas
+## Pop-ups
 
-`core/refresolver.py:RefResolver` es la única implementación de la burbuja de
-pasaje (la usan la Biblia, la biblioteca y el comentario):
+`src/esword4linux/core/refresolver.py:RefResolver` is the only passage-pop-up
+implementation (used by the Bible, the library and the commentary):
 
-- versículo único → texto completo, sin `snippet`;
-- rango → todos los versículos del rango;
-- capítulo o rango abierto → máximo `MAX_VERSES = 10`;
-- si hay más, se añade `tooltip.more_verses` con el número restante.
+- single verse → full text, no `snippet`;
+- range → every verse in the range;
+- chapter or open-ended range → at most `MAX_VERSES = 10`;
+- if there are more, `tooltip.more_verses` is appended with the remaining
+  count.
 
-`core/strong.py:StrongIndex.tooltip()` usa solo la **abreviatura** del léxico en
-la cabecera (no el título largo), capa la entrada a 2500 caracteres y, si se
-corta, remite al panel Léxico para leerla completa.
+The reference Bible is the active one unless the user has configured another;
+if none is configured, `RefResolver` falls back to the first available Bible in
+the user's catalog. Nothing is hardcoded.
 
-## Al añadir un idioma o un alias
+`src/esword4linux/core/strong.py:StrongIndex.tooltip()` uses only the lexicon
+**abbreviation** in the header (not the long title), caps the entry at 2,500
+characters and, when truncated, points to the Lexicon panel for the full entry.
 
-1. Edita solo `core/books.yaml` (nombres y alias).
-2. Añade un caso en `tests/test_books.py` / `tests/test_matching.py`.
-3. `make test` en verde y comprueba que `./run.sh` arranca.
+## Adding a language or an alias
+
+1. Edit only `src/esword4linux/core/books.yaml` (names and aliases).
+2. Add a case to `tests/test_books.py` / `tests/test_matching.py`.
+3. `make test` is green and `./run.sh` still starts.

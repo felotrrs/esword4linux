@@ -1,4 +1,4 @@
-"""Pipeline completo: escaneo → catálogo → índice FTS5 → búsqueda."""
+"""Full pipeline: scan → catalog → FTS5 index → search."""
 
 from __future__ import annotations
 
@@ -6,16 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from linuxesword.core.catalog import Catalog
-from linuxesword.core.indexer import Indexer
-from linuxesword.core.search import SearchEngine
-from linuxesword.core.store import ContentStore, build_match, build_match_or
+from esword4linux.core.catalog import Catalog
+from esword4linux.core.indexer import Indexer
+from esword4linux.core.search import SearchEngine
+from esword4linux.core.store import ContentStore, build_match, build_match_or
 
-CORPUS = Path("/home/felipe/StorageA/Biblias/Biblias_esword")
+from support import CORPUS, requires_corpus
 BIBLE = "BIBLIAS/bible_rv1960_es_2.bblx"
 COMMENT = "COMENTARIOS/comment_rvr1960x_es.cmti"
-
-pytestmark = pytest.mark.skipif(not CORPUS.is_dir(), reason="corpus no disponible")
 
 
 def test_build_match():
@@ -29,7 +27,7 @@ def test_build_match():
 @pytest.fixture()
 def corpus(tmp_path):
     if not (CORPUS / BIBLE).is_file() or not (CORPUS / COMMENT).is_file():
-        pytest.skip("módulos base ausentes")
+        pytest.skip("base modules not available")
     res = tmp_path / "resources"
     res.mkdir()
     (res / "bible_rv1960.bblx").symlink_to(CORPUS / BIBLE)
@@ -37,6 +35,7 @@ def corpus(tmp_path):
     return res
 
 
+@requires_corpus
 def test_scan_and_index(tmp_path, corpus):
     catalog = Catalog(tmp_path / "catalog.db")
     store = ContentStore(tmp_path / "content.db")
@@ -67,7 +66,7 @@ def test_scan_and_index(tmp_path, corpus):
 
         assert engine.search("G2316").intent == "strong"
 
-        # el índice está en alcance solo para módulos ready
+        # the index is in scope only for ready modules
         ids = engine.indexed_module_ids()
         assert len(ids) == 2
     finally:
@@ -75,6 +74,7 @@ def test_scan_and_index(tmp_path, corpus):
         store.close()
 
 
+@requires_corpus
 def test_rescan_is_incremental(tmp_path, corpus):
     catalog = Catalog(tmp_path / "catalog.db")
     try:

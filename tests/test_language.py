@@ -1,10 +1,10 @@
-"""Detección de idioma de los módulos de biblioteca."""
+"""Language detection for library modules."""
 
 from __future__ import annotations
 
 import pytest
 
-from linuxesword.core.catalog import (
+from esword4linux.core.catalog import (
     LANGUAGE_ORDER, METADATA_VERSION, Catalog, detect_language,
 )
 
@@ -12,8 +12,8 @@ from linuxesword.core.catalog import (
 @pytest.mark.parametrize(
     "title,abbr,filename,expected",
     [
-        # El título dice «Spanish Reina-Valera»: es español aunque contenga
-        # palabras inglesas y el autor se llame Smith.
+        # The title says «Spanish Reina-Valera»: it is Spanish even if it
+        # contains English words and the author is called Smith.
         ("1909 Spanish Reina-Valera w/ Strong's Numbers", "SRV+",
          "bible_srv_es_1.bblx", "es"),
         ("BqSTB-JSmith Sermones y Bosquejos de toda la Biblia por James K. Smith",
@@ -34,7 +34,7 @@ def test_detect_language(title, abbr, filename, expected):
 
 
 def test_content_sample_disambiguates():
-    # Título neutro; la muestra de contenido decide.
+    # Neutral title; the content sample decides.
     assert detect_language("Obra", "X", "modulo.bblx",
                            sample="Y vio Dios que la luz era buena y apartó Dios la luz de las tinieblas.") == "es"
     assert detect_language("Work", "X", "module.bblx",

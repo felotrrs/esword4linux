@@ -1,10 +1,10 @@
-"""Parser de referencias y nombres de libros."""
+"""Reference parser and book names."""
 
 from __future__ import annotations
 
 import pytest
 
-from linuxesword.core.books import book_name, parse_reference
+from esword4linux.core.books import book_name, parse_reference
 
 
 @pytest.mark.parametrize(
@@ -23,14 +23,14 @@ from linuxesword.core.books import book_name, parse_reference
         ("2 Timoteo 3:16", 55, 3, 16, None),
         ("Hechos 2:38", 44, 2, 38, None),
         ("  1a Corintios 13:4 ", 46, 13, 4, None),
-        # Prefijos editoriales: I/II, Primera/Segunda y ordinales 1ª/1ra.
+        # Editorial prefixes: I/II, Primera/Segunda and the 1ª/1ra ordinals.
         ("I Samuel 1:1", 9, 1, 1, None),
         ("II Reyes 2:1", 12, 2, 1, None),
         ("Primera de Corintios 13:4", 46, 13, 4, None),
         ("Tercera de Juan 1:2", 64, 1, 2, None),
         ("1ª Corintios 13:4", 46, 13, 4, None),
         ("1ra Corintios 13:4", 46, 13, 4, None),
-        # Separadores y abreviaturas de otras tradiciones.
+        # Separators and abbreviations from other traditions.
         ("Jn 3,16", 43, 3, 16, None),
         ("1 P 1:3", 60, 1, 3, None),
         ("1Pedro 1:3", 60, 1, 3, None),
@@ -44,7 +44,7 @@ from linuxesword.core.books import book_name, parse_reference
         ("Mrk 15:34", 41, 15, 34, None),
         ("Éxo 15:2", 2, 15, 2, None),
         ("Núm 23:22", 4, 23, 22, None),
-        # Nombres en francés y portugués.
+        # Names in French and Portuguese.
         ("Jean 3:16", 43, 3, 16, None),
         ("1 Corinthiens 13:4", 46, 13, 4, None),
         ("João 3:16", 43, 3, 16, None),
@@ -68,7 +68,7 @@ def test_parse_chapter_range():
 
 @pytest.mark.parametrize("text", ["1 Esdras 8:2", "3 Macc 3:21", "Enoch 2:1"])
 def test_parse_unsupported_deuterocanonical(text):
-    # No están en la numeración e-Sword 1–73: mejor no inventar el libro.
+    # Not in the e-Sword 1–73 numbering: better not to invent the book.
     assert parse_reference(text) is None
 
 

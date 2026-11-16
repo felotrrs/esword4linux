@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Descifra e indexa todos los módulos cifrados (SQLitePlus).
+"""Decrypt and index every SQLitePlus-encrypted module.
 
-Se ejecuta una sola vez: deja los módulos cifrados listos para consultarse y
-buscarse. Es idempotente; los ya indexados se omiten.
+Run once when you want encrypted modules to be searchable. The command is
+idempotent; already indexed modules are skipped.
 
-Uso:
+Usage:
     python tools/prepare_encrypted.py [--force]
 """
 
@@ -18,10 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from linuxesword.config import Settings  # noqa: E402
-from linuxesword.core.catalog import Catalog  # noqa: E402
-from linuxesword.core.indexer import Indexer  # noqa: E402
-from linuxesword.core.store import ContentStore  # noqa: E402
+from esword4linux.config import Settings  # noqa: E402
+from esword4linux.core.catalog import Catalog  # noqa: E402
+from esword4linux.core.indexer import Indexer  # noqa: E402
+from esword4linux.core.store import ContentStore  # noqa: E402
 
 
 def bar(done: int, total: int, label: str) -> None:
@@ -33,8 +33,8 @@ def bar(done: int, total: int, label: str) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--force", action="store_true", help="reindexar aunque estén listos")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--force", action="store_true", help="reindex even if ready")
     args = ap.parse_args()
 
     settings = Settings.load()
@@ -45,9 +45,9 @@ def main() -> int:
                  if m["encrypted"] and m["kind"] != "unknown"]
     pending = encrypted if args.force else [m for m in encrypted if m["index_status"] != "ready"]
 
-    print(f"Módulos cifrados: {len(encrypted)} · pendientes: {len(pending)}")
+    print(f"Encrypted modules: {len(encrypted)} · pending: {len(pending)}")
     if not pending:
-        print("Todos listos.")
+        print("Everything is ready.")
         return 0
 
     indexer = Indexer(catalog, store)
@@ -56,28 +56,28 @@ def main() -> int:
     started = time.time()
     for i, mod in enumerate(pending, 1):
         print(f"\n[{i}/{len(pending)}] {mod['title'][:60]}")
-        print(f"        {mod['entries']} entradas · {mod['size']/1e6:.1f} MB · {mod['rel_path']}")
+        print(f"        {mod['entries']} entries · {mod['size']/1e6:.1f} MB · {mod['rel_path']}")
         t0 = time.time()
         n = indexer.index_module(mod, progress=bar)
         if n:
             total_pages += n
-            print(f"        → {n} páginas en {time.time()-t0:.1f}s")
+            print(f"        → {n} pages in {time.time()-t0:.1f}s")
         else:
             err = catalog.module(mod["id"]).get("index_error")
             failed.append((mod["rel_path"], err))
-            print(f"        !! fallo: {err}")
+            print(f"        !! failed: {err}")
 
     elapsed = time.time() - started
-    print(f"\n=== {len(pending)-len(failed)}/{len(pending)} módulos · "
-          f"{total_pages} páginas · {elapsed/60:.1f} min ===")
+    print(f"\n=== {len(pending)-len(failed)}/{len(pending)} modules · "
+          f"{total_pages} pages · {elapsed/60:.1f} min ===")
     if failed:
-        print("Fallidos:")
+        print("Failures:")
         for rel, err in failed:
             print(f"  - {rel}: {err}")
     if not failed:
         settings.encrypted_ready = True
         settings.save()
-    print(f"Índice total: {store.total_pages()} páginas · {store.db_size()/1e6:.0f} MB")
+    print(f"Total index: {store.total_pages()} pages · {store.db_size()/1e6:.0f} MB")
     catalog.close()
     store.close()
     return 0 if not failed else 1

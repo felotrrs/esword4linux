@@ -1,186 +1,248 @@
-# AGENTS.md — linuxEsword
+# AGENTS.md — esword4linux
 
-Lector nativo de módulos e-Sword para Linux (PySide6/Qt6). Este archivo son las
-reglas doradas + el mapa del sistema + los comandos. El detalle vive en
-`skills/` (leer bajo demanda).
+Native Linux reader for e-Sword modules (PySide6/Qt6). This file contains the
+golden rules, the system map and the commands. The details live in `skills/`
+(read on demand).
 
-## Reglas doradas
+## Golden rules
 
-1. **La carpeta de recursos es INMUTABLE.** linuxEsword abre cada módulo con
-   `mode=ro`. Nunca se escribe, corrige, "limpia" ni reordena un `.bblx`,
-   `.cmtx`, `.dctx`, `.lexi`, `.twm`, etc. Si un módulo trae erratas, mojibake o
-   entradas duplicadas, se **documenta y se muestra tal cual**. Prohibido
-   inventar o rellenar contenido desde otra fuente.
+1. **The modules folder is IMMUTABLE.** esword4linux opens every module with
+   `mode=ro`. It never writes, fixes, "cleans" or reorders a `.bblx`, `.cmtx`,
+   `.dctx`, `.lexi`, `.twm`, etc. If a module contains typos, mojibake or
+   duplicate entries, they are **documented and shown as-is**. Never invent or
+   backfill content from another source.
 
-2. **El tipo se decide por ESTRUCTURA, nunca por extensión.** `kind` sale de las
-   tablas presentes (`Bible`, `VerseCommentary`, `Dictionary`, `Topics`,
-   `Sections`+`Parts`, `Graphics`, `Reference`, `topics`+`config`...). En el
-   corpus real hay `.refx` que son tópicos y `.cmtx` con el esquema antiguo.
-   La extensión solo sirve para descubrir archivos.
+2. **No e-Sword module ships with the repository.** Nothing is bundled,
+   preloaded or hardcoded: there is no default Bible and no default last
+   reference. On first run the user selects **one** modules folder; cancelling
+   that dialog exits the app. The repository never distributes copyrighted
+   modules, so **never commit** `.bblx`, `.bbli`, `.cmtx`, `.cmti`, `.dctx`,
+   `.dcti`, `.lexi`, `.lexx`, `.twm`, `.refx`, `.refi`, `.topx`, `.devx`,
+   `.harx`, `.mapx` or any other e-Sword module. Tests that need real modules
+   use `ESWORD4LINUX_TEST_CORPUS` and skip when it is unset; they must never
+   depend on the developer's corpus or cache.
 
-3. **Leer ≠ buscar.** El visor lee del módulo directamente y descifra solo lo
-   que muestra. El índice FTS5 existe **únicamente** para buscar. Nunca se
-   bloquea la lectura por no tener índice.
+3. **The type is decided by STRUCTURE, never by extension.** `kind` comes from
+   the tables present (`Bible`, `VerseCommentary`, `Dictionary`, `Topics`,
+   `Sections`+`Parts`, `Graphics`, `Reference`, `topics`+`config`...). In
+   real-world collections there are `.refx` files that are topics and `.cmtx`
+   files with the old commentary schema. The extension is only used to discover
+   files.
 
-4. **El índice es bajo demanda por categoría.** No se indexa todo al arrancar
-   (salvo la base declarada en `Settings.preindex`). Cada módulo tiene estado
-   `pending → indexing → ready | failed`; el estado vive en `catalog.db`.
-   Los **módulos cifrados** se descifran e indexan una vez (menú
-   *Índice → Descifrar módulos cifrados*, `make encrypted`) para que queden
-   listos para consulta y búsqueda sin esperas.
+4. **Reading ≠ searching.** The viewer reads from the module directly and
+   decrypts only what it displays. The FTS5 index exists **only** for search.
+   Reading is never blocked because a module has no index.
 
-5. **Una sola fuente por concepto.** Categorías → `core/catalog.py:KIND_ORDER` /
-   `KIND_LABELS`. Libros, nombres y alias → `core/books.yaml` (lo carga
-   `core/books.py`; `BOOKS` se deriva de ahí). Cadenas de UI →
-   `i18n/es.json` + `i18n/en.json` (mismas claves en ambos). Colores y
-   tipografía → `ui/theme.py`, alimentados por `Settings`. Tema, idioma y
-   fuentes del usuario se editan **solo** en *Editar → Preferencias*; el menú
-   Ver no los duplica. No duplicar listas en otros archivos.
+5. **Indexing and decryption are always explicit.** The first scan reads
+   **metadata only** (structure, title, language, entry count). There is no
+   preindex list and no automatic indexing at startup. Each module has the
+   state `pending → indexing → ready | failed` in `catalog.db`. Index from the
+   *Index* menu, the sidebar context menu, or the CLI tools: `make scan` only
+   scans; `make encrypted` decrypts and indexes encrypted modules on request.
 
-6. **Nada de `os.environ.get()` disperso.** La configuración va por
-   `core/config.py:Settings`; los defaults de entorno, solo en `_xdg()`.
+6. **One source per concept.** Categories → `src/esword4linux/core/catalog.py`
+   `KIND_ORDER` / `KIND_LABELS`. Books, names and aliases →
+   `src/esword4linux/core/books.yaml` (loaded by
+   `src/esword4linux/core/books.py`; `BOOKS` is derived from it). UI strings →
+   `src/esword4linux/i18n/es.json` +
+   `src/esword4linux/i18n/en.json` (same keys in both). Colors and typography
+   → `src/esword4linux/ui/theme.py`, fed by `Settings`. Theme, language and
+   user fonts are edited **only** in *Edit → Preferences*; the View menu does
+   not duplicate them. Do not duplicate lists in other files.
 
-7. **Cero trabajo pesado en el hilo de UI.** Escaneo e indexación corren en
-   `ui/tasks.py:Worker` (QThread) con conexiones SQLite **propias del hilo**
-   (`Catalog`/`ContentStore` nuevos dentro del worker). Los objetos del hilo
-   principal no se comparten con el worker.
+7. **No scattered `os.environ.get()`.** Configuration flows through
+   `src/esword4linux/config.py:Settings`; environment defaults live only
+   in `_xdg()`. The only other environment variables are test/tooling hooks:
+   `ESWORD4LINUX_TEST_CORPUS` (real-module tests) and
+   `ESWORD4LINUX_VENDOR_ORIGIN` (optional drift check).
 
-8. **Todo texto de módulo pasa por `core/text.py`.** `to_plain(raw, hint)` para
-   indexar, `to_rich(raw, hint)` para mostrar. Además de sanear (`<script>`,
-   lista blanca, relleno RTF), **convierte los pseudo-tags de e-Sword**
-   (`<red>`, `<blu>`, `<grk>`, `<heb>`, `<num>`, `<Pg>`…) — sin esto se ven
-   literalmente como `</red>`. El `hint` (stem del módulo) activa los codepages
-   legacy (cp1253/cp1255) y las transliteraciones. Nunca se inyecta HTML crudo
-   del módulo en un `QTextBrowser`.
+8. **No heavy work on the UI thread.** Scanning and indexing run in
+   `src/esword4linux/ui/tasks.py:Worker` (QThread) with SQLite connections
+   **owned by the worker thread** (new `Catalog`/`ContentStore` inside the
+   worker). Objects from the main thread are never shared with the worker.
 
-9. **El núcleo criptográfico/RTF es vendorizado y GPL-3.0.** `twofish.py`,
-   `sqliteplus.py`, `rtf.py`, `font_codepages.py` y `legacy_translit.py` vienen
-   de `~/StorageC/bible/shared/esword/`. Cualquier cambio local debe pasar por
-   `make drift` y documentarse; la cabecera de procedencia no se toca.
+9. **All module text goes through `src/esword4linux/core/text.py`.**
+   `to_plain(raw, hint)` for indexing, `to_rich(raw, hint)` for display.
+   Besides sanitizing (`<script>`, allowlist, RTF padding), it **converts the
+   e-Sword pseudo-tags** (`<red>`, `<blu>`, `<grk>`, `<heb>`, `<num>`, `<Pg>`…);
+   without this they show up literally as `</red>`. The `hint` (module stem)
+   activates the legacy codepages (cp1253/cp1255) and transliterations. Raw
+   module HTML is never injected into a `QTextBrowser`.
 
-10. **La app debe arrancar sin red y sin Wine.** Cualquier dependencia nueva se
-    justifica en `documentacion/adr/`.
+10. **The crypto/RTF core is vendored and GPL-3.0.** `twofish.py`,
+    `sqliteplus.py`, `rtf.py`, `font_codepages.py` and `legacy_translit.py`
+    live in `src/esword4linux/core/esword/` and come from an upstream shared
+    library. Any local change must be checked with `make drift` and documented;
+    the provenance header is never removed. The upstream origin is optional and
+    private: set `ESWORD4LINUX_VENDOR_ORIGIN` (or pass `--origin DIR`) to
+    compare; otherwise `make drift` skips cleanly. The project builds, tests
+    and runs without that upstream.
 
-11. **Rendimiento medido, no supuesto.** Twofish en Python puro rinde ~284
-    registros/s/núcleo. Para las biblias cifradas se usa el pool de procesos de
-    `core/indexer.py:_parallel_decrypt`. No introducir descifrado secuencial en
-    rutas de más de ~2.000 registros sin medirlo.
+11. **The app must start without network access and without Wine.** Any new
+    dependency is justified in `docs/adr/`.
 
-12. **La UI nunca se queda en blanco.** Si un módulo falla, el visor muestra el
-    error (`index_error`/`ModuleError`) y la app sigue viva. Un fallo de un
-    módulo no puede tumbar el catálogo.
+12. **Performance is measured, not assumed.** Pure-Python Twofish runs at
+    roughly 284 records/s/core. Encrypted Bibles use the process pool in
+    `src/esword4linux/core/indexer.py:_parallel_decrypt`. Do not introduce
+    sequential decryption on paths with more than ~2,000 records without
+    measuring it.
 
-## Mapa del sistema
+13. **The UI never goes blank.** If a module fails, the viewer shows the error
+    (`index_error`/`ModuleError`) and the app stays alive. A single module
+    failure must never take down the catalog.
+
+## Startup and state
+
+1. No Bible or module is bundled, preloaded or hardcoded. `Settings.load()`
+   reads `~/.config/esword4linux/settings.json` (honoring `XDG_CONFIG_HOME`).
+   On first run (`resources_dir` empty) `FirstRunDialog` asks for the modules
+   folder. If the user cancels or quits, the process exits with status 0 and no
+   main window is created.
+2. The window appears before any scan. If the catalog is empty or metadata is
+   stale, a **metadata-only** scan runs in a `Worker`. Indexing and decryption
+   never start automatically.
+3. There is no preindex list, no default Bible and no default last reference.
+   When a workspace has no resource yet, the app may fall back to the first
+   available Bible/module **from the user's own catalog** so the UI is not
+   blank; this is derived from the selected folder, never hardcoded.
+4. Heavy state lives in `~/.cache/esword4linux` (honoring `XDG_CACHE_HOME`):
+   `catalog.db` for metadata and index state, `content.db` for pages and FTS5.
+   Both are regenerable; the modules folder is never used for writes.
+5. Reading works without any index. The search view explains that modules must
+   be indexed before text search returns results.
+
+## System map
+
+Conceptual map (package paths are abbreviated to `core/` and `ui/` for
+readability):
 
 ```
-Carpeta de recursos (ro)                 Caché (~/StorageC/linuxEsword/.cache)
-  ├── BIBLIAS/  .bblx .bbli               ├── catalog.db   metadatos + estado
-  ├── COMENTARIOS/ .cmti .cmtx             └── content.db   page + page_fts (FTS5)
-  ├── DICCIONARIOS/ .dctx .dcti
-  ├── LIBROS/ .refi .topx .devx ...              ▲
-  └── raíz .lexi .harx .mapx .twm               │
-             │                                   │
-             ▼                                   │
-   core/esword/module.py ── descifra ── core/indexer.py
-        │  (Twofish/SQLitePlus)                  │
-        │                                        ▼
-        │                              core/store.py (FTS5)
-        │                                        │
-        ▼                                        ▼
-   ui/bible_view.py  ◄── lectura directa ──  core/search.py
-   ui/library_view.py                        (referencia | strong | texto)
-        ▲                                        ▲
-        └──────────── ui/main_window.py ─────────┘
+Modules folder (user-selected, ro)        Cache (~/.cache/esword4linux)
+  ├── BIBLES/      .bblx .bbli             ├── catalog.db  metadata + index state
+  ├── COMMENTARIES/ .cmti .cmtx            └── content.db  page + page_fts (FTS5)
+  ├── DICTIONARIES/ .dctx .dcti
+  ├── BOOKS/       .refi .topx .devx ...          ▲
+  └── root         .lexi .harx .mapx .twm         │
+             │                                    │
+             ▼                                    │
+   core/esword/module.py ── decrypts ── core/indexer.py
+        │  (Twofish/SQLitePlus)                   │
+        │                                         ▼
+        │                               core/store.py (FTS5)
+        │                                         │
+        ▼                                         ▼
+   ui/bible_view.py  ◄── direct reading ──  core/search.py
+   ui/library_view.py                        (reference | strong | text)
+        ▲                                         ▲
+        └──────────── ui/main_window.py ──────────┘
                           ▲
-                    ui/sidebar.py (catálogo por categoría)
+                    ui/sidebar.py (catalog by category)
 ```
 
-| Módulo | Rol |
-|---|---|
-| `core/esword/module.py` | Abre el SQLite, detecta estructura, extrae metadatos, itera páginas y descifra por columna. Única puerta de entrada a un módulo. |
-| `core/esword/sqliteplus.py` | Header SQLitePlus + zlib. Descifra un blob. |
-| `core/esword/twofish.py` | Twofish-128-ECB (vendorizado, GPL-3.0). |
-| `core/esword/rtf.py` | RTF → texto plano / HTML enriquecido (vendorizado). |
-| `core/text.py` | `to_plain` / `to_rich` / `snippet`. Pseudo-tags e-Sword + codepages legacy. |
-| `core/refs.py` | Detección de citas bíblicas (`find_reference_spans`, `link_references`). |
-| `core/refresolver.py` | `RefResolver`: burbuja de versículo con la biblia de referencia. |
-| `core/legacy_scripts.py` | Detección automática de codepages legacy (cp1253/cp1255). |
-| `core/strong.py` | `StrongIndex`: autodetecta el léxico Strong y resuelve `G2316`. |
-| `core/commentary.py` | Emparejamiento biblia↔comentario por identidad + cobertura real. |
-| `core/refchain.py` | Cadenas de citas múltiples (`Gn23:1-6, 2:5-7; Jn3:16`) → referencias. |
-| `core/catalog.py` | Escaneo incremental, clasificación, idioma, fingerprint, duplicados y estado de índice. |
-| `core/store.py` | Esquema `page` + `page_fts` FTS5, triggers, `build_match`. |
-| `core/indexer.py` | Módulo → páginas → FTS5. Pool de procesos para biblias cifradas. |
-| `core/search.py` | Detección de intención y consulta al store. |
-| `core/books.py` | Carga `core/books.yaml` (IDs 1–73, nombres es/en/fr/pt, alias) y expone `parse_reference`. |
-| `core/context.py` | `AppContext`: catálogo, store, motor y cache LRU de módulos abiertos. |
-| `ui/bible_view.py` | `BiblePane`: navegación, paralela, caja de citas (sustituye la vista principal) y panel inferior (Comentario\|Léxico). |
-| `ui/commentary_pane.py` | `CommentaryPane`: comentarios del capítulo, salto a la nota. |
-| `ui/strong_pane.py` | `StrongPane`: entrada del léxico Strong. |
-| `ui/rich_browser.py` | `RichBrowser`: burbujas perezosas al pasar el ratón. |
-| `ui/checkstyle.py` | `CheckMarkStyle`: indicador de checkbox con checkmark según el tema. |
-| `ui/language.py` | Etiquetas (`lang.*`) y orden de idiomas para la UI. |
-| `ui/tab_bar.py` | `ColoredTabBar`: pestañas con color pleno, negrita y botón ＋. |
-| `ui/tooltip.py` | `TipBubble`: burbuja propia pintada desde `QTextDocument` (ancho máx. 600 px, una línea por bloque). |
-| `ui/workspace.py` | `Workspace`: pestaña-vista (recurso principal + biblia/paralela/comentario). |
-| `ui/entry_dialog.py` | `EntryDialog`: lectura completa de una entrada sin crear pestaña. |
-| `ui/library_view.py` | Visor genérico; lista de términos con asa de ocultar/mostrar. |
-| `ui/search_view.py` | Caja única con intención y resultados agrupados. |
-| `ui/sidebar.py` | Árbol con agrupaciones combinables (tipo/idioma/obra) y filtros múltiples. |
-| `ui/citation_pane.py` | Colección de versículos de una cadena de citas. |
-| `ui/main_window.py` | Pestañas-vista, nombres/colores, menús, workers, persistencia. |
-| `ui/preferences_dialog.py` | Preferencias: apariencia (tema + tipografía), idioma y vista previa. |
-| `ui/theme.py` | Paletas claro/oscuro, QSS y CSS de documento desde `Settings`. |
-| `i18n/` | `tr(key, **kwargs)` sobre catálogos JSON `es`/`en`. |
+The module table uses paths relative to the repository root.
 
-## Comandos
+| Module | Role |
+|---|---|
+| `src/esword4linux/core/esword/module.py` | Opens the SQLite file, detects structure, extracts metadata, iterates pages and decrypts per column. The only entry point to a module. |
+| `src/esword4linux/core/esword/sqliteplus.py` | SQLitePlus header + zlib. Decrypts one blob. |
+| `src/esword4linux/core/esword/twofish.py` | Twofish-128-ECB (vendored, GPL-3.0). |
+| `src/esword4linux/core/esword/rtf.py` | RTF → plain text / rich HTML (vendored). |
+| `src/esword4linux/core/text.py` | `to_plain` / `to_rich` / `snippet`. e-Sword pseudo-tags + legacy codepages. |
+| `src/esword4linux/core/refs.py` | Biblical citation detection (`find_reference_spans`, `link_references`). |
+| `src/esword4linux/core/refresolver.py` | `RefResolver`: verse pop-up using the reference Bible. |
+| `src/esword4linux/core/legacy_scripts.py` | Automatic detection of legacy codepages (cp1253/cp1255). |
+| `src/esword4linux/core/strong.py` | `StrongIndex`: auto-detects the Strong lexicon and resolves `G2316`. |
+| `src/esword4linux/core/commentary.py` | Bible↔commentary pairing by identity + actual coverage. |
+| `src/esword4linux/core/refchain.py` | Multi-citation chains (`Gen 23:1-6, 2:5-7; John 3:16`) → references. |
+| `src/esword4linux/core/catalog.py` | Incremental scan, classification, language, fingerprint, duplicates and index state. |
+| `src/esword4linux/core/store.py` | `page` + `page_fts` FTS5 schema, triggers, `build_match`. |
+| `src/esword4linux/core/indexer.py` | Module → pages → FTS5. Process pool for encrypted Bibles. |
+| `src/esword4linux/core/search.py` | Intent detection and store queries. |
+| `src/esword4linux/core/books.py` | Loads `src/esword4linux/core/books.yaml` (IDs 1–73, es/en/fr/pt names, aliases) and exposes `parse_reference`. |
+| `src/esword4linux/core/context.py` | `AppContext`: catalog, store, engine and an LRU cache of open modules. |
+| `src/esword4linux/ui/bible_view.py` | `BiblePane`: navigation, parallel Bible, citation box (replaces the main view) and bottom panel (Commentary\|Lexicon). |
+| `src/esword4linux/ui/commentary_pane.py` | `CommentaryPane`: chapter commentaries, jump to note. |
+| `src/esword4linux/ui/strong_pane.py` | `StrongPane`: Strong lexicon entry. |
+| `src/esword4linux/ui/rich_browser.py` | `RichBrowser`: lazy pop-ups on hover. |
+| `src/esword4linux/ui/checkstyle.py` | `CheckMarkStyle`: checkbox checkmark indicator, theme-aware. |
+| `src/esword4linux/ui/language.py` | Labels (`lang.*`) and language order for the UI. |
+| `src/esword4linux/ui/tab_bar.py` | `ColoredTabBar`: solid-color tabs, bold text and a ＋ button. |
+| `src/esword4linux/ui/tooltip.py` | `TipBubble`: custom bubble painted from a `QTextDocument` (max width 600 px, one line per block). |
+| `src/esword4linux/ui/workspace.py` | `Workspace`: a view-tab (main resource + Bible/parallel/commentary). |
+| `src/esword4linux/ui/entry_dialog.py` | `EntryDialog`: read a full entry without creating a tab. |
+| `src/esword4linux/ui/library_view.py` | Generic viewer; term list with a hide/show handle. |
+| `src/esword4linux/ui/search_view.py` | Single search box with intent and grouped results. |
+| `src/esword4linux/ui/sidebar.py` | Tree with combinable groupings (kind/language/work) and multiple filters. |
+| `src/esword4linux/ui/citation_pane.py` | Verse collection for a citation chain. |
+| `src/esword4linux/ui/first_run.py` | First-run dialog: asks for the user's modules folder before the main window opens. |
+| `src/esword4linux/ui/main_window.py` | View-tabs, names/colors, menus, workers, persistence. |
+| `src/esword4linux/ui/preferences_dialog.py` | Preferences: appearance (theme + typography), language and preview. |
+| `src/esword4linux/ui/theme.py` | Light/dark palettes, QSS and document CSS from `Settings`. |
+| `src/esword4linux/i18n/` | `tr(key, **kwargs)` over JSON catalogs `es`/`en`. |
+
+## Commands
 
 ```bash
-make install     # venv + dependencias
-make run         # arranca la app
-make scan        # escanea la carpeta y pre-indexa la base (CLI)
-make encrypted   # descifra e indexa todos los módulos cifrados (una vez)
-make dedup       # informe de duplicados (--apply los mueve a _duplicados/)
+make install     # venv + dependencies
+make run         # start the app
+make scan        # scan the modules folder (metadata only, CLI)
+make encrypted   # decrypt and index encrypted modules (explicitly)
+make dedup       # duplicate report (--apply moves copies to _duplicados/)
 make test        # pytest
-make drift       # compara el núcleo vendorizado con ~/StorageC/bible/shared/esword
-make desktop     # instala app + iconos hicolor (16–512 px)
-make clean       # borra venv y caché
+make drift       # optional: check vendored core against ESWORD4LINUX_VENDOR_ORIGIN
+make desktop     # install app + hicolor icons (16–512 px)
+make clean       # remove venv and cache
 ```
 
-Diagnóstico rápido:
+Quick diagnostics:
 
 ```bash
-# ¿qué tipo detecta y cuántas entradas tiene un módulo?
+# Which type is detected and how many entries does a module have?
 .venv/bin/python -c "
-from linuxesword.core.esword.module import EswordModule
-m = EswordModule('/ruta/modulo.bblx'); print(m.structure, m.kind, m.encrypted, m.count_entries())"
+from esword4linux.core.esword.module import EswordModule
+m = EswordModule('<MODULES_DIR>/bible.bblx')
+print(m.structure, m.kind, m.encrypted, m.count_entries())"
 
-# ¿qué hay indexado?
+# What is indexed?
 .venv/bin/python -c "
-from linuxesword.config import Settings
-from linuxesword.core.catalog import Catalog
-c = Catalog(Settings.load().catalog_db); print(c.counts_by_kind(), c.status_counts())"
+from esword4linux.config import Settings
+from esword4linux.core.catalog import Catalog
+c = Catalog(Settings.load().catalog_db)
+print(c.counts_by_kind(), c.status_counts())"
 ```
 
-## Definición de "terminado"
+## Definition of "done"
 
-- `make test` en verde (184 pruebas).
-- `make drift` sin deriva inesperada del núcleo vendorizado.
-- La app arranca con `./run.sh` y muestra la Biblia sin índice.
-- Cambio de comportamiento → una línea en `documentacion/CHANGELOG.md`.
-- Trabajo abierto → `documentacion/TECH_DEBT.md`.
-- Convención nueva → el `skills/*.md` que la posee.
+- `make test` is green. Tests that need real modules use
+  `ESWORD4LINUX_TEST_CORPUS` and skip when it is unset; they never read the
+  developer's cache.
+- `make drift` reports no unexpected drift when `ESWORD4LINUX_VENDOR_ORIGIN` is
+  set; without it the check skips cleanly.
+- The app starts with `./run.sh`: on first run it asks for the modules folder,
+  and cancelling exits cleanly.
+- Reading a Bible works without an index.
+- Behavior change → one line in `docs/CHANGELOG.md`.
+- Open work → `docs/TECH_DEBT.md`.
+- New convention → the `skills/*.md` file that owns it.
+- New UI string → added to both `src/esword4linux/i18n/es.json` and `en.json`.
 
-## Si tocas X, lee Y
+## Documentation language
 
-| Cuándo… | Skill |
+Documentation, code comments, identifiers and commit messages are
+**English-first**. The application UI remains bilingual Spanish/English through
+the i18n JSON catalogs; Spanish is a supported UI locale, not the documentation
+language.
+
+## If you touch X, read Y
+
+| When… | Skill |
 |---|---|
-| Lees un módulo, añades un tipo o una tabla | `skills/esword-modules.md` |
-| Tocas Twofish, SQLitePlus o el cifrado | `skills/decryption.md` |
-| Tocas FTS5, el indexador o la búsqueda | `skills/search-index.md` |
-| Tocas la ventana, pestañas, panel lateral o vistas | `skills/ui-layout.md` |
-| Tocas RTF/HTML, tipografía o temas | `skills/rendering.md` |
-| Tocas Preferencias (tema, idioma o fuentes) | `skills/ui-layout.md` + `skills/rendering.md` |
-| Tocas libros, alias, referencias o burbujas de pasajes | `skills/book-aliases.md` |
-| Añades cadenas de UI o un idioma | `skills/i18n.md` |
-| Mides rendimiento o cambias el pool | `skills/performance.md` |
+| You read a module, add a type or a table | `skills/esword-modules.md` |
+| You touch Twofish, SQLitePlus or decryption | `skills/decryption.md` |
+| You touch FTS5, the indexer or search | `skills/search-index.md` |
+| You touch the window, tabs, sidebar or views | `skills/ui-layout.md` |
+| You touch RTF/HTML, typography or themes | `skills/rendering.md` |
+| You touch Preferences (theme, language or fonts) | `skills/ui-layout.md` + `skills/rendering.md` |
+| You touch books, aliases, references or passage pop-ups | `skills/book-aliases.md` |
+| You add UI strings or a language | `skills/i18n.md` |
+| You measure performance or change the pool | `skills/performance.md` |

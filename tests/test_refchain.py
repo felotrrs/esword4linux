@@ -1,8 +1,8 @@
-"""Cadenas de citas múltiples."""
+"""Multiple-citation chains."""
 
 from __future__ import annotations
 
-from linuxesword.core.refchain import parse_reference_chain
+from esword4linux.core.refchain import parse_reference_chain
 
 
 def _tuples(result):
@@ -16,10 +16,10 @@ def test_user_example_chain():
     )
     assert _tuples(result) == [
         (1, 23, 1, 6, None),   # Gn 23:1-6
-        (1, 2, 5, 7, None),    # Gn 2:5-7 (hereda libro)
+        (1, 2, 5, 7, None),    # Gn 2:5-7 (inherits the book)
         (1, 3, 4, 5, None),    # Gn 3:4-5
         (41, 2, 1, None, None),  # Mar 2:1
-        (40, 3, 5, None, 4),   # Mateo 3:5 → final del cap. 4
+        (40, 3, 5, None, 4),   # Mateo 3:5 → end of chapter 4
         (43, 3, 16, None, None),  # Jn3:16
     ]
     assert result.skipped == []

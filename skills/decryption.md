@@ -1,88 +1,97 @@
-# Descifrado SQLitePlus (Twofish-128)
+# SQLitePlus decryption (Twofish-128)
 
-## Qué está cifrado
+## What is encrypted
 
-Solo los módulos que traen la tabla `sqliteplus_license` (también llamada
-SQLitePlus). En el corpus son **43 de 970**, no todos.
+Only modules that contain the `sqliteplus_license` table (also called
+SQLitePlus). In a real-world library this is a **subset** of the modules; never
+assume that every file is encrypted.
+
+The rest is plain SQLite: there is nothing to decrypt and it must not be passed
+through Twofish (useless cost).
+
+## When decryption runs
+
+Decryption is **explicit**, never automatic:
+
+- `make encrypted` (`tools/prepare_encrypted.py`) decrypts and indexes every
+  encrypted module that is not `ready` yet; it is idempotent.
+- The *Index → Decrypt encrypted modules* menu action does the same from the UI.
+- Reading a single displayed record decrypts only that record (lazy read).
+
+A fresh scan stores metadata only. It never decrypts whole modules.
+
+## Schema
 
 ```
-$ python -c "..."; # ver más abajo
-Bible 74 módulos → 19 cifrados
-Commentary 110 → 6
-Dictionary 159 → 5
-```
-
-El resto es SQLite plano: no hay nada que descifrar y no debe pasarse por
-Twofish (coste inútil).
-
-## Esquema
-
-```
-blob cifrado
-   │  Twofish-128-ECB, clave "Heb_4:12" (16 bytes, padding de ceros)
+encrypted blob
+   │  Twofish-128-ECB, key "Heb_4:12" (16 bytes, zero padding)
    ▼
-header de 9 bytes
-   [0]      checksum/bitfield (se ignora)
-   [1..3]   u24 LE compressedSize   ← ¡24 bits, no 16!
-   [4]      magia 0x1F
+9-byte header
+   [0]      checksum/bitfield (ignored)
+   [1..3]   u24 LE compressedSize   ← 24 bits, not 16!
+   [4]      magic 0x1F
    [5..8]   u32 LE expectedSize
    ▼
-zlib stream (desde el byte 9, longitud compressedSize - 4)
+zlib stream (from byte 9, length compressedSize - 4)
    ▼
-payload descifrado (RTF, HTML o texto)
+decrypted payload (RTF, HTML or plain text)
 ```
 
-**Trampa documentada**: leer `compressedSize` como `u16` trunca los registros
-cuyo stream zlib supera 64 KiB (p. ej. artículos largos de ISBE) y hace fallar
-el descifrado de todo el módulo. Se lee como `u24`.
+**Documented trap**: reading `compressedSize` as `u16` truncates records whose
+zlib stream exceeds 64 KiB (for example, long dictionary articles) and makes
+decryption of the whole module fail. Always read it as `u24`.
 
-## Clave
+## Key
 
-`DEFAULT_SQLITEPLUS_KEY = "Heb_4:12"`. Se puede sobreescribir por módulo
-(`EswordModule(path, crypt_key=...)`) para módulos de terceros.
+`DEFAULT_SQLITEPLUS_KEY = "Heb_4:12"`. It can be overridden per module
+(`EswordModule(path, crypt_key=...)`) for third-party modules.
 
-## Desempeño
+## Performance
 
-Twofish en Python puro: **~284 registros/s por núcleo**.
+Pure-Python Twofish: **~284 records/s per core**.
 
-| Corpus cifrado | 1 núcleo | 16 procesos |
+| Encrypted library | 1 core | Process pool |
 |---|---|---|
-| 620.093 registros | ~36 min | ~1-2 min |
+| Large library | tens of minutes | minutes, scaled by CPU count |
 
-Por eso `core/indexer.py` usa `ProcessPoolExecutor` para biblias cifradas
-(`_parallel_decrypt`) y cae a secuencial si el pool falla.
+That is why `src/esword4linux/core/indexer.py` uses a `ProcessPoolExecutor` for
+encrypted Bibles (`_parallel_decrypt`) and falls back to sequential processing
+if the pool fails. The pool is only used for large batches (see
+`skills/performance.md`).
 
-**Lectura bajo demanda**: mostrar un versículo descifra 1 blob (~3 ms). No hay
-problema en descifrar en el hilo de UI para una entrada suelta; sí lo hay para
-un capítulo completo de un módulo cifrado (30-40 blobs ≈ 120 ms). Si se nota,
-cachear el capítulo.
+**On-demand reading**: displaying one verse decrypts 1 blob (~3 ms). Decrypting
+in the UI thread for a single entry is fine; a whole chapter of an encrypted
+module (30–40 blobs ≈ 120 ms) is not. Cache the chapter if it becomes
+noticeable.
 
-## Reglas
+## Rules
 
-1. **No inventar contenido.** Si un blob no descifra, se omite y se registra en
-   `mod.warnings` / `catalog.set_status(..., "failed", ...)`. Nunca se
-   sustituye por texto de otra fuente.
-2. **No descifrar columnas que no son contenido.** Solo las de
+1. **Never invent content.** If a blob does not decrypt, it is skipped and
+   recorded in `mod.warnings` / `catalog.set_status(..., "failed", ...)`.
+   It is never replaced with text from another source.
+2. **Do not decrypt columns that are not content.** Only those in
    `CONTENT_COLUMNS` (`Scripture`, `Comments`, `Definition`, `Notes`,
-   `Content`, `Devotion`, `Details`, `data`, `Reference`). Un `Picture` de
-   `.mapx` es una imagen: descifrarlo la corrompe.
-3. **El núcleo es vendorizado.** `twofish.py`, `sqliteplus.py`, `rtf.py`,
-   `font_codepages.py`, `legacy_translit.py` vienen de
-   `~/StorageC/bible/shared/esword/`. `make drift` compara hashes. Si cambias
-   algo, documenta el motivo en `documentacion/CHANGELOG.md`.
-4. **`sqliteplus.py` solo cambia el import** (`from .twofish import Twofish128`).
-   Cualquier otro cambio es deriva y hay que justificarlo.
+   `Content`, `Devotion`, `Details`, `data`, `Reference`). A `Picture` column
+   in a `.mapx` is an image: decrypting it corrupts it.
+3. **The core is vendored.** `twofish.py`, `sqliteplus.py`, `rtf.py`,
+   `font_codepages.py`, `legacy_translit.py` come from an upstream shared
+   library. `make drift` compares hashes when
+   `ESWORD4LINUX_VENDOR_ORIGIN` (or `--origin DIR`) is set; otherwise it skips
+   cleanly. If you change something, document the reason in
+   `docs/CHANGELOG.md`.
+4. **`sqliteplus.py` only changes the import** (`from .twofish import
+   Twofish128`). Any other change is drift and must be justified.
 
-## Verificar
+## Verify
 
 ```bash
 .venv/bin/python -c "
-from linuxesword.core.esword.sqliteplus import self_test
-from linuxesword.core.esword.twofish import self_test as t
-assert t() and self_test(); print('vectores OK')"
+from esword4linux.core.esword.sqliteplus import self_test
+from esword4linux.core.esword.twofish import self_test as t
+assert t() and self_test(); print('vectors OK')"
 
 .venv/bin/python -c "
-from linuxesword.core.esword.module import EswordModule
-m = EswordModule('/home/felipe/StorageA/Biblias/Biblias_esword/BIBLIAS/bible_lbla_es.bblx')
-print(m.encrypted, m.bible_verse(1,1,1).raw)"
+from esword4linux.core.esword.module import EswordModule
+m = EswordModule('<MODULES_DIR>/bible.bblx')
+print(m.encrypted, m.bible_verse(1, 1, 1).raw)"
 ```

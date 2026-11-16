@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=esword4linux
+GenericName=e-Sword module reader
+GenericName[es]=Lector de módulos e-Sword
+Comment=Native e-Sword module reader for Linux
+Comment[es]=Lector nativo de módulos e-Sword para Linux
+Exec=@ROOT@/run.sh
+Icon=esword4linux
+Terminal=false
+Categories=Education;Literature;Religious;
+Keywords=bible;biblia;esword;dictionary;diccionario;commentary;comentario;
+StartupNotify=true
+StartupWMClass=esword4linux

@@ -1,220 +1,240 @@
-# UI — pestañas-vista, paneles y vistas
+# UI — view-tabs, panels and views
 
-## Modelo
+## Startup
+
+1. On first run, `FirstRunDialog` asks for the modules folder **before** the
+   main window exists. Cancelling or choosing *Quit* ends the process cleanly;
+   no empty window is shown.
+2. Once a folder is configured, the window appears before any scan. If the
+   catalog is empty or its metadata is stale, a metadata-only scan runs in a
+   `Worker`. No indexing or decryption starts automatically.
+
+## Model
 
 ```
 QMainWindow
 └── QSplitter (horizontal)
-    ├── Sidebar                (ocultable: Ctrl+B o botón ☰)
+    ├── Sidebar                (collapsible: Ctrl+B or the ☰ button)
     └── QTabWidget
-        ├── [0] SearchView     — fija, sin botón de cierre
-        └── [1..] Workspace    — «Pestaña A», «Pestaña B», … con color
+        ├── [0] SearchView     — fixed, no close button
+        └── [1..] Workspace    — "Workspace A", "Workspace B", … with a color
 ```
 
-Un **Workspace** es una pestaña-vista: agrupa un recurso principal y, si ese
-recurso es una biblia, su propia biblia paralela y su propio comentario.
+A **Workspace** is a view-tab: it groups one main resource and, if that
+resource is a Bible, its own parallel Bible and its own commentary.
 
 ```
 Workspace
 └── QStackedWidget
-    ├── BiblePane                    (si el recurso principal es biblia)
-    │   ├── toolbar  (traducción · libro · capítulo · paralela · comentario)
+    ├── BiblePane                    (if the main resource is a Bible)
+    │   ├── toolbar  (translation · book · chapter · parallel · commentary)
     │   └── QSplitter(Vertical)
-    │       ├── QSplitter(Horizontal)  principal | paralela
-    │       └── CommentaryPane         (inferior, ~28 %)
-    └── LibraryView                  (cualquier otro tipo)
+    │       ├── QSplitter(Horizontal)  main | parallel
+    │       └── CommentaryPane         (bottom, ~28 %)
+    └── LibraryView                  (any other type)
 ```
 
-## Reglas
+## Rules
 
-1. **Seleccionar un recurso NO crea pestaña.** El clic en el panel lateral
-   carga el recurso como **principal de la pestaña activa**
-   (`MainWindow.open_resource`). Crear pestaña es una acción explícita
+1. **Selecting a resource does NOT create a tab.** Clicking in the sidebar
+   loads the resource as the **main resource of the active tab**
+   (`MainWindow.open_resource`). Creating a tab is an explicit action
    (`＋`, `Ctrl+T`).
-2. **Una pestaña = un grupo.** Cambiar de recurso dentro de una pestaña
-   reemplaza su recurso principal; no acumula materiales.
-3. **Paralela y comentario solo existen en modo biblia.** Si el recurso
-   principal no es una biblia, `Workspace` muestra `LibraryView` y la toolbar
-   de biblia desaparece. No hay «vista paralela de diccionarios».
-4. **`FIXED_TABS = 1`.** La pestaña «Buscar» no se cierra (se le quita el botón
-   con `setTabButton(0, RightSide, None)`). No reordenar el supuesto: si cambia
-   el número, revisar `_close_tab()`.
-5. **Nunca cerrar la última pestaña-vista.** `_close_tab()` muestra
-   `workspace.last` y aborta.
-6. **El comentario va en su propio panel inferior**, no dentro del texto
-   bíblico. `CommentaryPane` hace **una** consulta por capítulo
-   (`chapter_comments`), nunca una por versículo.
-7. **«Leer completo» abre un diálogo, no una pestaña** (`EntryDialog`). Evita
-   proliferación de pestañas. El badge «emparejado con…» no usa el diálogo:
-   cambia el módulo del `CommentaryPane` y lo muestra en el panel inferior
+2. **One tab = one group.** Changing the resource inside a tab replaces its
+   main resource; it does not accumulate materials.
+3. **Parallel Bible and commentary only exist in Bible mode.** If the main
+   resource is not a Bible, `Workspace` shows `LibraryView` and the Bible
+   toolbar disappears. There is no "parallel dictionary view".
+4. **`FIXED_TABS = 1`.** The *Search* tab cannot be closed (its button is
+   removed with `setTabButton(0, RightSide, None)`). Do not reorder that
+   assumption: if the number changes, review `_close_tab()`.
+5. **Never close the last view-tab.** `_close_tab()` shows
+   `workspace.last` and aborts.
+6. **Commentary lives in its own bottom panel**, not inside the biblical text.
+   `CommentaryPane` makes **one** query per chapter (`chapter_comments`),
+   never one per verse.
+7. **"Read full" opens a dialog, not a tab** (`EntryDialog`). This avoids tab
+   proliferation. The "matched with…" badge does not use the dialog: it
+   switches the module in `CommentaryPane` and shows it in the bottom panel
    (`open_inline` → `BiblePane._show_commentary_inline`).
-8. **Todo trabajo largo va por `ui/tasks.py:Worker`** con conexiones SQLite
-   creadas dentro del hilo. El panel lateral se deshabilita mientras corre.
+8. **All long work goes through
+   `src/esword4linux/ui/tasks.py:Worker`** with SQLite connections created
+   inside the thread. The sidebar is disabled while it runs.
 
-## Nombres y colores de pestaña
+## Workspace names and colors
 
-- Nombre por defecto: `tr("workspace.default_name", letter="A")` → «Pestaña A».
-  `_next_name()` usa la primera letra libre; si se renombra, la letra se libera.
-- Color: `TAB_COLORS` (8 tonos). Se pinta un punto de 12 px como icono de
-  pestaña (`color_dot`).
-- Menú contextual de la pestaña: **Renombrar**, **Color**, **Cerrar**.
-- El estado (`name`, `color`, `main_rel`, `parallel`, `parallel_rel`,
-  `commentary`, `commentary_rel`, `split`) se persiste en
-  `Settings.workspaces` y se restaura en `_restore_state()`.
+- Default name: `tr("workspace.default_name", letter="A")` → "Workspace A".
+  `_next_name()` uses the first free letter; renaming frees the letter.
+- Color: `TAB_COLORS` (8 shades). A 12 px dot is painted as the tab icon
+  (`color_dot`).
+- Workspace tab context menu: **Rename**, **Color**, **Close**.
+- State (`name`, `color`, `main_rel`, `parallel`, `parallel_rel`,
+  `commentary`, `commentary_rel`, `split`) is persisted in
+  `Settings.workspaces` and restored by `_restore_state()`.
 
-## Menús y preferencias
+## Menus and preferences
 
-- **Archivo** → escanear, carpeta, salir. **Editar** → Preferencias (`Ctrl+,`).
-  **Ver** → panel lateral, sin clasificar y léxico Strong. **Índice** y
-  **Ayuda** cierran la barra.
-- Tema, idioma y tipografía viven **solo** en Preferencias, con pestañas
-  «Apariencia» e «Idioma». No duplicar esas opciones en el menú Ver.
-- Al aceptar: `MainWindow._open_preferences()` aplica tema (`_set_theme`),
-  idioma (`_set_locale` → `_retranslate_ui`) y tipografía
-  (`_apply_typography` → QSS + `reload_theme()` de cada vista).
+- **File** → scan, choose folder, quit. **Edit** → Preferences (`Ctrl+,`).
+  **View** → sidebar, unclassified files and Strong lexicon. **Index** and
+  **Help** complete the bar.
+- The Index menu and the sidebar context menu are the in-app ways to build the
+  search index: all categories, pending modules, encrypted modules, one
+  category or one module.
+- Theme, language and typography live **only** in Preferences, with
+  *Appearance* and *Language* tabs. Do not duplicate those options in the View
+  menu.
+- On accept: `MainWindow._open_preferences()` applies the theme
+  (`_set_theme`), language (`_set_locale` → `_retranslate_ui`) and typography
+  (`_apply_typography` → QSS + `reload_theme()` on every view).
 
-## Panel lateral
+## Sidebar
 
-- **Un solo clic** carga el módulo (`itemClicked` → `_on_click`). Un clic en
-  una categoría la despliega/pliega.
-- `itemActivated` (Enter) también carga, para teclado.
-- Se oculta con **Ver → Panel de recursos** (Ctrl+B) o el botón ☰ de la
-  esquina de las pestañas; el estado se guarda en `Settings.sidebar_visible`.
-- Con el panel **visible** el `QSplitter` no es colapsable y el dock tiene
-  mínimo `SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH` (240 + 15 px). Arrastrar
-  el divisor nunca lo deja desaparecer; al ocultarlo queda solo el asa de 15 px.
-- Los botones de filtro «tipo» e «idioma» van pegados y alineados a la
-  izquierda: no insertar un `stretch` entre ellos.
+- **A single click** loads the module (`itemClicked` → `_on_click`). Clicking a
+  category expands or collapses it.
+- `itemActivated` (Enter) also loads, for keyboard use.
+- Hidden with **View → Resource panel** (Ctrl+B) or the ☰ button in the tab
+  corner; the state is stored in `Settings.sidebar_visible`.
+- With the panel **visible**, the `QSplitter` is not collapsible and the dock
+  has a minimum of `SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH` (240 + 15 px).
+  Dragging the divider never makes it disappear; when hidden, only the 15 px
+  handle remains.
+- The "type" and "language" filter buttons are adjacent and left-aligned: do
+  not insert a `stretch` between them.
 
 ## BiblePane
 
-- `self._loading` bloquea señales al sincronizar combos (evita cascadas).
-- `_current` guarda la referencia; `reload()` renderiza y avisa al
-  `CommentaryPane` si el toggle está activo.
-- Anclas `<a name="v16">` + `scrollToAnchor`.
-- Enlaces: `v:N` (menú de versículo), `ref:<texto>` (navegar), `c:<id>:<ref>`
-  (entrada completa en diálogo).
-- **Sin tope lateral**: el `QTextBrowser` ocupa todo el ancho del panel; el
-  margen de lectura lo da el padding (`8px 18px`) del QSS. Los `stretch`
-  laterales se eliminaron porque dejaban ~17 % de ancho sin usar.
-- **Combo de traducción** (`fill_bible_combo`): desplegable, agrupado por
-  idioma y ordenado por abreviatura/título. Conserva la selección por
-  `rel_path`; el combo de la vista paralela usa el mismo agrupado y se oculta
-  si la paralela está desmarcada.
-- **Caja de citas** (`core/refchain.py` + `ui/citation_pane.py`): acepta
-  `Gn23:1-6, 2:5-7; Mar 2:1; Jn3:16`, hereda libro/capítulo y **sustituye la
-  vista principal** por la colección agrupada por capítulo. El botón ↩ vuelve
-  al capítulo. Libro, capítulo y flechas ◀ ▶ siguen siempre visibles en modo
-  citas: ocultarlos dejaba la barra sin forma de volver a la navegación normal.
-  La vista paralela muestra la misma colección en la traducción secundaria.
-- La barra no usa flechas verticales de capítulo: el capítulo es editable sin
-  botones y se navega con ◀ ▶.
+- `self._loading` blocks signals while synchronizing combos (prevents
+  cascades).
+- `_current` stores the reference; `reload()` renders and notifies
+  `CommentaryPane` if the toggle is active.
+- Anchors `<a name="v16">` + `scrollToAnchor`.
+- Links: `v:N` (verse menu), `ref:<text>` (navigate), `c:<id>:<ref>` (full
+  entry in a dialog).
+- **No side gutters**: the `QTextBrowser` uses the full panel width; reading
+  margins come from the QSS padding (`8px 18px`). The old side `stretch`
+  widgets were removed because they left ~17 % of the width unused.
+- **Translation combo** (`fill_bible_combo`): drop-down grouped by language and
+  sorted by abbreviation/title. It preserves the selection by `rel_path`; the
+  parallel view combo uses the same grouping and is hidden when the parallel
+  pane is unchecked.
+- **Citation box** (`src/esword4linux/core/refchain.py` +
+  `src/esword4linux/ui/citation_pane.py`): accepts
+  `Gen 23:1-6, 2:5-7; Mark 2:1; John 3:16`, inherits book/chapter and
+  **replaces the main view** with the collection grouped by chapter. The ↩
+  button returns to the chapter. Book, chapter and ◀ ▶ arrows always remain
+  visible in citation mode: hiding them left the bar with no way back to normal
+  navigation. The parallel view shows the same collection in the secondary
+  translation.
+- The bar uses no vertical chapter arrows: the chapter is editable without
+  buttons and navigated with ◀ ▶.
 
 ## CommentaryPane
 
-- Cabecera: título · badge de emparejamiento · combo de módulos · **Abrir** ·
-  **✕** (oculta el panel y desmarca el toggle).
-- El badge «emparejado con…» emite `open_inline`; `BiblePane` muestra este
-  mismo panel y se desplaza al versículo actual. No abre `EntryDialog`.
-- Renderiza por versículo con encabezado «Juan 3:16» y el texto completo.
-- Si el texto supera `MAX_CHARS` (9 000), recorta y ofrece «Leer completo».
+- Header: title · pairing badge · module combo · **Open** · **✕** (hides the
+  panel and unchecks the toggle).
+- The "matched with…" badge emits `open_inline`; `BiblePane` shows that same
+  panel and scrolls to the current verse. It does not open `EntryDialog`.
+- Renders verse by verse with a "John 3:16" heading and the full text.
+- If the text exceeds `MAX_CHARS` (9,000), it is truncated and a "Read full"
+  action is offered.
 
-## Trampas conocidas de Qt
+## Known Qt traps
 
-- `isVisible()` es **falso** mientras la ventana no se ha mostrado: no usarlo
-  para decidir si renderizar. Usar el estado del toggle.
-- `QTextDocument` ignora `color` inline en `<a>`: usar `<font color>` dentro.
-- `QLabel` con `wordWrap` dentro de `QSplitter` no calcula bien el alto.
-- `processEvents()` no dispara un `QTimer` de 180 ms: en pruebas, esperar.
-- `QTabWidget.setMovable(True)` permite mover la pestaña fija; es inocuo
-  (el cierre sigue bloqueado por índice).
-- `QFontComboBox` es **editable** por defecto y parece una caja de texto. Para
-  elegir fuente en Preferencias se usa un `QComboBox` no editable con
+- `isVisible()` is **false** while the window has not been shown yet: do not
+  use it to decide whether to render. Use the toggle state instead.
+- `QTextDocument` ignores inline `color` on `<a>`: use `<font color>` inside.
+- A `QLabel` with `wordWrap` inside a `QSplitter` does not calculate its height
+  correctly.
+- `processEvents()` does not fire a 180 ms `QTimer`: in tests, wait explicitly.
+- `QTabWidget.setMovable(True)` lets the fixed tab be moved; it is harmless
+  (closing is still blocked by index).
+- `QFontComboBox` is **editable** by default and looks like a text box. To pick
+  a font in Preferences, use a non-editable `QComboBox` populated with
   `QFontDatabase.families()`.
 
-## Barra de pestañas propia (`ui/tab_bar.py`)
+## Custom tab bar (`src/esword4linux/ui/tab_bar.py`)
 
-QSS no permite color por pestaña (`QTabBar` no tiene `:nth-child`), así que
-`ColoredTabBar` pinta a mano:
+QSS cannot color individual tabs (`QTabBar` has no `:nth-child`), so
+`ColoredTabBar` paints them by hand:
 
-- **seleccionada**: color pleno + texto en **negrita** con contraste calculado
-  por luminancia; **no seleccionada**: tinte pálido (18 %) + texto atenuado.
-- botón de cierre con `CLOSE_MARGIN` derecho (no pegado al borde).
-- botón **＋** dibujado detrás de la última pestaña, con hit-testing propio
+- **selected**: solid color + **bold** text with contrast computed from
+  luminance; **unselected**: pale tint (18 %) + muted text.
+- close button with a right `CLOSE_MARGIN` (not glued to the edge).
+- **＋** button drawn behind the last tab, with its own hit-testing
   (`new_tab_requested`).
-- el color viaja con la pestaña porque se guarda en `setTabData()`.
+- the color travels with the tab because it is stored in `setTabData()`.
 
-`QTabWidget.setTabsClosable(False)`: el cierre lo pinta la barra. La conexión
-`tabBar().tabCloseRequested → _close_tab` es explícita.
+`QTabWidget.setTabsClosable(False)`: the tab bar paints the close affordance.
+The `tabBar().tabCloseRequested → _close_tab` connection is explicit.
 
-## Panel lateral plegable
+## Collapsible sidebar
 
-`SidebarDock` = `[Sidebar][asa vertical de 15 px]`. El asa (`#sidebarHandle`)
-queda siempre visible en el borde: `‹` cuando está abierto, `›` cuando está
-plegado. `toggle_sidebar()` guarda el ancho previo en `_sidebar_width` y lo
-restaura al reabrir.
+`SidebarDock` = `[Sidebar][15 px vertical handle]`. The handle
+(`#sidebarHandle`) is always visible on the edge: `‹` when open, `›` when
+collapsed. `toggle_sidebar()` stores the previous width in `_sidebar_width`
+and restores it when reopened.
 
-## Panel inferior apilado
+## Stacked bottom panel
 
-`QStackedWidget{ CommentaryPane, StrongPane }` + dos `QToolButton` checkables
-en una `QButtonGroup` exclusiva (`Comentario`, `Léxico`). El estado va a
-`Settings.bottom_page` y `show_commentary_inline`; al pulsar de nuevo el botón
-activo se oculta el panel.
+`QStackedWidget{ CommentaryPane, StrongPane }` + two checkable `QToolButton`s
+in an exclusive `QButtonGroup` (**Commentary**, **Lexicon**). State goes to
+`Settings.bottom_page` and `show_commentary_inline`; pressing the active button
+again hides the panel.
 
-## Panel lateral: organizador de filtros y agrupaciones
+## Sidebar: filter and grouping organizer
 
-`Sidebar` combina hasta **tres niveles de agrupación** (`kind`, `language`,
-`work`) en orden, más **filtros múltiples** por tipo e idioma y el filtro de
-texto. Se persiste en `Settings.sidebar_grouping`, `sidebar_kind_filters` y
-`sidebar_language_filters`. Los títulos «Agrupar» y «Filtrar» ocupan una línea
-completa cada uno, con un espacio vertical entre ambos bloques.
+`Sidebar` combines up to **three grouping levels** (`kind`, `language`, `work`)
+in order, plus **multiple filters** by type and language and the text filter.
+State is persisted in `Settings.sidebar_grouping`, `sidebar_kind_filters` and
+`sidebar_language_filters`. The "Group" and "Filter" headings each take a full
+line, with vertical space between the two blocks.
 
-- **kind** — categorías (`KIND_ORDER`).
-- **work** — `Catalog.works()` agrupa por título normalizado; el año separa
-  ediciones cuando conviven varios dentro del mismo título base.
+- **kind** — categories (`KIND_ORDER`).
+- **work** — `Catalog.works()` groups by normalized title; the year separates
+  editions when several coexist under the same base title.
 - **language** — `module.language` (`es`, `en`, `fr`, `pt`, `de`, `it`, `la`,
-  `grc`, `hbo`, `und`) con etiquetas `lang.*`.
-  `detect_language()` combina título/abreviatura, marcador de archivo, muestra
-  corta de contenido y alfabetos originales; `METADATA_VERSION` fuerza un
-  re-escaneo de metadatos cuando cambia la heurística.
+  `grc`, `hbo`, `und`) with `lang.*` labels. `detect_language()` combines
+  title/abbreviation, filename marker, a short content sample and original
+  alphabets; `METADATA_VERSION` forces a metadata rescan when the heuristic
+  changes.
 
-El árbol se construye de forma anidada y el filtro de texto es recursivo:
-si coincide con un grupo, muestra todos sus descendientes.
+The tree is built recursively and the text filter is recursive: if it matches
+a group, all its descendants are shown.
 
-## Panel de términos de LibraryView
+## LibraryView term panel
 
-`LibraryView` (diccionarios, léxicos, referencias…) tiene su propio
-`QSplitter` entre la lista de términos y el detalle:
+`LibraryView` (dictionaries, lexicons, references…) has its own `QSplitter`
+between the term list and the detail pane:
 
-- lista con mínimo `LIST_MIN_WIDTH` (220 px) y detalle con
+- list with a minimum of `LIST_MIN_WIDTH` (220 px) and detail with
   `DETAIL_MIN_WIDTH` (240 px); `setChildrenCollapsible(False)`;
-- botón `☰` **siempre visible en la cabecera** para ocultar/mostrar la lista;
-- estado en `Settings.library_list_visible` y ancho en
+- a `☰` button **always visible in the header** to hide/show the list;
+- state in `Settings.library_list_visible` and width in
   `Settings.library_list_width`;
-- stretch `0` para la lista y `1` para el detalle: al ensanchar la ventana
-  crece el texto, no la lista.
+- stretch `0` for the list and `1` for the detail: widening the window grows
+  the text, not the list.
 
-## Burbujas (`ui/tooltip.py`)
+## Pop-ups (`src/esword4linux/ui/tooltip.py`)
 
-`TipBubble` sustituye al tooltip nativo por una tarjeta pintada directamente
-desde un `QTextDocument` (sin `QTextBrowser`, viewport ni scrollbars): fondo
-`#23262e`, borde izquierdo de acento, **ancho adaptable hasta 600 px** y
-cabecera en dorado. La cabecera es compacta (referencia o abreviatura del
-léxico, nunca el título largo de la obra). Cada línea del cuerpo es un bloque
-independiente, de modo que las palabras hebreas conservan su dirección RTL.
-El alto es `documentLayout().documentSize()` + padding + un margen inferior de
-5 px: la última línea y sus descendentes nunca quedan cortados. Los pasajes
-muestran hasta 10 versículos completos (`RefResolver.MAX_VERSES`); las entradas
-del léxico se capan a 2500 caracteres (con aviso para abrir la entrada completa
-en el panel Léxico).
-`RichBrowser` extrae los `title=` del HTML a su mapa interno (para que Qt no
-muestre el suyo) y resuelve los Strong al vuelo. Al cambiar de léxico o de
-comentario se invalidan las cachés con `RichBrowser.clear_all_caches()`.
+`TipBubble` replaces the native tooltip with a card painted directly from a
+`QTextDocument` (no `QTextBrowser`, viewport or scrollbars): background
+`#23262e`, accent left border, **adaptive width up to 600 px** and a gold
+header. The header is compact (reference or lexicon abbreviation, never the
+long work title). Each body line is an independent block, so Hebrew words keep
+their RTL direction. The height is `documentLayout().documentSize()` + padding
++ a 5 px bottom margin: the last line and its descendants are never clipped.
+Passages show up to 10 complete verses (`RefResolver.MAX_VERSES`); lexicon
+entries are capped at 2,500 characters (with a hint to open the full entry in
+the Lexicon panel).
+`RichBrowser` extracts `title=` attributes from the HTML into its internal map
+(so Qt does not show its own tooltip) and resolves Strong numbers on the fly.
+Changing the lexicon or commentary invalidates the caches with
+`RichBrowser.clear_all_caches()`.
 
-## Léxico Strong predeterminado
+## Default Strong lexicon
 
-El combo del panel Léxico lista los 15 léxicos que indexan por `G####`/`H####`
-(★ = activo). Cambiarlo llama a `StrongIndex.set_default()`, que persiste
-`settings.strong_rel`, invalida la caché y refresca las burbujas al instante
-(igual que el combo de comentarios actualiza las notas del capítulo). También
-está en **Ver → Léxico Strong predeterminado**.
+The Lexicon panel combo lists the lexicons that index by `G####`/`H####`
+(★ = active). Changing it calls `StrongIndex.set_default()`, which persists
+`settings.strong_rel`, invalidates the cache and refreshes the pop-ups
+immediately (just as the commentary combo updates the chapter notes). It is
+also available under **View → Default Strong lexicon**.

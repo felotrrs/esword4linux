@@ -1,28 +1,28 @@
-# Módulos e-Sword — lectura y clasificación
+# e-Sword modules — reading and classification
 
-## Hecho fundamental
+## Fundamental fact
 
-**Todos** los módulos e-Sword modernos son bases SQLite. No hay formato
-propietario binario que parsear: hay que abrir el SQLite y mirar las tablas.
+**All** modern e-Sword modules are SQLite databases. There is no proprietary
+binary format to parse: open the SQLite file and inspect its tables.
 
 ```
-$ file kjv.bblx
+$ file bible.bblx
 SQLite 3.x database ... UTF-16 little endian
 ```
 
-## La extensión miente
+## The extension lies
 
-El corpus real (`/home/felipe/StorageA/Biblias/Biblias_esword`, 970 archivos)
-contiene:
+Real-world collections contain:
 
-- `.refx` con tabla `Topics` → son **Tópicos**, no Referencias.
-- `.cmtx` con `VerseCommentary` → esquema **antiguo** de comentarios, no el
-  nuevo (`Books`/`Chapters`/`Verses`).
-- `.bbli` → misma estructura que `.bblx` pero con `Scripture` TEXT (sin cifrar).
+- `.refx` files with a `Topics` table → they are **Topics**, not References.
+- `.cmtx` files with `VerseCommentary` → the **old** commentary schema, not
+  the new one (`Books`/`Chapters`/`Verses`).
+- `.bbli` files → same structure as `.bblx`, but with `Scripture` stored as
+  TEXT (unencrypted).
 
-Por eso `EswordModule._detect_structure()` decide por tablas, en este orden:
+That is why `EswordModule._detect_structure()` decides by tables, in this order:
 
-| Estructura | Tablas | `kind` |
+| Structure | Tables | `kind` |
 |---|---|---|
 | `bible` | `Bible` | `bible` |
 | `commentary` | `Verses` \| `VerseCommentary` \| `BookCommentary` \| `ChapterCommentary` | `commentary` |
@@ -31,122 +31,130 @@ Por eso `EswordModule._detect_structure()` decide por tablas, en este orden:
 | `devotion` | `Devotions` \| `Devotional` | `devotion` |
 | `harmony` | `Sections` + `Parts` | `harmony` |
 | `maps` | `Graphics` | `maps` |
-| `reference` | `Reference` | `reference` (citas bíblicas) \| `book` (capítulos de libro) |
+| `reference` | `Reference` | `reference` (biblical citations) \| `book` (book chapters) |
 | `topic` | `Topics` | `topic` \| `book` |
 | `twm` | `topics` (+ `config`, `content`) | `dictionary` \| `book` \| `topic` |
 
-**Excepción de catálogo**: algunos comentarios se distribuyen con esquema de
-diccionario (`Dictionary`, una entrada por capítulo). `Catalog._probe()` los
-cataloga como `commentary` si el título o la abreviatura contienen
-«comentario»/«commentary»; la estructura leída sigue siendo `dictionary`.
+**Catalog exception**: some commentaries are distributed with the dictionary
+schema (`Dictionary`, one entry per chapter). `Catalog._probe()` catalogs them
+as `commentary` when the title or abbreviation contains
+"comentario"/"commentary"; the structure read from the module remains
+`dictionary`.
 
-**Heurística de contenido**: `EswordModule._detect_kind()` analiza el contenido real de
-las tablas:
-- En `Reference`, si las entradas de `Chapter` son citas bíblicas (`libro:cap:ver`), es `reference`;
-  si son capítulos o tratados literarios, se clasifica como `book`.
-- En `twm`, el contenido de `config` y los términos de `topics` deciden si es `dictionary` (ej. Hitchcock),
-  `book` o `topic`.
-- Módulos con 0 entradas o solo tablas de interfaz (`localize`, `headings`) se ocultan por defecto en la UI.
+**Content heuristic**: `EswordModule._detect_kind()` inspects the actual table
+contents:
 
-**El orden importa**: `topics` (TWM) y `Topics` (tópico) solo se distinguen por
-la caja del nombre y por la presencia de `config`.
+- In `Reference`, if `Chapter` entries are biblical citations
+  (`book:chapter:verse`), the kind is `reference`; if they are literary
+  chapters or treatises, it is classified as `book`.
+- In `twm`, the contents of `config` and the terms in `topics` decide whether
+  it is a `dictionary`, a `book` or a `topic`.
+- Modules with 0 entries, or only UI tables (`localize`, `headings`), are
+  hidden by default in the UI.
 
-## Metadatos
+**Order matters**: `topics` (TWM) and `Topics` (topic) differ only by the case
+of the name and by the presence of `config`.
 
-`Details` no tiene esquema fijo:
+## Metadata
+
+`Details` has no fixed schema:
 
 - `.bblx` / `.cmti` / `.refi` / `.dctx` → `Title, Abbreviation, Information, Version`
 - `.devx` / `.harx` / `.mapx` → `Description, Abbreviation, Comments, Version`
-- `.twm` → no tiene `Details`; el título está en `config` (`name='title'`)
+- `.twm` → no `Details`; the title lives in `config` (`name='title'`)
 
-`EswordModule.details()` normaliza: busca `Title` y cae a `Description`, y
-`Information` cae a `Comments`.
+`EswordModule.details()` normalizes this: it looks for `Title` and falls back to
+`Description`, and `Information` falls back to `Comments`.
 
-## Añadir un tipo nuevo
+## Adding a new type
 
-1. Añade la detección en `_detect_structure()` **antes** de las que puedan
-   colisionar por nombre de tabla.
-2. Añade `_pages_<structure>()` que produzca `Page(ref, title, raw, order)`.
-3. Añade la entrada en `core/catalog.py:KIND_LABELS` y `KIND_ORDER` (fuente única).
-4. Añade `page_by_ref()` para que el visor no tenga que recorrer el módulo.
-5. Añade `list_entries()` si el visor necesita un índice navegable.
-6. Añade el caso en `iter_pages()` (dispatch) — es implícito por nombre.
-7. Prueba en `tests/test_module.py` con un módulo real del corpus.
+1. Add detection in `_detect_structure()` **before** the structures that could
+   collide by table name.
+2. Add `_pages_<structure>()` producing `Page(ref, title, raw, order)`.
+3. Add the entry to `src/esword4linux/core/catalog.py:KIND_LABELS` and
+   `KIND_ORDER` (the single source).
+4. Add `page_by_ref()` so the viewer does not have to walk the whole module.
+5. Add `list_entries()` if the viewer needs a navigable index.
+6. Add the case to `iter_pages()` (dispatch) — it is implicit by name.
+7. Test it in `tests/test_module.py` against a real module from
+   `ESWORD4LINUX_TEST_CORPUS` (the test skips when the variable is unset), or
+   with a small synthetic module.
 
-## Consultas: nunca recorras el módulo para una entrada
+## Queries: never walk a module for one entry
 
-`get_page(ref)` itera todo el módulo: es el **fallback**. Usa `page_by_ref(ref)`
-y `bible_chapter(book, chapter)`, que hacen `SELECT` directo. Un diccionario de
-21.000 entradas no puede recorrer 21.000 filas cada vez que el usuario pulsa
-una letra.
+`get_page(ref)` iterates the whole module: it is the **fallback**. Use
+`page_by_ref(ref)` and `bible_chapter(book, chapter)`, which issue a direct
+`SELECT`. A large dictionary (tens of thousands of entries) cannot scan every
+row each time the user types a letter.
 
-## Mapas e ilustraciones (`.mapx`)
+## Maps and illustrations (`.mapx`)
 
-`Graphics` guarda `Title`, `Details` (leyenda) y `Picture` (BLOB de imagen).
-Dos particularidades del corpus, ya resueltas en `EswordModule`:
+`Graphics` stores `Title`, `Details` (legend) and `Picture` (image BLOB). Three
+real-world quirks are already handled in `EswordModule`:
 
-- **Títulos BLOB UTF-16LE**: en `map_larkin_es.mapx` las entradas 10+ guardan
-  `Title` como bytes. Hay que decodificarlo con `_text_value()` y localizar la
-  fila por `rowid` (`_graphics_rowid()`); un `WHERE Title=?` contra el texto
-  decodificado no encuentra nada.
-- **Envoltorio `lt\0\0` + tamaño**: algunos módulos (`map_usos_y_costumbres…`,
-  `map_lba`, `map_rva`, `map_abb`) anteponen 8 bytes a un BMP. `_unwrap_picture()`
-  los quita para que Qt pueda cargar la imagen.
-- **Leyenda cifrada sin zlib**: `map_larkin_es.mapx` cifra `Details` con
-  SQLitePlus pero guarda RTF UTF-16LE sin comprimir (cabecera de 5 bytes con
-  magia `0x1F`). `decrypt_payload()` falla al buscar el stream zlib;
-  `_decode_uncompressed_sqliteplus()` reconoce ese formato y devuelve el texto.
+- **UTF-16LE BLOB titles**: in some map modules, later entries store `Title` as
+  bytes. Decode it with `_text_value()` and locate the row by `rowid`
+  (`_graphics_rowid()`); a `WHERE Title=?` against the decoded text finds
+  nothing.
+- **`lt\0\0` + size wrapper**: some modules prepend 8 bytes to a BMP.
+  `_unwrap_picture()` strips them so Qt can load the image.
+- **Encrypted legend without zlib**: some map modules encrypt `Details` with
+  SQLitePlus but store uncompressed UTF-16LE RTF (a 5-byte header with magic
+  `0x1F`). `decrypt_payload()` fails while looking for the zlib stream;
+  `_decode_uncompressed_sqliteplus()` recognizes that format and returns the
+  text.
 
-## Comentarios con solo `BookCommentary`
+## Commentaries with only `BookCommentary`
 
-`ABN-Manley`, `ATB-M-Pearlman` y `ABP-Willmington` tienen
-`VerseCommentary`/`ChapterCommentary` vacías y todo el texto en
-`BookCommentary`. Dos reglas:
+Some commentaries have empty `VerseCommentary`/`ChapterCommentary` tables and
+keep all the text in `BookCommentary`. Two rules:
 
-- `count_entries()` suma **todas** las tablas de `_comment_specs()`, no solo la
-  primera que exista (antes devolvía 0 y el catálogo ocultaba el módulo).
-- `page_by_ref()` acepta refs de una sola parte (`"43"`) para los comentarios
-  de libro, además de `"43:3"` y `"43:3:16"`.
+- `count_entries()` sums **all** tables in `_comment_specs()`, not only the
+  first one that exists (previously it returned 0 and the catalog hid the
+  module).
+- `page_by_ref()` accepts single-part refs (`"43"`) for book commentaries, in
+  addition to `"43:3"` and `"43:3:16"`.
 
-## Armonías (`.harx`)
+## Harmonies (`.harx`)
 
-`Parts` tiene una fila **por referencia**, de modo que varias filas comparten
-`(Section, Part)`. La unidad navegable es la **sección**: una `Page` por
-`Section` con el título limpio (sin RTF) y todas sus referencias en `raw`
-(deduplicadas, una por línea). `list_entries()` devuelve una entrada por
-sección y `page_by_ref("3")` la reconstruye. El antiguo `"3:1"` se acepta como
-alias, pero el `ref` canónico es la sección.
+`Parts` has **one row per reference**, so several rows share a
+`(Section, Part)`. The navigable unit is the **section**: one `Page` per
+`Section`, with the cleaned title (no RTF) and all its references in `raw`
+(deduplicated, one per line). `list_entries()` returns one entry per section
+and `page_by_ref("3")` reconstructs it. The old `"3:1"` is accepted as an
+alias, but the canonical `ref` is the section.
 
+## Expected errors
 
-## Errores esperados
-
-| Error | Causa | Política |
+| Error | Cause | Policy |
 |---|---|---|
-| `ModuleError: no se pudo abrir` | archivo movido o corrupto | el catálogo lo marca `failed`; la UI sigue viva |
-| Entrada vacía tras descifrar | clave SQLitePlus distinta | se omite con warning; **nunca** se rellena |
-| `0` entradas | módulo vacío de origen (p. ej. `LXX/`) | se muestra `lib.empty` |
+| `ModuleError` (cannot open the file) | file moved or corrupted | the catalog marks it `failed`; the UI stays alive |
+| Empty entry after decryption | different SQLitePlus key | skipped with a warning; **never** backfilled |
+| `0` entries | empty module at the source | the UI shows `lib.empty` |
 
-## Duplicados
+## Duplicates
 
-`tools/deduplicate.py` agrupa por tamaño y confirma con **sha256**. El
-`keep_score` decide qué copia se conserva:
+`tools/deduplicate.py` groups by size and confirms with **sha256**. The
+`keep_score` decides which copy is kept:
 
-1. carpeta canónica del tipo (`BIBLIAS`/`COMENTARIOS`/`DICCIONARIOS`/`LIBROS`) +30;
-2. nombre normalizado e-Sword (`bible_`, `comment_`, `dicc_`…) +20;
-3. similitud del nombre con el título interno ×12;
-4. nombre más descriptivo (longitud) como desempate.
+1. canonical folder for the type (`BIBLES`/`COMMENTARIES`/`DICTIONARIES`/`BOOKS`) +30;
+2. normalized e-Sword filename (`bible_`, `comment_`, `dicc_`…) +20;
+3. similarity between filename and internal title ×12;
+4. the more descriptive name (length) as a tiebreaker.
 
-`--apply` mueve las sobrantes a `_duplicados/<fecha>/` y escribe manifiesto
-(ruta, sha256, copia conservada). Nunca borra por defecto.
+`--apply` moves redundant copies to `_duplicados/<date>/` and writes a
+manifest (path, sha256, kept copy). It never deletes by default. The report
+written by `--write-report` goes to `reports/duplicates.md`.
 
-`Catalog.scan()` **excluye** `_duplicados/` (y VCS/ocultas) y purga las filas
-de módulos que ya no están en disco. El orden importa: **primero purgar,
-después `_mark_duplicates()`**; al revés quedan `duplicate_of` colgando de
-filas borradas y el módulo desaparece de la barra sin motivo.
+`Catalog.scan()` **excludes** `_duplicados/` (and VCS/hidden folders) and
+purges rows for modules that are no longer on disk. The order matters:
+**purge first, then `_mark_duplicates()`**. Reversed, `duplicate_of` values
+dangle from deleted rows and the module disappears from the sidebar for no
+reason.
 
-## Léxico Strong con respaldo
+## Strong lexicon with fallback
 
-`StrongIndex._resolve_page(code)` prueba el léxico elegido y, si no tiene la
-entrada, recorre los candidatos. Así un léxico solo-hebreo no deja vacíos los
-números griegos (`G2316`). El tooltip muestra la abreviatura del léxico del que
-salió la entrada, no la del elegido.
+`StrongIndex._resolve_page(code)` tries the selected lexicon and, if it lacks
+the entry, walks the candidates. A Hebrew-only lexicon therefore does not leave
+Greek numbers empty (`G2316`). The tooltip shows the abbreviation of the
+lexicon that supplied the entry, not the selected one.

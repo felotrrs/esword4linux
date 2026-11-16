@@ -1,4 +1,4 @@
-"""Anchos mínimos y paneles recuperables."""
+"""Minimum widths and recoverable panels."""
 
 from __future__ import annotations
 
@@ -6,30 +6,30 @@ import os
 
 import pytest
 
-from linuxesword.config import Settings
-from linuxesword.core.context import AppContext
+from esword4linux.config import Settings
+from esword4linux.core.context import AppContext
 
 
-def test_library_term_list_has_minimum_and_toggle():
+def test_library_term_list_has_minimum_and_toggle(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.library_view import (
+    from esword4linux.ui.library_view import (
         DETAIL_MIN_WIDTH, HANDLE_WIDTH, LIST_MIN_WIDTH, LibraryView,
     )
 
     app = QApplication.instance() or QApplication([])
     original_save = Settings.save
     Settings.save = lambda self: None
-    ctx = AppContext(Settings.load())
-    # El test asume el panel visible; no depender de la preferencia persistida.
+    ctx = AppContext(empty_settings)
+    # The test assumes the panel is visible; do not rely on the persisted preference.
     ctx.settings.library_list_visible = True
     row = next((m for m in ctx.catalog.modules(kind="dictionary")), None)
     if row is None:
         ctx.close_all()
         Settings.save = original_save
-        pytest.skip("corpus no disponible")
+        pytest.skip("corpus not available")
     view = LibraryView(ctx, row)
     view.resize(1000, 600)
     view.show()
@@ -52,12 +52,12 @@ def test_library_term_list_has_minimum_and_toggle():
         Settings.save = original_save
 
 
-def test_translation_combo_groups_versions():
+def test_translation_combo_groups_versions(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication, QComboBox
 
-    from linuxesword.ui.bible_view import fill_bible_combo
+    from esword4linux.ui.bible_view import fill_bible_combo
 
     app = QApplication.instance() or QApplication([])
     combo = QComboBox()
@@ -67,20 +67,20 @@ def test_translation_combo_groups_versions():
     ]
     fill_bible_combo(combo, bibles, "b", editable=False)
     assert not combo.isEditable()
-    assert combo.count() == 4  # cabecera ES + ítem + cabecera EN + ítem
+    assert combo.count() == 4  # ES header + item + EN header + item
     assert combo.itemData(0) is None
     assert combo.currentData() == "b"
 
 
-def test_search_enter_on_reference_jumps_immediately():
+def test_search_enter_on_reference_jumps_immediately(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.search_view import SearchView
+    from esword4linux.ui.search_view import SearchView
 
     app = QApplication.instance() or QApplication([])
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(empty_settings)
     view = SearchView(ctx)
     emitted: list[str] = []
     view.go_reference.connect(emitted.append)
@@ -95,17 +95,17 @@ def test_search_enter_on_reference_jumps_immediately():
         ctx.close_all()
 
 
-def test_sidebar_multi_grouping_and_kind_filter():
+def test_sidebar_multi_grouping_and_kind_filter(populated_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.sidebar import Sidebar
+    from esword4linux.ui.sidebar import Sidebar
 
     app = QApplication.instance() or QApplication([])
     original_save = Settings.save
     Settings.save = lambda self: None
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(populated_settings)
     sidebar = Sidebar(ctx)
     try:
         sidebar.set_mode("kind")
@@ -118,7 +118,7 @@ def test_sidebar_multi_grouping_and_kind_filter():
         sidebar._toggle_kind_filter("dictionary", True)
         assert ctx.settings.sidebar_kind_filters == ["dictionary"]
         assert sidebar.tree.topLevelItemCount() == 1
-        assert "Diccionario" in sidebar.tree.topLevelItem(0).text(0)
+        assert "Dictionaries" in sidebar.tree.topLevelItem(0).text(0)
         sidebar._clear_kind_filters()
     finally:
         sidebar.deleteLater()
@@ -126,22 +126,22 @@ def test_sidebar_multi_grouping_and_kind_filter():
         Settings.save = original_save
 
 
-def test_citation_view_replaces_main_bible_and_back_returns():
+def test_citation_view_replaces_main_bible_and_back_returns(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.bible_view import BiblePane
+    from esword4linux.ui.bible_view import BiblePane
 
     app = QApplication.instance() or QApplication([])
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(empty_settings)
     pane = BiblePane(ctx)
     pane.resize(1200, 700)
     pane.show()
     app.processEvents()
     try:
         if not pane.book.count():
-            pytest.skip("No hay biblias accesibles en el corpus para probar navegación")
+            pytest.skip("No accessible Bibles in the corpus to test navigation")
         before = pane.chapter.text()
         pane._step(1)
         app.processEvents()
@@ -150,8 +150,8 @@ def test_citation_view_replaces_main_bible_and_back_returns():
         pane._show_citations()
         app.processEvents()
         assert pane._citation_mode
-        # Libro, capítulo y flechas nunca se ocultan: siempre hay que poder
-        # volver a la navegación normal.
+        # Book, chapter and arrows are never hidden: you must always be able to
+        # return to normal navigation.
         assert pane.book.isVisible()
         assert pane.chapter.isVisible()
         assert pane.btn_prev.isVisible()
@@ -168,17 +168,17 @@ def test_citation_view_replaces_main_bible_and_back_returns():
         ctx.close_all()
 
 
-def test_sidebar_filter_is_a_full_width_section_title():
+def test_sidebar_filter_is_a_full_width_section_title(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.sidebar import Sidebar
+    from esword4linux.ui.sidebar import Sidebar
 
     app = QApplication.instance() or QApplication([])
     original_save = Settings.save
     Settings.save = lambda self: None
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(empty_settings)
     sidebar = Sidebar(ctx)
     sidebar.resize(260, 800)
     sidebar.show()
@@ -193,17 +193,17 @@ def test_sidebar_filter_is_a_full_width_section_title():
         Settings.save = original_save
 
 
-def test_sidebar_filter_buttons_stay_together_on_the_left():
+def test_sidebar_filter_buttons_stay_together_on_the_left(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.sidebar import Sidebar
+    from esword4linux.ui.sidebar import Sidebar
 
     app = QApplication.instance() or QApplication([])
     original_save = Settings.save
     Settings.save = lambda self: None
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(empty_settings)
     sidebar = Sidebar(ctx)
     sidebar.resize(260, 800)
     sidebar.show()
@@ -211,25 +211,25 @@ def test_sidebar_filter_buttons_stay_together_on_the_left():
     try:
         kind, language = sidebar.btn_kind_filter, sidebar.btn_language_filter
         gap = language.x() - (kind.x() + kind.width())
-        assert 0 <= gap <= 24, f"separación excesiva entre filtros: {gap}px"
-        assert kind.x() <= 30, f"el primer filtro no está a la izquierda: {kind.x()}px"
+        assert 0 <= gap <= 24, f"excessive gap between filters: {gap}px"
+        assert kind.x() <= 30, f"the first filter is not on the left: {kind.x()}px"
     finally:
         sidebar.deleteLater()
         ctx.close_all()
         Settings.save = original_save
 
 
-def test_match_badge_shows_commentary_inline_without_dialog():
+def test_match_badge_shows_commentary_inline_without_dialog(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.bible_view import BiblePane
+    from esword4linux.ui.bible_view import BiblePane
 
     app = QApplication.instance() or QApplication([])
     original_save = Settings.save
     Settings.save = lambda self: None
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(empty_settings)
     pane = BiblePane(ctx)
     pane.resize(1200, 700)
     pane.show()
@@ -237,7 +237,7 @@ def test_match_badge_shows_commentary_inline_without_dialog():
     try:
         modules = ctx.commentaries()
         if not modules:
-            pytest.skip("sin comentarios en el corpus")
+            pytest.skip("no commentaries in the corpus")
         pane._set_bottom_page("", show=False)
         rel = pane.commentary.commentary_rel() or modules[0]["rel_path"]
         pane.commentary.set_match_badge("RV1960", rel)
@@ -257,20 +257,20 @@ def test_match_badge_shows_commentary_inline_without_dialog():
         Settings.save = original_save
 
 
-def test_preferences_dialog_updates_every_typography_role():
+def test_preferences_dialog_updates_every_typography_role(empty_settings):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     from PySide6.QtWidgets import QApplication
 
-    from linuxesword.ui.preferences_dialog import PreferencesDialog
+    from esword4linux.ui.preferences_dialog import PreferencesDialog
 
     app = QApplication.instance() or QApplication([])
     original_save = Settings.save
     Settings.save = lambda self: None
-    ctx = AppContext(Settings.load())
+    ctx = AppContext(empty_settings)
     dialog = PreferencesDialog(ctx)
     try:
-        # Las fuentes se eligen en un combo normal, no en una caja de texto.
+        # Fonts are chosen in a normal combo, not in a text box.
         assert not dialog.ui_family.isEditable()
         assert not dialog.reading_family.isEditable()
         assert not dialog.content_family.isEditable()
