@@ -2,7 +2,7 @@
 
 **A native Linux reader for e-Sword modules — no Wine, no bundled content.**
 
-[Español](README.es.md) · [Documentation](docs/README.md) · [Changelog](docs/CHANGELOG.md)
+[Español](README.es.md) · [Installation guide](docs/INSTALL.md) · [Documentation](docs/README.md) · [Changelog](docs/CHANGELOG.md)
 
 <p align="center">
   <img src="packaging/icons/hicolor/256x256/apps/esword4linux.png" alt="esword4linux icon" width="128">
@@ -39,13 +39,51 @@ extension, and never modifies a single byte of your library.
 
 ## Requirements
 
-- Linux
-- Python 3.10 or newer
-- PySide6 (Qt 6) and PyYAML, installed automatically by `run.sh` or `pip`
+The reference environment for v0.5.0 is:
 
-The application starts without network access and without Wine.
+- **Linux Mint 22.3** (Ubuntu 24.04/noble base), Cinnamon/X11
+- **Python 3.12.3**
+- A graphical desktop session. This guide was verified on X11; the PySide6
+  package includes a Wayland plugin, but Wayland was not verified.
+- **Internet access the first time** you run `./run.sh` or `make install`, so
+  Python dependencies can be downloaded from PyPI. After the virtual
+  environment is ready, normal launches work offline.
 
-## Quick start
+The project declares Python 3.10 or newer. Other Debian/Ubuntu-based releases
+were not verified for v0.5.0.
+
+### System dependencies on Linux Mint / Ubuntu
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv
+sudo apt install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 \
+    libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+    libxcb-render-util0 libxcb-shape0 libxcb-xkb1
+```
+
+If you install from Git or use the `make` commands, also install:
+
+```bash
+sudo apt install -y git make
+```
+
+If you use the command-line archive examples, also install `curl` and `unzip`:
+
+```bash
+sudo apt install -y curl unzip
+```
+
+`python3-pip` is not required by these instructions: the virtual environment
+provides its own `pip`. The Qt package names above were verified on Linux Mint
+22.3 against the actual PySide6 `libqxcb.so` plugin.
+
+## Installation
+
+Detailed prerequisites, troubleshooting and uninstall notes are in
+[`docs/INSTALL.md`](docs/INSTALL.md).
+
+### From Git
 
 ```bash
 git clone https://github.com/felotrrs/esword4linux.git
@@ -53,18 +91,111 @@ cd esword4linux
 ./run.sh
 ```
 
-The first run creates a local virtual environment, installs dependencies and
-opens the app. Alternatively:
+The first `./run.sh` creates `.venv`, installs PySide6-Essentials and PyYAML
+from PyPI, and opens the application. This first step needs Internet access.
+Later launches use the existing environment and work offline.
+
+For development, `make install` creates the same virtual environment and also
+installs the `dev` extra (`pytest`):
 
 ```bash
 make install
 make run
 ```
 
+### From a source ZIP/TAR archive
+
+Download the v0.5.0 source archive from GitHub:
+
+- [esword4linux v0.5.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz)
+- [esword4linux v0.5.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.zip)
+
+Extract it with your file manager, or from a terminal:
+
+```bash
+curl -L -o esword4linux-v0.5.0.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz
+tar -xzf esword4linux-v0.5.0.tar.gz
+cd esword4linux-0.5.0
+./run.sh
+```
+
+For the ZIP archive, replace the download and extraction commands with
+`curl -L -o esword4linux-v0.5.0.zip ...` and `unzip esword4linux-v0.5.0.zip`.
+The command-line examples use `curl`, `tar` and `unzip`; a file manager works
+too.
+
+### First launch
+
 On first launch, esword4linux asks for the folder containing your e-Sword
 modules (`.bblx`, `.bbli`, `.cmtx`, `.cmti`, `.dctx`, `.lexi`, `.refx`,
 `.topx`, `.devx`, `.harx`, `.mapx`, `.twm`, …). If you cancel, the app exits.
 You can change the folder later from **File → Change modules folder**.
+
+## Launch
+
+From the checkout:
+
+```bash
+./run.sh
+```
+
+Or, after `make install`:
+
+```bash
+make run
+```
+
+### Desktop launcher
+
+After `./run.sh` or `make install` has created the virtual environment, run:
+
+```bash
+make desktop
+```
+
+This installs `~/.local/share/applications/esword4linux.desktop` and the
+application icons under `~/.local/share/icons/hicolor/`. The launcher uses the
+`run.sh` script in the **current checkout location**; if you move or delete the
+checkout, the menu entry stops working. Run `make desktop` again from the new
+location to repair it.
+
+The menu entry may take a moment to appear, or may require logging out and back
+in.
+
+## Uninstall
+
+v0.5.0 has no system-wide installer and no `make uninstall` target. The
+application runs from the checkout and stores user data separately.
+
+1. Delete the checkout folder (for example `esword4linux` or
+   `esword4linux-0.5.0`).
+2. If you ran `make desktop`, remove the launcher and icons:
+
+   ```bash
+   rm -f ~/.local/share/applications/esword4linux.desktop
+   rm -f ~/.local/share/icons/hicolor/*/apps/esword4linux.png
+   gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor 2>/dev/null || true
+   update-desktop-database ~/.local/share/applications 2>/dev/null || true
+   ```
+
+Your settings and search cache are **preserved** by default:
+
+- `~/.config/esword4linux/` (preferences)
+- `~/.cache/esword4linux/` (catalog and search index)
+
+Remove them manually only if you want a completely clean uninstall:
+
+```bash
+rm -rf ~/.config/esword4linux ~/.cache/esword4linux
+```
+
+Your e-Sword modules folder is never modified by esword4linux. Delete it only
+if you want to remove your own modules.
+
+`make clean` removes only `.venv`, `.pytest_cache` and the repository `.cache`;
+it does **not** remove the XDG configuration/cache or the desktop launcher and
+icons.
 
 ## Reading vs. indexing
 
@@ -86,6 +217,12 @@ python tools/bootstrap.py --all
 ```
 
 No module is indexed or decrypted automatically at startup.
+
+## Distribution status
+
+**v0.5.0 is source-only.** It is distributed as Git source and as the
+automatically generated GitHub tag archives. No DEB, AppImage, Flatpak or Snap
+package is provided.
 
 ## Data locations
 

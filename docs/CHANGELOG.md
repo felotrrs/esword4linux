@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 — public release
+## 0.5.0 — 2026-11-16
 
 - Renamed the project and Python package to esword4linux.
 - No modules or Bibles are bundled or hardcoded; first run asks for the user's modules folder before opening the window.

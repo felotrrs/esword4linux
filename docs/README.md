@@ -1,5 +1,7 @@
 # Documentation
 
+- [Installation](INSTALL.md) — Linux Mint/Ubuntu prerequisites, installation,
+  launcher and uninstall.
 - [Architecture](ARCHITECTURE.md) — layers, startup flow, scanning, indexing and
   design decisions.
 - [e-Sword format](ESWORD-FORMAT.md) — SQLite schemas, encryption and rich-text

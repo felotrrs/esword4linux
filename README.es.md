@@ -2,7 +2,7 @@
 
 **Lector nativo para Linux de módulos de e-Sword — sin Wine y sin contenido incluido.**
 
-[English](README.md) · [Documentación](docs/README.md) · [Cambios](docs/CHANGELOG.md)
+[English](README.md) · [Guía de instalación detallada (English)](docs/INSTALL.md) · [Documentación](docs/README.md) · [Cambios](docs/CHANGELOG.md)
 
 <p align="center">
   <img src="packaging/icons/hicolor/256x256/apps/esword4linux.png" alt="Icono de esword4linux" width="128">
@@ -43,13 +43,52 @@ no por la extensión, y no modifica ni un byte de tu biblioteca.
 
 ## Requisitos
 
-- Linux
-- Python 3.10 o superior
-- PySide6 (Qt 6) y PyYAML, que `run.sh` o `pip` instalan automáticamente
+El entorno de referencia para v0.5.0 es:
 
-La aplicación arranca sin red y sin Wine.
+- **Linux Mint 22.3** (base Ubuntu 24.04/noble), Cinnamon/X11
+- **Python 3.12.3**
+- Una sesión gráfica de escritorio. Esta guía se verificó en X11; el paquete de
+  PySide6 incluye un plugin de Wayland, pero Wayland no se verificó.
+- **Conexión a Internet la primera vez** que ejecutes `./run.sh` o
+  `make install`, para descargar las dependencias de Python desde PyPI. Una vez
+  creado el entorno virtual, los arranques normales funcionan sin red.
 
-## Inicio rápido
+El proyecto declara Python 3.10 o superior. Otras versiones basadas en
+Debian/Ubuntu no se verificaron para v0.5.0.
+
+### Dependencias del sistema en Linux Mint / Ubuntu
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv
+sudo apt install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 \
+    libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+    libxcb-render-util0 libxcb-shape0 libxcb-xkb1
+```
+
+Si instalas desde Git o usas los comandos `make`, instala también:
+
+```bash
+sudo apt install -y git make
+```
+
+Si usas los ejemplos de terminal para descargar archivos, instala también
+`curl` y `unzip`:
+
+```bash
+sudo apt install -y curl unzip
+```
+
+Estas instrucciones no necesitan `python3-pip`: el entorno virtual crea su
+propio `pip`. Los nombres de los paquetes Qt se verificaron en Linux Mint 22.3
+contra el plugin `libqxcb.so` real de PySide6.
+
+## Instalación
+
+Los requisitos detallados, la solución de problemas y las notas de
+desinstalación están en [`docs/INSTALL.md`](docs/INSTALL.md) (en inglés).
+
+### Desde Git
 
 ```bash
 git clone https://github.com/felotrrs/esword4linux.git
@@ -57,18 +96,113 @@ cd esword4linux
 ./run.sh
 ```
 
-El primer arranque crea un entorno virtual local, instala las dependencias y
-abre la aplicación. También puedes usar:
+El primer `./run.sh` crea `.venv`, instala PySide6-Essentials y PyYAML desde
+PyPI y abre la aplicación. Este primer paso necesita Internet. Los arranques
+posteriores usan el entorno ya creado y funcionan sin red.
+
+Para desarrollo, `make install` crea el mismo entorno virtual e instala además
+el extra `dev` (`pytest`):
 
 ```bash
 make install
 make run
 ```
 
+### Desde un archivo ZIP/TAR de código fuente
+
+Descarga el código fuente de v0.5.0 desde GitHub:
+
+- [esword4linux v0.5.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz)
+- [esword4linux v0.5.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.zip)
+
+Extráelo con tu gestor de archivos o desde una terminal:
+
+```bash
+curl -L -o esword4linux-v0.5.0.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz
+tar -xzf esword4linux-v0.5.0.tar.gz
+cd esword4linux-0.5.0
+./run.sh
+```
+
+Para el ZIP, sustituye la descarga y la extracción por
+`curl -L -o esword4linux-v0.5.0.zip ...` y `unzip esword4linux-v0.5.0.zip`.
+Los ejemplos de terminal usan `curl`, `tar` y `unzip`; también puedes usar el
+gestor de archivos.
+
+### Primer arranque
+
 En el primer inicio, esword4linux pide la carpeta que contiene tus módulos de
 e-Sword (`.bblx`, `.bbli`, `.cmtx`, `.cmti`, `.dctx`, `.lexi`, `.refx`, `.topx`,
 `.devx`, `.harx`, `.mapx`, `.twm`…). Si cancelas, la aplicación se cierra.
 Puedes cambiar la carpeta después desde **Archivo → Cambiar carpeta de módulos**.
+
+## Lanzamiento
+
+Desde el checkout:
+
+```bash
+./run.sh
+```
+
+O, después de `make install`:
+
+```bash
+make run
+```
+
+### Lanzador de escritorio
+
+Después de que `./run.sh` o `make install` hayan creado el entorno virtual,
+ejecuta:
+
+```bash
+make desktop
+```
+
+Esto instala `~/.local/share/applications/esword4linux.desktop` y los iconos de
+la aplicación en `~/.local/share/icons/hicolor/`. El lanzador usa el script
+`run.sh` de la **ubicación actual del checkout**; si mueves o borras el
+checkout, la entrada del menú deja de funcionar. Ejecuta `make desktop` de nuevo
+desde la nueva ubicación para repararla.
+
+La entrada del menú puede tardar un momento en aparecer, o puede requerir cerrar
+y volver a iniciar sesión.
+
+## Desinstalación
+
+v0.5.0 no tiene instalador para todo el sistema ni un objetivo `make uninstall`.
+La aplicación se ejecuta desde el checkout y guarda los datos de usuario por
+separado.
+
+1. Borra la carpeta del checkout (por ejemplo `esword4linux` o
+   `esword4linux-0.5.0`).
+2. Si ejecutaste `make desktop`, elimina el lanzador y los iconos:
+
+   ```bash
+   rm -f ~/.local/share/applications/esword4linux.desktop
+   rm -f ~/.local/share/icons/hicolor/*/apps/esword4linux.png
+   gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor 2>/dev/null || true
+   update-desktop-database ~/.local/share/applications 2>/dev/null || true
+   ```
+
+Tus preferencias y la caché de búsqueda se **conservan** por defecto:
+
+- `~/.config/esword4linux/` (preferencias)
+- `~/.cache/esword4linux/` (catálogo e índice de búsqueda)
+
+Elimínalos manualmente solo si quieres una desinstalación completamente limpia:
+
+```bash
+rm -rf ~/.config/esword4linux ~/.cache/esword4linux
+```
+
+esword4linux nunca modifica tu carpeta de módulos de e-Sword. Bórrala solo si
+quieres eliminar tus propios módulos.
+
+`make clean` elimina únicamente `.venv`, `.pytest_cache` y el `.cache` del
+repositorio; **no** elimina la configuración/caché XDG ni el lanzador y los
+iconos del escritorio.
 
 ## Leer no es indexar
 
@@ -90,6 +224,12 @@ python tools/bootstrap.py --all
 ```
 
 Ningún módulo se indexa ni se descifra automáticamente al arrancar.
+
+## Estado de distribución
+
+**v0.5.0 es solo código fuente.** Se distribuye como código Git y como los
+archivos fuente generados automáticamente por GitHub desde el tag. No se
+proporciona ningún paquete DEB, AppImage, Flatpak ni Snap.
 
 ## Ubicación de los datos
 
