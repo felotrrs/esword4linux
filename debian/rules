@@ -1,0 +1,63 @@
+#!/usr/bin/make -f
+# Debian packaging for esword4linux.
+#
+# The private Python/Qt runtime is assembled outside the Debian-specific rules
+# by packaging/stage_runtime.py. This keeps the same staging layout reusable by
+# a future AppImage build.
+
+include /usr/share/dpkg/default.mk
+
+export DH_VERBOSE = 1
+export PYTHONDONTWRITEBYTECODE = 1
+
+WHEELHOUSE ?= $(CURDIR)/.build/wheelhouse
+SOURCE_DATE_EPOCH ?= $(shell dpkg-parsechangelog -SDate | xargs -I{} date -u -d {} +%s)
+export SOURCE_DATE_EPOCH
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	rm -rf .build/runtime debian/esword4linux debian/.debhelper debian/files \
+		debian/debhelper-build-stamp debian/*.substvars build
+
+override_dh_clean:
+	# debhelper's broad __pycache__ sweep must never enter the developer's
+	# .venv or the build/output directories.
+	dh_clean -X.venv -X.build -Xdist -X.cache -X_duplicados
+
+override_dh_auto_configure:
+	@true
+
+override_dh_auto_build:
+	python3 -B packaging/stage_runtime.py \
+		--wheelhouse "$(WHEELHOUSE)" \
+		--dest "$(CURDIR)/.build/runtime" \
+		--app-src "$(CURDIR)/src/esword4linux" \
+		--manifest "$(CURDIR)/packaging/runtime-manifest.yaml"
+
+override_dh_auto_test:
+	python3 -B packaging/validate_runtime.py \
+		--root "$(CURDIR)/.build/runtime"
+
+override_dh_auto_install:
+	install -d debian/esword4linux/opt/esword4linux
+	cp -a .build/runtime/. debian/esword4linux/opt/esword4linux/
+	install -Dm755 packaging/esword4linux.launcher \
+		debian/esword4linux/usr/bin/esword4linux
+	# License texts live once in the private runtime and are also required
+	# under /usr/share/doc by the Debian policy and the GPL/LGPL.
+	install -d debian/esword4linux/usr/share/doc/esword4linux
+	cp -a debian/esword4linux/opt/esword4linux/licenses \
+		debian/esword4linux/usr/share/doc/esword4linux/licenses
+
+override_dh_makeshlibs:
+	# All Qt/PySide libraries are private under /opt and must not create
+	# public shlibs entries or dependencies for other packages.
+	@true
+
+override_dh_dwz:
+	@true
+
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym

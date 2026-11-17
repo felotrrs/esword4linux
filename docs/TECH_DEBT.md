@@ -2,6 +2,24 @@
 
 Open, known and non-blocking work. Roughly ordered by impact.
 
+## Open packaging work
+
+- Validate the native `.deb` in clean Ubuntu 24.04 LTS and Linux Mint 22.x VMs
+  under both X11 and Wayland. The current build host validated X11 and Weston
+  13 headless/kiosk Wayland.
+- Test a full desktop Wayland compositor session (GNOME/KDE/wlroots) with the
+  bundled xdg-shell, bradient decoration and EGL client integrations.
+- Test an upgrade from an earlier package version; `0.5.0-1` is the initial
+  native package.
+- Build and validate a Flatpak from the `org.kde.Platform` runtime using the
+  same `packaging/runtime-manifest.yaml`; do not vendor Qt separately there.
+- Build and validate an AppImage independently, reusing
+  `packaging/runtime-manifest.yaml` and `packaging/stage_runtime.py`; do not
+  extract the `.deb` and call it portable.
+- Consider whether the AppImage needs additional font, icon-theme or
+  xdg-desktop-portal integration that the Debian package intentionally leaves
+  to the distribution.
+
 ## Resolved in 0.4.4
 
 - Pop-ups with their last line cut off or half-hidden by `QTextBrowser` padding;

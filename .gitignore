@@ -41,3 +41,4 @@ _duplicados/
 *.egg-info/
 build/
 dist/
+.build/

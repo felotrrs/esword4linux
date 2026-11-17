@@ -1,10 +1,183 @@
 # Installation guide — Linux Mint and Ubuntu
 
-This guide covers a source installation of **esword4linux v0.5.0** on
-Debian/Ubuntu-based systems. It does not install a system package: the
-application runs from a checkout and keeps user data in XDG directories.
+This guide covers the native Debian package of **esword4linux v0.5.0** and,
+as an alternative, a source installation on Debian/Ubuntu-based systems. Both
+keep user data in the XDG directories and never modify the e-Sword modules
+folder.
 
-## Verified environment
+## Native Debian package
+
+The package installs the application in `/usr/bin/esword4linux`, its private
+Python/Qt runtime in `/opt/esword4linux`, and the desktop entry, hicolor icons,
+man page and license texts in their standard locations. It does not install
+anything into the system Python environment and does not depend on the
+distribution Qt libraries at runtime.
+
+### Supported platforms
+
+- Ubuntu 24.04 LTS (noble), amd64.
+- Linux Mint 22.x (Ubuntu 24.04 base), amd64.
+
+The package bundles Qt 6.12.0 built against glibc 2.34 or newer. Other Ubuntu,
+Mint or Debian releases, other architectures and non-glibc systems are **not
+claimed as supported** without validation. See the validation matrix at the
+end of this document.
+
+### Build prerequisites
+
+On Ubuntu 24.04 / Linux Mint 22.x:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential debhelper dpkg-dev fakeroot \
+    python3 python3-pip python3-yaml ca-certificates lintian
+```
+
+`lintian` is optional. The build downloads the pinned PySide6-Essentials,
+shiboken6 and PyYAML wheels with SHA-256 verification; after that, use
+`--offline` to rebuild without network access.
+
+### Build the package
+
+From the repository root:
+
+```bash
+packaging/build-deb.sh
+# or: make deb
+```
+
+The build script validates the source tree and tools, prepares
+`.build/wheelhouse`, runs `dpkg-buildpackage` with debhelper 13, extracts the
+package into `.build/extract`, validates the recursive ELF closure and Python
+imports, runs `lintian`, and writes a report.
+
+The resulting package is:
+
+```text
+dist/deb/esword4linux_0.5.0-1_amd64.deb
+```
+
+Useful variants:
+
+```bash
+packaging/build-deb.sh --offline       # reuse .build/wheelhouse
+packaging/build-deb.sh --no-lintian    # skip lintian
+packaging/build-deb.sh --wheelhouse /path/to/wheels
+```
+
+The private runtime can also be staged independently of Debian (the same
+assembly is intended for a future AppImage):
+
+```bash
+python3 packaging/stage_runtime.py \
+    --wheelhouse .build/wheelhouse \
+    --dest /tmp/esword4linux-runtime
+python3 packaging/validate_runtime.py --root /tmp/esword4linux-runtime
+```
+
+### Install
+
+```bash
+sudo apt install ./esword4linux_0.5.0-1_amd64.deb
+```
+
+Then launch **esword4linux** from the desktop menu or run:
+
+```bash
+esword4linux
+```
+
+On first run the application asks for the folder that contains your e-Sword
+modules. No modules are bundled. Cancelling the folder dialog exits cleanly.
+
+### Upgrade
+
+Install the newer `.deb` with the same command; `dpkg`/`apt` replaces the
+private runtime and keeps `~/.config/esword4linux/` and
+`~/.cache/esword4linux/` intact:
+
+```bash
+sudo apt install ./esword4linux_<new-version>_amd64.deb
+```
+
+### Remove
+
+```bash
+sudo apt remove esword4linux
+```
+
+Removal deletes only package-owned files. It does **not** delete:
+
+- `~/.config/esword4linux/` (preferences and selected modules folder),
+- `~/.cache/esword4linux/` (catalog and optional FTS5 index),
+- your e-Sword modules folder.
+
+To remove the remaining user data explicitly:
+
+```bash
+rm -rf ~/.config/esword4linux ~/.cache/esword4linux
+```
+
+`apt purge` behaves like `apt remove` for these paths: they are user data, not
+package conffiles.
+
+### Runtime dependencies
+
+`dpkg-shlibdeps` derives the versioned system library dependencies from the
+staged ELF closure. They include the XCB and X11 libraries, Wayland client
+libraries, EGL/GL, fontconfig/freetype, glib, dbus, zlib and the C/C++ runtime.
+The package depends on `python3 (>= 3.10)` and `python3 (<< 3.16)`; the Python
+interpreter itself comes from the distribution. It also depends on
+`hicolor-icon-theme` so the installed icons are discoverable. It recommends
+`fonts-noto-core` (the default interface and Scripture families) and
+`xdg-utils` (the "open modules folder" action uses
+`QDesktopServices`/`xdg-open`).
+
+The private runtime includes PySide6-Essentials 6.12.0, shiboken6 6.12.0, Qt
+6.12.0 (Core/Gui/Widgets/DBus/XcbQpa/WaylandClient/Svg/OpenGL), ICU 73 and
+pure-Python PyYAML 6.0.3. See
+[`packaging/runtime-manifest.yaml`](../packaging/runtime-manifest.yaml) for the
+full inventory and the rationale for every retained or excluded Qt component.
+
+### X11 and Wayland
+
+The private Qt runtime contains both the xcb and Wayland platform plugins plus
+their GL/EGL, shell, decoration and input-context integrations. The launcher
+does not force `QT_QPA_PLATFORM`; Qt selects the platform from the session.
+
+On a Wayland session that also has XWayland, force the native backend if
+desired:
+
+```bash
+QT_QPA_PLATFORM=wayland esword4linux
+```
+
+Force X11/XWayland:
+
+```bash
+QT_QPA_PLATFORM=xcb esword4linux
+```
+
+### Known limitations
+
+- The package is `amd64` only. The pinned PySide6 wheel is x86_64 and
+  `manylinux_2_34`.
+- Only Ubuntu 24.04 and Linux Mint 22.x were tested. Future releases are not
+  claimed compatible.
+- X11 launch was validated. Wayland was validated with the Weston 13 headless
+  and kiosk backends (platform plugin loaded, window process alive); a full
+  desktop compositor session (GNOME/KDE/wlroots) was not available in the
+  build environment. See the validation matrix.
+- The package intentionally installs its private runtime under `/opt`, which
+  is reflected by a documented `lintian` override (`dir-or-file-in-opt`).
+- A real e-Sword module corpus was not available during packaging. Runtime
+  checks used synthetic Bible, commentary and map modules (including FTS5
+  search and PNG/JPEG/WebP images). Real-corpus tests remain opt-in through
+  `ESWORD4LINUX_TEST_CORPUS`.
+
+## Source installation (alternative)
+
+### Verified environment
 
 The commands and package names below were verified against:
 
@@ -17,7 +190,7 @@ The project declares Python 3.10 or newer. Other Mint or Ubuntu releases were
 **not verified** for v0.5.0. In particular, Wayland was not verified; the
 PySide6 package does include a Wayland platform plugin.
 
-## 1. Install system dependencies
+### 1. Install system dependencies
 
 Update the package index and install Python and the Qt runtime libraries:
 
@@ -52,7 +225,7 @@ Notes:
 - Do not run the application or `make desktop` with `sudo`. Everything is
   installed under your user account.
 
-## 2. Install the application
+### 2. Install the application
 
 ### Option A — from Git
 
@@ -103,7 +276,7 @@ The command-line examples use `curl`, `tar` and `unzip`; a graphical file
 manager and archive tool work as well. The extracted folder is named
 `esword4linux-0.5.0`.
 
-## 3. First launch and offline use
+### 3. First launch and offline use
 
 The first installation needs Internet access because `run.sh` downloads
 PySide6-Essentials and PyYAML from PyPI. Once `.venv` exists and imports work,
@@ -118,7 +291,7 @@ folder later from **File → Change modules folder**.
 The modules folder is opened read-only. The catalog, settings and search index
 live outside it.
 
-## 4. Launch the application
+### 4. Launch the application
 
 From the checkout:
 
@@ -157,7 +330,7 @@ gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor 2>/dev/null || true
 update-desktop-database ~/.local/share/applications 2>/dev/null || true
 ```
 
-## 5. Uninstall
+### 5. Uninstall
 
 v0.5.0 has no system-wide installer and no `make uninstall` target. The
 application runs from the checkout, so removal is manual.
@@ -194,6 +367,46 @@ It does **not** remove the XDG configuration/cache, the desktop entry or the
 icons.
 
 ## Troubleshooting
+
+### The installed application does not start
+
+Run it from a terminal to see the diagnostic:
+
+```bash
+esword4linux
+```
+
+The launcher reports a missing graphical session, an incomplete private
+runtime, an unsupported Python version or a missing interpreter. To inspect Qt
+plugin loading:
+
+```bash
+QT_DEBUG_PLUGINS=1 esword4linux
+```
+
+Check the private X11 plugin and its system libraries:
+
+```bash
+ldd /opt/esword4linux/python/PySide6/Qt/plugins/platforms/libqxcb.so | grep "not found"
+ldd /opt/esword4linux/python/PySide6/Qt/plugins/platforms/libqwayland.so | grep "not found"
+```
+
+If a library is listed as `not found`, reinstall the package or report the
+missing package name. The build-time validator checks the same closure for
+every staged ELF object.
+
+### Wayland: the application runs through XWayland
+
+Qt may choose xcb when both `DISPLAY` and `WAYLAND_DISPLAY` are set. This is
+normal on Wayland sessions with XWayland. To force the native backend:
+
+```bash
+QT_QPA_PLATFORM=wayland esword4linux
+```
+
+If the Wayland plugin cannot connect, the launcher/Qt prints
+`Failed to create wl_display`; verify that `WAYLAND_DISPLAY` is set and that the
+compositor is running.
 
 ### `python3 -m venv` fails
 
@@ -269,14 +482,25 @@ ls -l ~/.local/share/applications/esword4linux.desktop
 The desktop entry contains the checkout path. Run `make desktop` from the new
 location.
 
-## Distribution status
+## Distribution status and validation matrix
 
-**v0.5.0 is source-only.** No DEB, AppImage, Flatpak or Snap package is provided.
-Install from Git or from the GitHub tag source archives.
+| Distribution | Session | Method | Status |
+|---|---|---|---|
+| Linux Mint 22.3 (Ubuntu 24.04 base) | X11 | Native `.deb`, xcb plugin | Validated |
+| Linux Mint 22.3 (Ubuntu 24.04 base) | Wayland | Native `.deb`, Weston 13 headless/kiosk | Wayland plugin + window process validated; full desktop session not validated |
+| Ubuntu 24.04 LTS | X11 | Native `.deb` | Not validated in a clean VM |
+| Ubuntu 24.04 LTS | Wayland | Native `.deb` | Not validated in a clean VM |
+
+A `.deb` build is not a substitute for runtime validation. The table records
+what was actually exercised; do not claim a row that was not run.
 
 ## Unresolved technical uncertainty
 
-- Wayland was not tested. The reference session was Cinnamon/X11.
-- Only Linux Mint 22.3 (Ubuntu 24.04/noble base) and Python 3.12.3 were verified.
-- No `make uninstall` target exists in v0.5.0; the manual commands above are the
-  documented removal method.
+- No full desktop Wayland compositor session (GNOME/KDE/wlroots) was available;
+  validation used Weston 13 headless/kiosk.
+- No clean Ubuntu 24.04 VM was available; the development host is Linux Mint
+  22.3 (Ubuntu 24.04/noble base).
+- No upgrade from an earlier `.deb` was possible because 0.5.0-1 is the first
+  native package.
+- The source installation has no `make uninstall` target; the manual commands
+  above are its documented removal method.

@@ -1,0 +1,6 @@
+/.debhelper/
+/esword4linux/
+/tmp/
+/files
+/*.substvars
+/debhelper-build-stamp

@@ -80,8 +80,28 @@ provides its own `pip`. The Qt package names above were verified on Linux Mint
 
 ## Installation
 
-Detailed prerequisites, troubleshooting and uninstall notes are in
-[`docs/INSTALL.md`](docs/INSTALL.md).
+Detailed prerequisites, troubleshooting, the validation matrix and uninstall
+notes are in [`docs/INSTALL.md`](docs/INSTALL.md).
+
+### Native Debian package (Ubuntu 24.04 / Linux Mint 22.x)
+
+```bash
+sudo apt install ./esword4linux_0.5.0-1_amd64.deb
+esword4linux
+```
+
+The package bundles PySide6-Essentials, shiboken6, Qt 6 and PyYAML in a private
+runtime under `/opt/esword4linux` and installs the desktop entry, icons, man
+page and license texts. It uses the distribution `/usr/bin/python3` without
+modifying system Python. Build it from a checkout with:
+
+```bash
+packaging/build-deb.sh
+```
+
+The result is `dist/deb/esword4linux_0.5.0-1_amd64.deb`. X11 was validated on
+Linux Mint 22.3; Wayland was validated with Weston 13 headless/kiosk, but a
+full desktop compositor session was not available during packaging.
 
 ### From Git
 
@@ -220,9 +240,11 @@ No module is indexed or decrypted automatically at startup.
 
 ## Distribution status
 
-**v0.5.0 is source-only.** It is distributed as Git source and as the
-automatically generated GitHub tag archives. No DEB, AppImage, Flatpak or Snap
-package is provided.
+v0.5.0 is distributed as Git source, as the GitHub tag archives and as a native
+Debian package for Ubuntu 24.04 / Linux Mint 22.x (amd64). No AppImage, Flatpak
+or Snap package is provided yet. See
+[`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)
+for what was actually validated.
 
 ## Data locations
 

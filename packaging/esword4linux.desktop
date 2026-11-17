@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=esword4linux
+GenericName=e-Sword module reader
+GenericName[es]=Lector de módulos e-Sword
+Comment=Native e-Sword module reader for Linux
+Comment[es]=Lector nativo de módulos e-Sword para Linux
+Exec=/usr/bin/esword4linux
+TryExec=/usr/bin/esword4linux
+Icon=esword4linux
+Terminal=false
+# "Religious" is not a registered freedesktop category; X-Religious keeps
+# the semantic hint while Education;Literature; provide the menu placement.
+Categories=Education;Literature;X-Religious;
+Keywords=bible;biblia;esword;dictionary;diccionario;commentary;comentario;
+StartupNotify=true
+StartupWMClass=esword4linux

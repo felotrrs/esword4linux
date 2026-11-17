@@ -1,0 +1,58 @@
+.TH ESWORD4LINUX 1 "November 2026" "esword4linux 0.5.0" "User Commands"
+.SH NAME
+esword4linux \- native reader for e-Sword modules on Linux
+.SH SYNOPSIS
+.B esword4linux
+.RI [ options ]
+.SH DESCRIPTION
+.B esword4linux
+opens e-Sword modules (Bible, commentary, dictionary, lexicon, topic,
+devotional, harmony, map and reference databases) from one user-selected
+folder. The files are opened read-only and are never modified.
+.PP
+No modules are bundled. On first run the application asks for the modules
+folder; cancelling exits without opening a window.
+.PP
+The application uses a private Python and Qt runtime under
+.I /opt/esword4linux
+and the distribution's
+.I /usr/bin/python3
+interpreter. It does not install packages into the system Python environment.
+.SH OPTIONS
+The application has no command-line options. Qt platform selection can be
+overridden with the standard
+.B QT_QPA_PLATFORM
+environment variable (for example
+.I xcb
+or
+.I wayland
+).
+.SH FILES
+.TP
+.I ~/.config/esword4linux/settings.json
+User preferences and the selected modules folder.
+.TP
+.I ~/.cache/esword4linux/catalog.db
+Module metadata and indexing state.
+.TP
+.I ~/.cache/esword4linux/content.db
+Optional full-text search index.
+.PP
+The XDG_CONFIG_HOME and XDG_CACHE_HOME environment variables are honored.
+.SH ENVIRONMENT
+.TP
+.B QT_QPA_PLATFORM
+Optional Qt platform override. Unset by default so Qt selects X11 or Wayland
+from the current session.
+.TP
+.B ESWORD4LINUX_ROOT
+Optional runtime-root override, used for testing and portable builds. The
+installed package uses
+.IR /opt/esword4linux .
+.SH SEE ALSO
+The installed documentation is in
+.I /usr/share/doc/esword4linux/
+and the upstream project is at
+.IR https://github.com/felotrrs/esword4linux .
+.SH AUTHOR
+Felipe <felotrrs@gmail.com>

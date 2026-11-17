@@ -1,0 +1,341 @@
+# packaging/runtime-manifest.yaml
+#
+# Single source of truth for what esword4linux needs at runtime, independent
+# of packaging format. The .deb, the Flatpak manifest and the future
+# AppImage build must all READ this file rather than re-deriving this list
+# themselves. If a packager needs something not listed here, the fix is to
+# update this file first, then rebuild all three formats — never to hardcode
+# an extra dependency inside one format's packaging scripts alone.
+#
+# This file combines the format-neutral inventory with the verified findings
+# from the 0.5.0-1 .deb build (ldd, dpkg-shlibdeps, lintian and runtime QA).
+# Keep the comments that explain *why* a component is retained or excluded.
+
+schema_version: 1
+app_version: "0.5.0"   # mirrored from src/esword4linux/__init__.py; enforced by packaging/stage_runtime.py
+
+python:
+  minimum: "3.10"
+  maximum: "3.15"      # PySide6 6.12.0 wheel metadata: <3.16,>=3.10
+  # The interpreter is the host's /usr/bin/python3 in the .deb. Flatpak uses
+  # the runtime's python3; an AppImage must bundle its own. esword4linux is
+  # pure Python and has no compiled extensions of its own — verify this stays
+  # true before adding any dependency with a native wheel.
+  pure_python_app: true
+
+dependencies:
+  # Exact pins and SHA-256 hashes for the .deb/AppImage wheelhouse live in
+  # packaging/runtime-requirements.txt. This section is the human-readable
+  # summary; update both together when bumping a dependency.
+  - name: PySide6-Essentials
+    pin: "6.12.0"
+    min: "6.6"
+    license: LGPL-3.0-only
+    note: >
+      "Essentials" only — never add plain "PySide6" (which pulls QtWebEngine
+      and other unused heavyweight modules). Confirmed by source inspection
+      (2026-11-16): the app imports only QtCore, QtGui and QtWidgets.
+  - name: shiboken6
+    pin: "6.12.0"
+    min: "6.6"
+    license: LGPL-3.0-only
+    note: "Transitive dependency of PySide6-Essentials; always pin the same version."
+  - name: PyYAML
+    pin: "6.0.3"
+    min: "6.0"
+    license: MIT
+    note: >
+      Staged as pure Python: yaml/_yaml*.so and yaml/cyaml.py are omitted.
+      Verified on 2026-11-16 with packaging/validate_runtime.py:
+      yaml.__with_libyaml__ is false and all 73 books load from books.yaml.
+      This removes a CPython-minor ABI dependency from the installed runtime.
+
+qt_modules_used:
+  # Exhaustive — confirmed by grepping every `from PySide6.X import` and
+  # `import PySide6.X` in src/ on 2026-11-16. Re-run this grep before every
+  # release; a new UI feature may introduce a new module silently.
+  - QtCore
+  - QtGui
+  - QtWidgets
+
+qt_modules_not_used:
+  # Python modules that must not be imported or bundled as Python wrappers.
+  # QtSvg is intentionally NOT in this list: the application does not import
+  # PySide6.QtSvg, but libQt6Svg is required by the SVG image plugin and the
+  # SVG icon engine (see staging.qt_libraries). "Not imported by Python" is
+  # not the same as "not needed by the Qt plugin closure".
+  - QtQuick
+  - QtQml
+  - QtWebEngine
+  - QtSql
+  - QtNetwork
+  - QtDesigner
+  - QtHelp
+  - QtPdf
+  - QtPrintSupport
+  - QtOpenGLWidgets
+  - QtXml
+  - QtConcurrent
+
+qt_plugins_required:
+  # Exact plugin paths relative to PySide6/Qt/plugins. These are the verified
+  # 18 plugins retained in the 0.5.0-1 .deb after the size pass.
+  platforms:
+    - platforms/libqxcb.so        # X11
+    - platforms/libqwayland.so    # Wayland client
+  xcb_integrations:
+    - xcbglintegrations/libqxcb-glx-integration.so
+    - xcbglintegrations/libqxcb-egl-integration.so
+  wayland_integrations:
+    - wayland-shell-integration/libxdg-shell.so
+    # libbradient is the generic client-side decoration fallback for
+    # compositors without server-side decorations. libadwaita was removed
+    # after validation: with libbradient present the app opens under Weston
+    # 13 headless/kiosk and with XDG_CURRENT_DESKTOP=GNOME.
+    - wayland-decoration-client/libbradient.so
+    - wayland-graphics-integration-client/libqt-plugin-wayland-egl.so
+  imageformats:
+    # The app displays images embedded in e-Sword modules (maps, etc.) via
+    # QImage/QPixmap loaders. Do NOT prune image format plugins without
+    # testing against real modules containing embedded images. Qt's PNG, BMP
+    # and XPM readers are built into QtGui; these plugins add the rest.
+    - imageformats/libqgif.so
+    - imageformats/libqico.so
+    - imageformats/libqjpeg.so
+    - imageformats/libqsvg.so
+    - imageformats/libqtga.so
+    - imageformats/libqtiff.so
+    - imageformats/libqwbmp.so
+    - imageformats/libqwebp.so
+  iconengines:
+    - iconengines/libqsvgicon.so
+  platforminputcontexts:
+    - platforminputcontexts/libcomposeplatforminputcontextplugin.so
+    - platforminputcontexts/libibusplatforminputcontextplugin.so
+  excluded_explicitly:
+    # Platform plugins
+    - platforms/libqeglfs.so              # embedded EGLFS, no desktop support
+    - platforms/libqlinuxfb.so             # Linux framebuffer, no desktop support
+    - platforms/libqminimal.so             # minimal diagnostic platform
+    - platforms/libqminimalegl.so          # minimal EGL diagnostic platform
+    - platforms/libqoffscreen.so           # headless diagnostic platform
+    - platforms/libqvkkhrdisplay.so        # embedded Vulkan display
+    - platforms/libqvnc.so                 # VNC server, not a client requirement
+    # Wayland compositor/server side; the application is a client only.
+    - wayland-graphics-integration-server/
+    - wayland-inputdevice-integration/
+    - wayland-hardware-layer-integration/
+    - wayland-shell-integration/libfullscreen-shell-v1.so
+    - wayland-shell-integration/libivi-shell.so
+    - wayland-shell-integration/libqt-shell.so
+    - wayland-shell-integration/libwl-shell-plugin.so
+    # Other plugin families
+    - accessiblebridge/                    # screen-reader bridge; not shipped in the wheel
+    - designer/                            # Qt Designer integration
+    - egldeviceintegrations/               # embedded device integrations
+    - generic/                             # evdev/uinput input plugins
+    - networkaccess/                       # application does not use QtNetwork
+    - networkinformation/                  # application does not use QtNetwork
+    - platformthemes/libqgtk3.so            # avoids a GTK3 dependency; Qt widgets dialog
+    - platformthemes/libqxdgdesktopportal.so  # avoids xdg-desktop-portal dependency
+    - printsupport/                        # application does not print
+    - qmltooling/                          # application does not use QML
+    - sqldrivers/                          # Python sqlite3 is used, not QtSql
+    - styles/                              # Fusion is built into QtWidgets
+    - tls/                                 # application does not use QtNetwork
+    - vectorimageformats/                  # QML vector image support
+    - imageformats/libqicns.so             # Apple ICNS, not used on Linux
+    - imageformats/libqpdf.so              # requires QtPdf, not used
+    - platforminputcontexts/libqtvirtualkeyboardplugin.so  # Qt Virtual Keyboard
+
+staging:
+  # Machine-readable allowlists used by packaging/stage_runtime.py. Paths are
+  # relative to the wheel's package root. Keep this section aligned with the
+  # human-readable inventory above.
+  app_source: "src/esword4linux"
+  pyside6_files:
+    - __init__.py
+    - _config.py
+    - _git_pyside_version.py
+    - PySide6_Essentials.json
+    - libpyside6.abi3.so.6.12
+    - QtCore.abi3.so
+    - QtGui.abi3.so
+    - QtWidgets.abi3.so
+  shiboken6_files:
+    - __init__.py
+    - _config.py
+    - _git_shiboken_module_version.py
+    - Shiboken.abi3.so
+    - libshiboken6.abi3.so.6.12
+  qt_libraries:
+    # Core/Gui/Widgets and their direct private dependencies. libQt6DBus is
+    # linked by QtGui; libQt6XcbQpa and libQt6WaylandClient are the X11 and
+    # Wayland backends; libQt6WlShellIntegration is the Wayland shell
+    # integration; libQt6Svg supports the SVG image plugin/icon engine;
+    # libQt6OpenGL is required by the Wayland EGL client integration.
+    - libQt6Core.so.6
+    - libQt6Gui.so.6
+    - libQt6Widgets.so.6
+    - libQt6DBus.so.6
+    - libQt6XcbQpa.so.6
+    - libQt6WaylandClient.so.6
+    - libQt6WlShellIntegration.so.6
+    - libQt6Svg.so.6
+    - libQt6OpenGL.so.6
+    # ICU is bundled by the Qt for Python wheel so the application does not
+    # depend on the distribution's ICU major version.
+    - libicudata.so.73
+    - libicui18n.so.73
+    - libicuuc.so.73
+  pyyaml: "pure-python"   # omit _yaml*.so and cyaml.py
+
+system_libraries_expected:
+  # Verified from the 0.5.0-1 .deb's dpkg-shlibdeps output and recursive ldd
+  # closure on Ubuntu 24.04 (noble). Names are Ubuntu/Debian package names,
+  # for reference and for non-Debian formats; debian/control's actual
+  # ${shlibs:Depends} must still come from dpkg-shlibdeps against the real
+  # staged binaries, never copied from this list by hand.
+  interpreter:
+    - python3 (>= 3.10, << 3.16)
+  icon_theme:
+    - hicolor-icon-theme
+  x11:
+    - libx11-6
+    - libx11-xcb1
+    - libxau6
+    - libxdmcp6
+    - libxcb1
+    - libxcb-cursor0
+    - libxcb-glx0
+    - libxcb-icccm4
+    - libxcb-image0
+    - libxcb-keysyms1
+    - libxcb-randr0
+    - libxcb-render0
+    - libxcb-render-util0
+    - libxcb-shape0
+    - libxcb-shm0
+    - libxcb-sync1
+    - libxcb-util1
+    - libxcb-xfixes0
+    - libxcb-xkb1
+    - libxkbcommon0
+    - libxkbcommon-x11-0
+  wayland:
+    - libwayland-client0
+    - libwayland-cursor0
+    - libwayland-egl1
+  graphics:
+    - libegl1
+    - libgl1
+    - libglx0
+    - libglvnd0
+    - libfontconfig1
+    - libfreetype6
+    - libpng16-16t64
+    - libbrotli1
+  misc:
+    # glibc and C++ runtime
+    - libc6
+    - libgcc-s1
+    - libstdc++6
+    # Qt's direct system dependencies
+    - zlib1g
+    - libzstd1
+    - libpcre2-8-0
+    - libglib2.0-0t64
+    - libdbus-1-3
+    - libsystemd0
+    - libcap2
+    - libgcrypt20
+    - libgpg-error0
+    - liblz4-1
+    - liblzma5
+    - libffi8
+    - libbsd0
+    - libmd0
+    - libexpat1
+    - libbz2-1.0
+  external_commands:
+    - /usr/bin/python3
+    - xdg-open           # xdg-utils; "open modules folder" action (Recommend)
+  recommended_data:
+    - fonts-noto-core    # default UI/Scripture families; Qt falls back if absent
+
+network_at_runtime: false   # app must start and function fully offline
+
+xdg_paths:
+  config: "~/.config/esword4linux/settings.json"
+  cache: "~/.cache/esword4linux/"
+  modules: "user-selected arbitrary directory — never inside the app's install path, never bundled"
+
+licensing:
+  app: GPL-3.0-only
+  notable_third_party:
+    - component: Twofish decryptor (src/esword4linux/core/esword/twofish.py)
+      origin: "Port of KingJamesPureBibleSearch (Donna Whisnant)"
+      license: GPL-3.0
+    - component: PySide6-Essentials / shiboken6
+      license: LGPL-3.0-only
+      note: "Upstream also offers GPL-2.0-only/GPL-3.0-only; this project uses the LGPL option."
+    - component: PyYAML
+      license: MIT
+    - component: Qt libraries (vendored in .deb/AppImage, runtime in Flatpak)
+      license: LGPL-3.0-only
+      note: >
+        Qt 6.12.0. Full texts and Qt's upstream third-party attribution are in
+        packaging/licenses/ and packaging/licenses/QT-THIRD-PARTY.md.
+    - component: ICU 73 (bundled with the Qt for Python wheel)
+      license: Unicode-3.0
+  deb_copyright_note: >
+    debian/copyright reflects the components actually bundled: Qt/PySide6/
+    Shiboken6, ICU 73, pure-Python PyYAML and Qt's statically embedded
+    third-party codecs (libjpeg-turbo/IJG, libtiff, libwebp, LibPNG, etc.).
+
+format_specific_notes:
+  deb:
+    qt_source: >-
+      Vendored. The system-package alternative was evaluated first on
+      Ubuntu 24.04 / Linux Mint 22.x (noble): apt-cache has no
+      python3-pyside6.qtcore/qtgui/qtwidgets packages at all (only PySide2),
+      so the recommended system packages do not exist. The project also
+      requires PySide6 >= 6.6; vendoring PySide6-Essentials 6.12.0 satisfies
+      both the package-availability and version constraints. See
+      docs/adr/0004-debian-private-qt-runtime.md.
+    python_source: "host /usr/bin/python3 (python3 package); no system site-packages install"
+    runtime_layout: "/opt/esword4linux/{app,python,licenses}; launcher /usr/bin/esword4linux"
+  flatpak:
+    qt_source: "org.kde.Platform runtime (provides Qt6 + X11 + Wayland resolved) — do not vendor Qt separately in the Flatpak manifest"
+    python_source: "org.freedesktop.Sdk.Extension.python3 or the KDE runtime's bundled python3, per flatpak-builder convention"
+    sandboxing_note: "use XDG portals (file chooser) for the user's modules folder instead of --filesystem=host where practical"
+  appimage:
+    qt_source: "fully vendored via linuxdeploy + linuxdeploy-plugin-qt, which resolves the Qt plugin closure automatically from the built binary"
+    python_source: "bundled via linuxdeploy python plugin or python-appimage base"
+    reuses_staging_from: "the same /opt/esword4linux-style staging layout produced for the .deb — do not build an independent staging tree from scratch"
+
+verified:
+  date: "2026-11-16"
+  host: "Linux Mint 22.3 (Ubuntu 24.04/noble base), amd64, glibc 2.39"
+  python: "3.12.3"
+  pyside6: "6.12.0"
+  qt: "6.12.0"
+  deb_version: "0.5.0-1"
+  elf_objects_checked: 36
+  unresolved_libraries: 0
+  distro_qt_dependency: false
+  lintian_errors: 0
+  x11: "validated: window, xcb plugin, first-run cancel, settings persistence, synthetic module search/images"
+  wayland: "validated under Weston 13 headless + kiosk: wayland platform plugin loaded, window process alive; full desktop compositor still NOT validated"
+  wayland_decorations: "libadwaita removed after validation; libbradient retained as generic fallback and loaded"
+  icu_isolation: "private ICU 73 loaded from /opt; system ICU 74 installed; /proc/<pid>/maps confirmed the private paths"
+  system_icu: "74.2-1ubuntu3.1"
+  bundled_icu: "73"
+  real_module_corpus: false
+  appimage: "not implemented"
+
+change_policy: >
+  Any change to qt_modules_used, dependencies, or qt_plugins_required
+  requires rebuilding and re-validating all three packaging formats that
+  exist at the time of the change, not just the one being actively worked
+  on. Record the change in docs/CHANGELOG.md.

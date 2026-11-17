@@ -2,6 +2,21 @@
 
 ## 0.5.0 — 2026-11-16
 
+- Use the classic e-Sword/penguin/book logo as the single application, window
+  and About icon; the hicolor 16–512 px set is generated from the same source.
+- Removed the superseded runtime icon assets (`esword4linux2.webp` and
+  `esword4linux3.jpeg`); the archived JPEG remains only under
+  `packaging/icons/source/`.
+- Native Debian package (`0.5.0-1`) for Ubuntu 24.04 and Linux Mint 22.x: private
+  PySide6/Qt runtime under `/opt/esword4linux`, X11 and Wayland client plugins,
+  desktop entry, hicolor icons, man page and license texts. The system Python
+  environment is not modified and user data remains in the XDG directories.
+- Adopted `packaging/runtime-manifest.yaml` as the shared runtime inventory for
+  the `.deb`, the planned Flatpak and the future AppImage.
+- Removed the unused `libadwaita` Wayland decoration plugin after Weston
+  validation; `libbradient` remains as the generic client-side fallback.
+- Verified that the private ICU 73 under `/opt` is used even when the system
+  has ICU 74 installed.
 - Renamed the project and Python package to esword4linux.
 - No modules or Bibles are bundled or hardcoded; first run asks for the user's modules folder before opening the window.
 - First scan builds metadata only. Indexing and decryption are always explicit.

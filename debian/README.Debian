@@ -1,0 +1,78 @@
+esword4linux for Debian and Ubuntu
+===================================
+
+Installation layout
+-------------------
+
+  /usr/bin/esword4linux
+      Launcher for the private runtime.
+
+  /opt/esword4linux/app/esword4linux
+      Application Python package and data (books.yaml, i18n, assets).
+
+  /opt/esword4linux/python
+      Private PySide6-Essentials, shiboken6, Qt 6 and pure-Python PyYAML.
+
+  /usr/share/applications/esword4linux.desktop
+  /usr/share/icons/hicolor/*/apps/esword4linux.png
+
+The package does not install anything into the system Python site-packages and
+does not depend on the distribution Qt libraries at runtime.
+
+No qt.conf is installed. The PySide6 extension modules carry an RPATH relative
+to their location ($ORIGIN/Qt/lib and $ORIGIN/../shiboken6), and the launcher
+sets QT_PLUGIN_PATH to the private plugin directory. This was verified by
+loading libqxcb.so with QT_DEBUG_PLUGINS=1; adding qt.conf would duplicate a
+resolution path Qt already performs correctly.
+
+User data
+---------
+
+  ~/.config/esword4linux/settings.json
+      Preferences and the selected modules folder.
+
+  ~/.cache/esword4linux/
+      Regenerable catalog and FTS5 index.
+
+Removing or upgrading the package does not delete these paths and never
+modifies the user's e-Sword modules folder.
+
+X11 and Wayland
+---------------
+
+The private Qt runtime includes both the xcb and Wayland platform plugins. The
+launcher does not force QT_QPA_PLATFORM; Qt chooses according to the session.
+On a Wayland session that also has XWayland, users who want the native Wayland
+backend can run:
+
+    QT_QPA_PLATFORM=wayland esword4linux
+
+To use X11 explicitly:
+
+    QT_QPA_PLATFORM=xcb esword4linux
+
+The build host was Linux Mint 22.3 (Ubuntu 24.04/noble base) with an X11
+session. Wayland was validated with Weston 13 headless/kiosk (platform plugin
+and window process); a full desktop compositor session and a clean Ubuntu
+24.04 VM were not available. See the validation matrix in
+/usr/share/doc/esword4linux/INSTALL.md.
+
+Runtime override for testing
+----------------------------
+
+The launcher honors ESWORD4LINUX_ROOT (default /opt/esword4linux) and
+ESWORD4LINUX_PYTHON (default /usr/bin/python3). These are intended for
+portable builds and QA; normal installations should not set them.
+
+Rebuilding
+----------
+
+From a source checkout:
+
+    packaging/build-deb.sh
+
+The build uses pinned wheels with SHA-256 hashes. See
+/opt/esword4linux/RUNTIME-MANIFEST.yaml for the exact runtime
+inventory and the rationale for retained and excluded Qt components.
+
+ -- Felipe <felotrrs@gmail.com>

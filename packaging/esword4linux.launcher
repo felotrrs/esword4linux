@@ -1,0 +1,56 @@
+#!/bin/sh
+# esword4linux — native launcher for the private runtime.
+#
+# The application and its Python/Qt runtime live under /opt/esword4linux. This
+# script scopes every path change to the application process; it does not touch
+# system Python, system Qt, shell profiles or user configuration.
+#
+# ESWORD4LINUX_ROOT is an optional testing/portable-prefix override. The
+# installed package uses the default. QT_QPA_PLATFORM is never forced: Qt picks
+# xcb or Wayland from the session, and users can still override it explicitly.
+
+set -eu
+
+APP_ROOT="${ESWORD4LINUX_ROOT:-/opt/esword4linux}"
+PYTHON="${ESWORD4LINUX_PYTHON:-/usr/bin/python3}"
+
+APP_DIR="${APP_ROOT}/app/esword4linux"
+PY_DIR="${APP_ROOT}/python"
+QT_DIR="${PY_DIR}/PySide6/Qt"
+
+if [ ! -x "$PYTHON" ]; then
+    echo "esword4linux: Python interpreter not found or not executable: $PYTHON" >&2
+    echo "Install the python3 package or set ESWORD4LINUX_PYTHON." >&2
+    exit 1
+fi
+
+if [ ! -d "$APP_DIR" ] || [ ! -d "$PY_DIR/PySide6" ]; then
+    echo "esword4linux: the private runtime is incomplete under $APP_ROOT" >&2
+    echo "Reinstall the esword4linux package." >&2
+    exit 1
+fi
+
+if ! "$PYTHON" -c 'import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 15) else 1)'; then
+    echo "esword4linux: unsupported Python version: $("$PYTHON" -V 2>&1)" >&2
+    echo "This package supports Python 3.10 through 3.15." >&2
+    exit 1
+fi
+
+# A graphical session is required. offscreen/minimal platforms are explicit
+# opt-ins (QT_QPA_PLATFORM set by the caller), never selected here.
+if [ -z "${QT_QPA_PLATFORM:-}" ] && [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    echo "esword4linux: no graphical session detected (DISPLAY and WAYLAND_DISPLAY are unset)." >&2
+    echo "Start it from your desktop session. This package does not ship a headless platform plugin." >&2
+    exit 1
+fi
+
+# Keep the private runtime ahead of any distribution Qt or user packages.
+unset PYTHONHOME
+PYTHONPATH="${APP_ROOT}/app:${PY_DIR}${PYTHONPATH:+:${PYTHONPATH}}"
+QT_PLUGIN_PATH="${QT_DIR}/plugins"
+LD_LIBRARY_PATH="${QT_DIR}/lib:${PY_DIR}/shiboken6${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+PYTHONNOUSERSITE=1
+
+export PYTHONPATH QT_PLUGIN_PATH LD_LIBRARY_PATH PYTHONNOUSERSITE
+
+exec "$PYTHON" -B -s -m esword4linux "$@"

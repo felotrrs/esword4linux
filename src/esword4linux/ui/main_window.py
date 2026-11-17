@@ -883,7 +883,7 @@ class MainWindow(QMainWindow):
         )
 
     def _about(self) -> None:
-        logo = str(asset("esword4linux.png"))
+        logo = str(asset("esword4linux-about.png"))
         box = QMessageBox(self)
         box.setWindowTitle(tr("dialog.about.title"))
         box.setTextFormat(Qt.RichText)

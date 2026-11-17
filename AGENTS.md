@@ -179,6 +179,8 @@ The module table uses paths relative to the repository root.
 | `src/esword4linux/ui/preferences_dialog.py` | Preferences: appearance (theme + typography), language and preview. |
 | `src/esword4linux/ui/theme.py` | Light/dark palettes, QSS and document CSS from `Settings`. |
 | `src/esword4linux/i18n/` | `tr(key, **kwargs)` over JSON catalogs `es`/`en`. |
+| `packaging/` | Private runtime staging (`stage_runtime.py`), pinned wheels, runtime manifest, launcher, QA and the `.deb` build script. |
+| `debian/` | Debian packaging (debhelper 13, control, rules, copyright, install, man page). |
 
 ## Commands
 
@@ -189,6 +191,7 @@ make scan        # scan the modules folder (metadata only, CLI)
 make encrypted   # decrypt and index encrypted modules (explicitly)
 make dedup       # duplicate report (--apply moves copies to _duplicados/)
 make test        # pytest
+make deb         # build the native Debian package (packaging/build-deb.sh)
 make drift       # optional: check vendored core against ESWORD4LINUX_VENDOR_ORIGIN
 make desktop     # install app + hicolor icons (16–512 px)
 make clean       # remove venv and cache
@@ -246,6 +249,7 @@ language.
 | You touch books, aliases, references or passage pop-ups | `skills/book-aliases.md` |
 | You add UI strings or a language | `skills/i18n.md` |
 | You measure performance or change the pool | `skills/performance.md` |
+| You touch packaging, the private runtime or the `.deb` | `skills/packaging.md` |
 
 ## Git Workflow and Repository Management
 

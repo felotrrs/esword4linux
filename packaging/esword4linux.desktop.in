@@ -8,7 +8,9 @@ Comment[es]=Lector nativo de módulos e-Sword para Linux
 Exec=@ROOT@/run.sh
 Icon=esword4linux
 Terminal=false
-Categories=Education;Literature;Religious;
+# "Religious" is not a registered freedesktop category; X-Religious keeps
+# the semantic hint while Education;Literature; provide the menu placement.
+Categories=Education;Literature;X-Religious;
 Keywords=bible;biblia;esword;dictionary;diccionario;commentary;comentario;
 StartupNotify=true
 StartupWMClass=esword4linux

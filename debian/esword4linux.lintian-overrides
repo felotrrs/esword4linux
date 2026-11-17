@@ -1,0 +1,20 @@
+# Lintian overrides for the private runtime layout.
+#
+# The package intentionally installs its private Python/Qt runtime under
+# /opt/esword4linux. Debian policy's dir-or-file-in-opt tag is expected for
+# this layout; the main executable, desktop entry, icons, man page,
+# documentation and copyright are in their standard FHS locations.
+esword4linux: dir-or-file-in-opt [opt/esword4linux/*]
+esword4linux: dir-or-file-in-opt [opt/esword4linux/]
+#
+# Qt's official image plugins statically link the JPEG and TIFF codecs. They
+# are retained because e-Sword illustrations/maps can use those formats and
+# removing them would silently break valid modules. The licenses are recorded
+# in debian/copyright, licenses/QT-THIRD-PARTY.md and the Qt license texts.
+esword4linux: embedded-library libjpeg [opt/esword4linux/python/PySide6/Qt/plugins/imageformats/libqjpeg.so]
+esword4linux: embedded-library libjpeg [opt/esword4linux/python/PySide6/Qt/plugins/imageformats/libqtiff.so]
+esword4linux: embedded-library tiff [opt/esword4linux/python/PySide6/Qt/plugins/imageformats/libqtiff.so]
+#
+# INSTALL.md is the upstream installation guide; keeping it alongside the
+# Debian README is intentional.
+esword4linux: package-contains-upstream-installation-documentation [usr/share/doc/esword4linux/INSTALL.md.gz]
