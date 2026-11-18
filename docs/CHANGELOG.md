@@ -22,6 +22,9 @@
   Wayland protocol in `debian/copyright`; published the Qt/PySide6 source
   archives in the `v0.5.0-lgpl-sources` GitHub Release and verified the
   round-trip hashes.
+- The installed launcher/hicolor icon set is now generated from
+  `src/esword4linux/assets/esword4linux.png`, while the About dialog keeps the
+  separate `esword4linux-about.png`; the Debian build validates the mapping.
 - Adopted `packaging/runtime-manifest.yaml` as the shared runtime inventory for
   the `.deb`, the planned Flatpak and the future AppImage.
 - Removed the unused `libadwaita` Wayland decoration plugin after Weston

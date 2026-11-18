@@ -72,12 +72,14 @@ path failure proves it necessary; document the failure and the change.
 /usr/share/doc/esword4linux/
 ```
 
-The icon sources live under `packaging/icons/source/` and
-`src/esword4linux/assets/`. `tools/make_icons.py` regenerates the
-window/launcher icon and the hicolor 16–512 px set from `esword4linux3.jpeg`.
-The illustrated About artwork (`esword4linux-about.png`) is a separate asset.
-Keep both present, never replace the whole set with a single image, and never
-delete `esword4linux2.webp` or `esword4linux3.jpeg`.
+The canonical window/launcher icon is
+`src/esword4linux/assets/esword4linux.png`; the illustrated About artwork is
+the separate `src/esword4linux/assets/esword4linux-about.png`. The copies under
+`packaging/icons/apps/` and `packaging/icons/hicolor/` must come from those
+assets, and the 512×512 hicolor icon must be byte-identical to the app icon.
+`tools/make_icons.py` generates hicolor sizes from the app icon and never
+overwrites the About artwork. `packaging/validate_icons.py` runs during the
+Debian build and fails if the mapping drifts.
 
 ## Commands
 

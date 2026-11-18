@@ -39,6 +39,7 @@ override_dh_auto_build:
 override_dh_auto_test:
 	python3 -B packaging/validate_runtime.py \
 		--root "$(CURDIR)/.build/runtime"
+	python3 -B packaging/validate_icons.py
 
 override_dh_auto_install:
 	install -d debian/esword4linux/opt/esword4linux
