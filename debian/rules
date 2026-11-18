@@ -51,6 +51,11 @@ override_dh_auto_install:
 	cp -a debian/esword4linux/opt/esword4linux/licenses \
 		debian/esword4linux/usr/share/doc/esword4linux/licenses
 
+override_dh_compress:
+	# Keep the user-facing compliance document at its documented,
+	# uncompressed path. Other documentation remains policy-compressed.
+	dh_compress -XLGPL-COMPLIANCE.md
+
 override_dh_makeshlibs:
 	# All Qt/PySide libraries are private under /opt and must not create
 	# public shlibs entries or dependencies for other packages.

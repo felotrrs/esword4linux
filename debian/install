@@ -8,3 +8,6 @@ packaging/icons/hicolor/64x64/apps/esword4linux.png usr/share/icons/hicolor/64x6
 packaging/icons/hicolor/128x128/apps/esword4linux.png usr/share/icons/hicolor/128x128/apps
 packaging/icons/hicolor/256x256/apps/esword4linux.png usr/share/icons/hicolor/256x256/apps
 packaging/icons/hicolor/512x512/apps/esword4linux.png usr/share/icons/hicolor/512x512/apps
+docs/licensing/LGPL-COMPLIANCE.md usr/share/doc/esword4linux
+docs/licensing/qt-runtime-inventory.md usr/share/doc/esword4linux
+docs/licensing/third-party-sources.md usr/share/doc/esword4linux

@@ -35,6 +35,20 @@ behavior is out of scope: packaging must not require code changes.
 10. **Licensing is a release gate.** Update `debian/copyright`,
     `packaging/licenses/` and `packaging/licenses/QT-THIRD-PARTY.md` when a
     bundled component or version changes.
+11. **The wheelhouse travels in the orig, never in Git.** The source package
+    builder embeds exactly the three validated wheels in
+    `<source>_<upstream>.orig.tar.xz`. Do not track a `.whl`, do not add
+    `debian/source/include-binaries`, and do not create
+    `debian/source/options`. `3.0 (quilt)` never generates the orig;
+    `packaging/build_source.py` does. This packaging is **PPA-only** and not
+    suitable for the Debian/Ubuntu main archives.
+12. **Licensing evidence is a build artifact.** The runtime inventory, source
+    correspondence and user compliance document live under `docs/licensing/`.
+    `packaging/audit_licensing.py` validates the wheel RECORD hashes, ELF
+    inventory, license texts and installed compliance document. Do not update
+    a wheel or Qt version without regenerating the inventory and re-running the
+    audit. Exact binary-to-source correspondence must not be claimed without
+    evidence.
 
 ## Why there is no qt.conf
 
@@ -58,10 +72,12 @@ path failure proves it necessary; document the failure and the change.
 /usr/share/doc/esword4linux/
 ```
 
-The canonical icon source is `packaging/icons/source/esword4linux-logo.png`.
-`tools/make_icons.py` regenerates `src/esword4linux/assets/esword4linux.png`,
-`esword4linux-about.png`, the installer copies under `packaging/icons/apps/`
-and the hicolor 16–512 px set. Keep the app and About assets byte-identical.
+The icon sources live under `packaging/icons/source/` and
+`src/esword4linux/assets/`. `tools/make_icons.py` regenerates the
+window/launcher icon and the hicolor 16–512 px set from `esword4linux3.jpeg`.
+The illustrated About artwork (`esword4linux-about.png`) is a separate asset.
+Keep both present, never replace the whole set with a single image, and never
+delete `esword4linux2.webp` or `esword4linux3.jpeg`.
 
 ## Commands
 
@@ -69,14 +85,22 @@ and the hicolor 16–512 px set. Keep the app and About assets byte-identical.
 packaging/build-deb.sh                 # full build + package QA + lintian
 packaging/build-deb.sh --offline       # reuse .build/wheelhouse
 packaging/qa-deb.sh dist/deb/*.deb     # X11/Wayland runtime observations
+packaging/build_source.py              # Debian source package (clean tree)
+packaging/build_source.py --allow-dirty    # validation only; not publishable
+packaging/build_source.py --verify-build   # source package + offline rebuild
+packaging/audit_licensing.py               # wheel/ELF/license/compliance audit
+packaging/audit_licensing.py --deb dist/deb/*.deb
 python3 packaging/stage_runtime.py --wheelhouse DIR --dest DIR
 python3 packaging/validate_runtime.py --root DIR
 make deb
+make deb-src
+make deb-src-verify
 ```
 
 Build output: `dist/deb/esword4linux_<version>_amd64.deb`.
-Logs and report: `.build/REPORT.txt`, `.build/lintian.txt`,
-`.build/dpkg-deb-contents.txt`.
+Source output: `dist/src/` (`.orig.tar.xz`, `.debian.tar.xz`, `.dsc`,
+`_source.changes`, `_source.buildinfo`). Logs and report:
+`.build/REPORT.txt`, `.build/lintian.txt`, `.build/dpkg-deb-contents.txt`.
 
 ## Adding or removing a Qt component
 

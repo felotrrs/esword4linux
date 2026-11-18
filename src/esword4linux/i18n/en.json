@@ -96,7 +96,7 @@
   "index.failed": "{n} modules failed.",
   "index.category_done": "{kind}: {indexed} modules, {pages} pages.",
   "dialog.about.title": "About esword4linux",
-  "dialog.about.text": "<h2>esword4linux {version}</h2><p>Native e-Sword module reader for Linux.</p><p>Reads e-Sword SQLite modules directly, without Wine. SQLitePlus-encrypted modules are decrypted with Twofish-128. No modules are bundled: you choose the folder that contains your own library.</p><p><b>License:</b> GPL-3.0 (the Twofish decryptor derives from KingJamesPureBibleSearch, © Donna Whisnant).</p>",
+  "dialog.about.text": "<h2>esword4linux {version}</h2><p>Native e-Sword module reader for Linux.</p><p>Reads e-Sword SQLite modules directly, without Wine. SQLitePlus-encrypted modules are decrypted with Twofish-128. No modules are bundled: you choose the folder that contains your own library.</p><p><b>License:</b> GPL-3.0 (the Twofish decryptor derives from KingJamesPureBibleSearch, © Donna Whisnant).</p><p><b>Qt and PySide6:</b> Qt and PySide6 components are used under the GNU Lesser General Public License v3.0 (LGPL-3.0), subject to their applicable licensing terms. They are separate third-party components, not GPL-3.0. License notices, corresponding-source information, and instructions for replacing the private libraries are available in the installed <a href=\"file:///usr/share/doc/esword4linux/LGPL-COMPLIANCE.md\">LGPL compliance documentation</a> (/usr/share/doc/esword4linux/LGPL-COMPLIANCE.md). The <a href=\"https://www.gnu.org/licenses/lgpl-3.0.html\">GNU LGPL v3.0</a> text is also available online.</p>",
   "dialog.choose_folder": "Select modules folder",
   "dialog.error": "Error",
   "common.cancel": "Cancel",

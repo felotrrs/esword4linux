@@ -85,6 +85,18 @@ for example `0.5.0-1`. The upstream part must match `__version__` in
    prerequisites. `debian/esword4linux.lintian-overrides` documents the
    intentional `/opt` layout and embedded image codecs.
 
+   Validate the licensing evidence against the built package:
+
+   ```bash
+   packaging/audit_licensing.py --deb dist/deb/esword4linux_<version>_amd64.deb
+   ```
+
+   This checks the wheel hashes, RECORD contents, ELF inventory, license texts,
+   compliance document installation and absence of wheelhouse files in the
+   `.deb`. The audit's source-correspondence limitations are recorded in
+   `docs/licensing/third-party-sources.md`; do not describe them as fully
+   verified.
+
 3. Confirm the runtime dependency closure:
 
    ```bash
@@ -126,6 +138,57 @@ for example `0.5.0-1`. The upstream part must match `__version__` in
 
    The matrix in `docs/INSTALL.md` is the release gate for X11/Wayland and
    Ubuntu/Mint combinations.
+
+## Source package and PPA
+
+The binary `.deb` is the deliverable for direct installation. A Launchpad PPA
+needs a Debian source package that contains the pinned wheelhouse, because
+buildds have no PyPI access.
+
+1. Commit every intended change. Source generation refuses a dirty tree unless
+   `--allow-dirty` is passed for local validation. `--allow-dirty` includes
+   modified tracked files but not untracked files.
+
+2. Build and verify the source package:
+
+   ```bash
+   make deb-src-verify
+   ```
+
+   `make deb-src` runs the same steps without the offline binary rebuild. The
+   builder validates the wheel hashes, the orig layout, the `.dsc`/`.changes`
+   checksums and the absence of `debian/` from the orig.
+
+3. Confirm the artifacts in `dist/src/`:
+
+   ```text
+   esword4linux_<version>.orig.tar.xz
+   esword4linux_<version>-<rev>.debian.tar.xz
+   esword4linux_<version>-<rev>.dsc
+   esword4linux_<version>-<rev>_source.changes
+   esword4linux_<version>-<rev>_source.buildinfo
+   ```
+
+   There must be no `NOT-PUBLICATION-READY.txt` in that directory.
+
+4. Sign explicitly when the release is approved:
+
+   ```bash
+   packaging/build_source.py --sign-key <KEYID>
+   dscverify dist/src/*.dsc
+   ```
+
+   The GPG key must be registered with Launchpad and match the maintainer
+   identity. Signing is never automatic.
+
+5. Upload manually, only after explicit authorization. The repository tooling
+   never runs `dput` and never contacts Launchpad. `debian/changelog` must name
+   an Ubuntu series (`noble`); `unstable` is rejected by PPAs.
+
+**Scope.** The embedded manylinux wheels make this a PPA-only source package
+for amd64. It is not directly suitable for the Debian or Ubuntu main archives
+without a source-policy exception and a source-based Qt build. See
+`docs/adr/0005-source-package-wheelhouse.md`.
 
 ## Publish
 

@@ -75,4 +75,28 @@ The build uses pinned wheels with SHA-256 hashes. See
 /opt/esword4linux/RUNTIME-MANIFEST.yaml for the exact runtime
 inventory and the rationale for retained and excluded Qt components.
 
+Debian source package
+---------------------
+
+The `3.0 (quilt)` source package embeds the three pinned wheels in the
+upstream tarball, because buildds have no PyPI access:
+
+    make deb-src-verify
+
+`packaging/build_source.py` creates the deterministic
+`<source>_<version>.orig.tar.xz`, excludes `debian/` from it, validates the
+wheel hashes and the source checksums, and can rebuild the binary offline.
+Wheels are never tracked in Git. This packaging is intended for a Launchpad
+PPA; prebuilt wheels are not directly suitable for the Debian/Ubuntu main
+archives.
+
+Licensing and library replacement
+---------------------------------
+
+The installed runtime ships the Qt/PySide6 license texts and Qt third-party
+attribution under `/usr/share/doc/esword4linux/licenses/`. Read
+`/usr/share/doc/esword4linux/LGPL-COMPLIANCE.md` for the covered components,
+the source archives and the tested procedure for replacing private Qt/PySide6
+libraries.
+
  -- Felipe <felotrrs@gmail.com>

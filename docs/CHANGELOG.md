@@ -2,15 +2,25 @@
 
 ## 0.5.0 — 2026-11-16
 
-- Use the classic e-Sword/penguin/book logo as the single application, window
-  and About icon; the hicolor 16–512 px set is generated from the same source.
-- Removed the superseded runtime icon assets (`esword4linux2.webp` and
-  `esword4linux3.jpeg`); the archived JPEG remains only under
-  `packaging/icons/source/`.
+- Restore the original application/window icon and the distinct illustrated
+  About artwork; the hicolor 16–512 px set returns to the published icon set.
+- Restore the runtime icon assets `esword4linux2.webp` and
+  `esword4linux3.jpeg`; they remain in the source tree and are never deleted.
 - Native Debian package (`0.5.0-1`) for Ubuntu 24.04 and Linux Mint 22.x: private
   PySide6/Qt runtime under `/opt/esword4linux`, X11 and Wayland client plugins,
   desktop entry, hicolor icons, man page and license texts. The system Python
   environment is not modified and user data remains in the XDG directories.
+- Debian source package support: `make deb-src` embeds the pinned wheels in a
+  deterministic `.orig.tar.xz` without tracking them in Git, so Launchpad can
+  build without PyPI. Marked PPA-only; `make deb-src-verify` rebuilds offline.
+- Added the LGPL/PySide6/Qt runtime inventory and source-correspondence audit;
+  the Debian package installs `LGPL-COMPLIANCE.md` with the license notices and
+  the tested private-library replacement mechanism.
+- The About dialog now displays the Qt/PySide6 LGPL-3.0 notice, the GNU LGPL
+  link and the installed compliance-document path in Spanish and English.
+- Declared the confirmed MPL-2.0 public-suffix component and LGPL-2.1-or-later
+  Wayland protocol in `debian/copyright`, and prepared the Qt/PySide6 source
+  archive release manifest (publication pending authorization).
 - Adopted `packaging/runtime-manifest.yaml` as the shared runtime inventory for
   the `.deb`, the planned Flatpak and the future AppImage.
 - Removed the unused `libadwaita` Wayland decoration plugin after Weston

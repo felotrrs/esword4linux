@@ -65,6 +65,57 @@ packaging/build-deb.sh --no-lintian    # skip lintian
 packaging/build-deb.sh --wheelhouse /path/to/wheels
 ```
 
+### Build the Debian source package
+
+The source package embeds the three pinned wheels in the upstream
+`.orig.tar.xz` so a Launchpad build can assemble the private runtime without
+PyPI access. The wheels stay out of Git; the source builder copies them from
+the validated `.build/wheelhouse`:
+
+```bash
+make deb-src           # requires a clean Git tree
+make deb-src-verify    # also rebuilds the .deb offline
+```
+
+Artifacts are written to `dist/src/`:
+
+```text
+esword4linux_0.5.0.orig.tar.xz
+esword4linux_0.5.0-1.debian.tar.xz
+esword4linux_0.5.0-1.dsc
+esword4linux_0.5.0-1_source.changes
+esword4linux_0.5.0-1_source.buildinfo
+```
+
+`dpkg-source` never creates the orig for `3.0 (quilt)`; `packaging/build_source.py`
+creates it deterministically (sorted tar, fixed mtime, `xz -6 -T1`), excludes
+`debian/`, and verifies the archive contents, checksums and wheel hashes.
+`make deb-src-verify` unpacks the resulting `.dsc` and rebuilds the binary
+inside `unshare -rn`, proving that no network access is needed.
+
+To validate uncommitted work without committing it:
+
+```bash
+packaging/build_source.py --allow-dirty
+```
+
+That result is explicitly **not publication-ready** and is marked with
+`dist/src/NOT-PUBLICATION-READY.txt`. Only tracked changes are included:
+untracked files must be committed before they appear in the source package.
+Packages are unsigned by default; signing (`--sign-key KEYID`) and any upload
+remain manual steps.
+
+> **PPA-only.** Prebuilt wheels in the upstream tarball are acceptable for a
+> Launchpad PPA, but they are not directly suitable for the Debian or Ubuntu
+> main archives without a source-policy exception.
+
+Licensing evidence for the embedded Qt/PySide6 runtime is in
+`docs/licensing/`; the installed package includes
+`/usr/share/doc/esword4linux/LGPL-COMPLIANCE.md`. The source correspondence is
+currently `PARTIAL`: the official source archives are identified and hash-
+verified, but the wheel build attestation and a full from-source rebuild test
+are outstanding.
+
 The private runtime can also be staged independently of Debian (the same
 assembly is intended for a future AppImage):
 

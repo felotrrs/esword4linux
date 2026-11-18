@@ -2,7 +2,7 @@ VENV := .venv
 PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: help install run scan test clean deps drift desktop encrypted dedup deb
+.PHONY: help install run scan test clean deps drift desktop encrypted dedup deb deb-src deb-src-verify
 
 help:
 	@echo "esword4linux — targets:"
@@ -16,6 +16,8 @@ help:
 	@echo "  make drift     Check vendored core against ESWORD4LINUX_VENDOR_ORIGIN"
 	@echo "  make desktop   Install the launcher and icons for the current user"
 	@echo "  make deb       Build the native Debian package"
+	@echo "  make deb-src   Build the Debian source package (requires a clean tree)"
+	@echo "  make deb-src-verify  Build the source package and rebuild it offline"
 	@echo "  make clean     Remove the venv and cache"
 
 install:
@@ -47,6 +49,12 @@ drift:
 
 deb:
 	packaging/build-deb.sh
+
+deb-src:
+	packaging/build_source.py
+
+deb-src-verify:
+	packaging/build_source.py --verify-build
 
 desktop:
 	@mkdir -p ~/.local/share/applications

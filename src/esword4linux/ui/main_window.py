@@ -35,6 +35,7 @@ from .workspace import Workspace
 from .entry_dialog import EntryDialog
 from .first_run import count_modules
 from .preferences_dialog import PreferencesDialog
+from .about_dialog import AboutDialog
 
 # Tab 0 is "Search" (fixed). View tabs start at 1.
 FIXED_TABS = 1
@@ -883,12 +884,4 @@ class MainWindow(QMainWindow):
         )
 
     def _about(self) -> None:
-        logo = str(asset("esword4linux-about.png"))
-        box = QMessageBox(self)
-        box.setWindowTitle(tr("dialog.about.title"))
-        box.setTextFormat(Qt.RichText)
-        box.setText(tr("dialog.about.text", version=__version__))
-        pm = QPixmap(logo)
-        if not pm.isNull():
-            box.setIconPixmap(pm.scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        box.exec()
+        AboutDialog(__version__, self).exec()

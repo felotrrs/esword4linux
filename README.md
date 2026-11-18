@@ -103,6 +103,16 @@ The result is `dist/deb/esword4linux_0.5.0-1_amd64.deb`. X11 was validated on
 Linux Mint 22.3; Wayland was validated with Weston 13 headless/kiosk, but a
 full desktop compositor session was not available during packaging.
 
+To build the Debian source package (for example for a Launchpad PPA):
+
+```bash
+make deb-src-verify
+```
+
+The generated `.orig.tar.xz` in `dist/src/` embeds the pinned wheels, so the
+build needs no PyPI access. The result is PPA-oriented: prebuilt wheels are not
+directly acceptable in the Debian/Ubuntu main archives.
+
 ### From Git
 
 ```bash

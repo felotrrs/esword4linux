@@ -4,6 +4,40 @@ Open, known and non-blocking work. Roughly ordered by impact.
 
 ## Open packaging work
 
+- Licensing audit: exact binary-to-source provenance for the official Qt and
+  PySide6 wheels is `PARTIAL`. The source archives are identified and their
+  SHA-256 values are verified, but no wheel build attestation links them to the
+  binaries. A full Qt/PySide6 rebuild and ABI-compatible replacement test is
+  still outstanding; only the loader/replacement mechanism was demonstrated.
+  See `docs/technical-debt/td-lgpl-source-rebuild.md`.
+- Per-object license mapping for all 288 ELF objects in the wheelhouse is
+  incomplete. The installed runtime has its license texts and Qt attribution;
+  the confirmed MPL-2.0 public-suffix component and LGPL-2.1-or-later KDE
+  appmenu protocol are now declared, but a file-by-file review of the remaining
+  Qt third-party components is still recommended.
+- The full Qt/PySide6 source archives are staged under
+  `dist/source-archives/` and the project-controlled GitHub Release is
+  `READY-PENDING-PUBLICATION`. No release or asset upload has occurred; see
+  `docs/licensing/source-release-manifest.md`.
+- The About dialog now shows the GPL-3.0 and Qt/PySide6 LGPL-3.0 notices with the
+  GNU LGPL link and the installed compliance-document link. The remaining
+  notice question is only the formal legal review of the wording.
+
+- The wheelhouse-embedded Debian source package (ADR-0005) is **PPA-only**. The
+  Debian/Ubuntu main archives need a source-policy exception and a Qt build
+  from source; do not propose it for those archives as-is.
+- Validate the generated `.dsc` on a real Launchpad PPA buildd for noble/amd64.
+  Local validation uses `unshare -rn` and cannot reproduce the buildd image
+  exactly. Signing and `dput` remain manual, explicitly authorized steps.
+- The source orig is about 84 MiB because PySide6 is already compressed. Watch
+  PPA quota and upload time when publishing a new version.
+- `packaging/build-deb.sh --wheelhouse DIR` does not work: the script exports
+  `ESWORD4LINUX_WHEELHOUSE`, while `debian/rules` reads the make variable
+  `WHEELHOUSE`. Use the default wheelhouse, or fix the script separately.
+- `--verify-build` reflects the working tree as-is: an unrelated uncommitted
+  icon change can fail `validate_runtime.py` even though the source package is
+  structurally valid. Validate the release from a clean tree.
+
 - Validate the native `.deb` in clean Ubuntu 24.04 LTS and Linux Mint 22.x VMs
   under both X11 and Wayland. The current build host validated X11 and Weston
   13 headless/kiosk Wayland.

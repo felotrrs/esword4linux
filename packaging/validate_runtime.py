@@ -140,8 +140,12 @@ def check_payload(root: Path, staging: dict) -> None:
     for path in required:
         if not path.is_file():
             fail(f"missing required payload: {path}")
-    if app_icon.read_bytes() != about_icon.read_bytes():
-        fail("application and About icons must be identical")
+    # The window/launcher icon and the illustrated About artwork are distinct
+    # by design. Requiring identical bytes was a regression from the discarded
+    # single-icon change; validate that both assets are real PNG images.
+    for icon in (app_icon, about_icon):
+        if not icon.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"):
+            fail(f"not a PNG image: {icon}")
 
     forbidden = [
         p for p in root.rglob("*")
