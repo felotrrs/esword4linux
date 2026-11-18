@@ -15,10 +15,9 @@ Open, known and non-blocking work. Roughly ordered by impact.
   the confirmed MPL-2.0 public-suffix component and LGPL-2.1-or-later KDE
   appmenu protocol are now declared, but a file-by-file review of the remaining
   Qt third-party components is still recommended.
-- The full Qt/PySide6 source archives are staged under
-  `dist/source-archives/` and the project-controlled GitHub Release is
-  `READY-PENDING-PUBLICATION`. No release or asset upload has occurred; see
-  `docs/licensing/source-release-manifest.md`.
+- The full Qt/PySide6 source archives are published in the project-controlled
+  GitHub Release `v0.5.0-lgpl-sources` and were round-trip verified on
+  2026-11-17. See `docs/licensing/source-release-manifest.md`.
 - The About dialog now shows the GPL-3.0 and Qt/PySide6 LGPL-3.0 notices with the
   GNU LGPL link and the installed compliance-document link. The remaining
   notice question is only the formal legal review of the wording.

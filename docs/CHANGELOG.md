@@ -19,8 +19,9 @@
 - The About dialog now displays the Qt/PySide6 LGPL-3.0 notice, the GNU LGPL
   link and the installed compliance-document path in Spanish and English.
 - Declared the confirmed MPL-2.0 public-suffix component and LGPL-2.1-or-later
-  Wayland protocol in `debian/copyright`, and prepared the Qt/PySide6 source
-  archive release manifest (publication pending authorization).
+  Wayland protocol in `debian/copyright`; published the Qt/PySide6 source
+  archives in the `v0.5.0-lgpl-sources` GitHub Release and verified the
+  round-trip hashes.
 - Adopted `packaging/runtime-manifest.yaml` as the shared runtime inventory for
   the `.deb`, the planned Flatpak and the future AppImage.
 - Removed the unused `libadwaita` Wayland decoration plugin after Weston

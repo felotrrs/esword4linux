@@ -229,8 +229,10 @@ def check_static_evidence() -> None:
         if line not in source_hashes:
             fail(f"source checksum manifest is missing: {line}")
     manifest = SOURCE_MANIFEST.read_text(encoding="utf-8")
-    for needle in ("READY-PENDING-PUBLICATION", "v0.5.0-lgpl-sources",
-                   "443,394,020", "18,211,772"):
+    for needle in ("`PUBLISHED`", "v0.5.0-lgpl-sources",
+                   "443,394,020", "18,211,772",
+                   "releases/download/v0.5.0-lgpl-sources/qt-everywhere-src-6.12.0.tar.xz",
+                   "releases/download/v0.5.0-lgpl-sources/pyside-setup-everywhere-src-6.12.0.tar.xz"):
         if needle not in manifest:
             fail(f"source release manifest is missing {needle}")
 

@@ -163,18 +163,23 @@ The exact source releases for the LGPL components are available from:
 - PyYAML 6.0.3 (MIT): `https://github.com/yaml/pyyaml`.
 
 The project has staged the full Qt and PySide6 archives locally under
-`dist/source-archives/` and prepared a GitHub Release manifest at
+`dist/source-archives/` and published the GitHub Release manifest at
 `docs/licensing/source-release-manifest.md`. Project-controlled hosting is
-**READY-PENDING-PUBLICATION**; the proposed URLs are:
+**PUBLISHED and round-trip verified** (2026-11-17):
 
 ```text
+https://github.com/felotrrs/esword4linux/releases/tag/v0.5.0-lgpl-sources
 https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/qt-everywhere-src-6.12.0.tar.xz
 https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/pyside-setup-everywhere-src-6.12.0.tar.xz
 ```
 
-Those assets are **not published yet**. Only after an authorized release and a
-download/hash verification may this document treat them as available. Until
-then, the upstream URLs above are the available source locations.
+Both assets were downloaded back from the release and their SHA-256 values
+matched the manifest exactly:
+
+```text
+98ff4f44bac6ec3e1e62ee2a4316ae0e3d15badb015d753cc0268a20db52f165  qt-everywhere-src-6.12.0.tar.xz
+099c1a597cf33c1b000e11cf68a0b82d216fb802bf81726efc720394f10c7751  pyside-setup-everywhere-src-6.12.0.tar.xz
+```
 
 The Debian source package includes the wheels and this documentation, but does
 **not** embed the Qt or PySide6 source archives. The distributor must keep the
@@ -208,9 +213,9 @@ for that product.
   present, but a file-by-file audit is still recommended.
 - Replacing files under `/opt` requires administrator privileges and local
   changes are overwritten by package upgrades.
-- Project-controlled source hosting is prepared but not published. The
-  `v0.5.0-lgpl-sources` release and its asset URLs must not be described as
-  available until an authorized upload and hash verification are complete.
+- Project-controlled source hosting is published and round-trip verified
+  (2026-11-17). The release assets must remain available for as long as the
+  binaries are distributed.
 - Replacement was not independently tested on a Wayland session; only X11/xcb
   was exercised.
 - This document does not replace review by qualified legal counsel.

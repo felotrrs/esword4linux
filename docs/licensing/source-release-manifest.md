@@ -1,8 +1,11 @@
-# Source archive release manifest — READY-PENDING-PUBLICATION
+# Source archive release manifest — PUBLISHED
 
 - **Prepared**: 2026-11-17
-- **Status**: `READY-PENDING-PUBLICATION`
-- **Published**: **NO** (no GitHub release, tag, upload or PPA operation has been performed)
+- **Status**: `PUBLISHED`
+- **Published**: **YES** — GitHub Release `v0.5.0-lgpl-sources`, tag on commit
+  `7ace0a24d4d69f938851c0b8bc0af3af001fffc5`
+- **Round-trip verification**: both assets downloaded from the live release and
+  SHA-256 checked on 2026-11-17
 - **Purpose**: durable, project-controlled availability of the LGPL
   Corresponding Source for the Qt/PySide6 binaries shipped by esword4linux
   0.5.0-1.
@@ -46,49 +49,44 @@ GitHub Releases permits 2 GiB per asset. The largest archive is 443,394,020
 bytes (≈423 MiB), so **both full archives fit**; no module-pruned replacement
 is required.
 
-## 3. Proposed project-controlled location
+## 3. Published project-controlled location
 
 - **Hosting**: GitHub Releases in `felotrrs/esword4linux`.
-- **Proposed tag**: `v0.5.0-lgpl-sources`
-- **Proposed asset URLs**:
+- **Tag**: `v0.5.0-lgpl-sources`
+- **Release page**:
+  `https://github.com/felotrrs/esword4linux/releases/tag/v0.5.0-lgpl-sources`
+- **Asset URLs**:
 
 ```text
 https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/qt-everywhere-src-6.12.0.tar.xz
 https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/pyside-setup-everywhere-src-6.12.0.tar.xz
 ```
 
-These URLs are **proposed**. They do not exist until an authorized release is
-created and the assets are uploaded and verified.
+Both assets were downloaded from these URLs after publication and matched the
+manifest hashes exactly.
 
-## 4. Publication procedure (not executed)
+## 4. Publication record
 
-Requires separate authorization. Do not run these commands as part of the
-audit.
+The release was created with:
 
 ```bash
-cd /mnt/StorageC/esword4linux
-sha256sum -c docs/licensing/source-archives.sha256 --ignore-missing
 gh release create v0.5.0-lgpl-sources \
   --title "LGPL corresponding source — Qt/PySide6 6.12.0" \
   --notes-file docs/licensing/source-release-notes.md \
+  --verify-tag \
   dist/source-archives/qt-everywhere-src-6.12.0.tar.xz \
   dist/source-archives/pyside-setup-everywhere-src-6.12.0.tar.xz
 ```
 
-After publication, an authorized reviewer must verify:
+Round-trip verification performed:
 
 ```bash
-curl -fsSL -o /tmp/qt-source.tar.xz \
-  https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/qt-everywhere-src-6.12.0.tar.xz
-sha256sum /tmp/qt-source.tar.xz
-curl -fsSL -o /tmp/pyside-source.tar.xz \
-  https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/pyside-setup-everywhere-src-6.12.0.tar.xz
-sha256sum /tmp/pyside-source.tar.xz
+gh release download v0.5.0-lgpl-sources --dir /tmp/opencode/phase352-download --clobber
+cd /tmp/opencode/phase352-download
+sha256sum -c /mnt/StorageC/esword4linux/docs/licensing/source-archives.sha256
 ```
 
-Only after those downloads and hashes match may the installed documentation
-reference the release URLs as available. Until then, the project-controlled
-availability status remains `PENDING-PUBLICATION`.
+Both checks succeeded. The release is not a draft and is not a pre-release.
 
 ## 5. Scope of the source correspondence
 

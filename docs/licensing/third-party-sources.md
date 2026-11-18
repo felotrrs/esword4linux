@@ -80,19 +80,18 @@ The current Debian source package:
 - **does not embed** the Qt or PySide6 source archives.
 
 The source package therefore relies on network availability of the official
-Qt/PySide source archives. The archives have been prepared locally under
-`dist/source-archives/` and a release manifest exists at
-`docs/licensing/source-release-manifest.md`. Their project-controlled GitHub
-Release publication is **READY-PENDING-PUBLICATION**: no tag, release asset or
-external upload exists yet. Until an authorized publication and download
-verification is completed, treat only the upstream URLs as available.
-
-Proposed asset names and locations (not yet published):
+Qt/PySide source archives. The archives have been published in a
+project-controlled GitHub Release and verified by round-trip download on
+2026-11-17:
 
 ```text
+https://github.com/felotrrs/esword4linux/releases/tag/v0.5.0-lgpl-sources
 https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/qt-everywhere-src-6.12.0.tar.xz
 https://github.com/felotrrs/esword4linux/releases/download/v0.5.0-lgpl-sources/pyside-setup-everywhere-src-6.12.0.tar.xz
 ```
+
+The release assets were downloaded back and matched the manifest exactly. The
+release manifest remains at `docs/licensing/source-release-manifest.md`.
 
 The Qt archive is 443,394,020 bytes (≈423 MiB), below GitHub's 2 GiB per-file
 limit; the PySide6 archive is 18,211,772 bytes. Both full upstream archives are

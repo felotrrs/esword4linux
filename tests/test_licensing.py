@@ -30,14 +30,23 @@ def test_copyright_covers_wheelhouse_and_sources():
     assert "License: LGPL-2.1-or-later" in text
 
 
-def test_source_release_manifest_is_prepared_not_published():
+def test_source_release_manifest_is_published_and_verified():
     manifest = (ROOT / "docs" / "licensing" / "source-release-manifest.md").read_text(
         encoding="utf-8"
     )
-    assert "READY-PENDING-PUBLICATION" in manifest
+    assert "`PUBLISHED`" in manifest
     assert "v0.5.0-lgpl-sources" in manifest
     assert "443,394,020" in manifest
     assert "18,211,772" in manifest
+    assert "round-trip" in manifest.lower()
+    assert (
+        "releases/download/v0.5.0-lgpl-sources/qt-everywhere-src-6.12.0.tar.xz"
+        in manifest
+    )
+    assert (
+        "releases/download/v0.5.0-lgpl-sources/pyside-setup-everywhere-src-6.12.0.tar.xz"
+        in manifest
+    )
     hashes = (ROOT / "docs" / "licensing" / "source-archives.sha256").read_text(
         encoding="utf-8"
     )

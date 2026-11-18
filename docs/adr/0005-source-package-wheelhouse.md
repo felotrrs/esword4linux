@@ -103,7 +103,7 @@ from-source Qt/PySide6 rebuild test is still required before claiming
 verified compliance. Do not describe the embedded wheelhouse as sufficient
 Corresponding Source.
 
-The full source archives are staged under `dist/source-archives/` and a
-project-controlled GitHub Release is prepared but **not published**; see
-`docs/licensing/source-release-manifest.md`. Until an authorized upload and
-download-hash verification occur, only the upstream URLs are available.
+The full source archives are staged under `dist/source-archives/` and published
+in the project-controlled GitHub Release `v0.5.0-lgpl-sources`; the assets were
+downloaded back and hash-verified. See
+`docs/licensing/source-release-manifest.md` for the release URLs and hashes.
