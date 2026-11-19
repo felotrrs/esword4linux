@@ -129,10 +129,9 @@ class MainWindow(QMainWindow):
         split.setChildrenCollapsible(False)
         split.setStretchFactor(0, 0)
         split.setStretchFactor(1, 1)
-        split.setSizes([290, 1110])
         self._split = split
         self.setCentralWidget(split)
-        self._apply_sidebar_constraints(self.settings.sidebar_visible)
+        self._apply_sidebar_sizes(self.settings.sidebar_visible)
 
         self.lbl_status = QLabel("")
         self.progress = QProgressBar()
@@ -172,7 +171,25 @@ class MainWindow(QMainWindow):
             self.sidebar_dock.setMaximumWidth(16777215)
         else:
             self.sidebar_dock.setMinimumWidth(SIDEBAR_HANDLE_WIDTH)
-            self.sidebar_dock.setMaximumWidth(16)
+            self.sidebar_dock.setMaximumWidth(SIDEBAR_HANDLE_WIDTH + 1)
+
+    def _apply_sidebar_sizes(self, visible: bool) -> None:
+        """Dock constraints and splitter sizes from a single source.
+
+        The splitter keeps its own copy of the sizes. Shrinking the dock with a
+        maximum width alone leaves the splitter reserving the previous width,
+        and an empty band appears where the sidebar used to be.
+        """
+        total = max(self._split.width(), self.width(), 400)
+        self._apply_sidebar_constraints(visible)
+        if visible:
+            width = min(
+                self._sidebar_width or 290,
+                max(SIDEBAR_MIN_WIDTH, total - 240),
+            )
+        else:
+            width = SIDEBAR_HANDLE_WIDTH
+        self._split.setSizes([width, max(240, total - width)])
 
     def _apply_tab_palette(self) -> None:
         bar = self.tabs.tabBar()
@@ -388,20 +405,15 @@ class MainWindow(QMainWindow):
 
     def toggle_sidebar(self) -> None:
         visible = not self.sidebar.isVisible()
-        sizes = self._split.sizes()
-        total = max(sum(sizes), 400)
-        self._apply_sidebar_constraints(visible)
-        if visible:
-            self.sidebar.show()
-            width = min(
-                self._sidebar_width or 290,
-                max(SIDEBAR_MIN_WIDTH, total - 240),
+        if not visible:
+            # Capture the real dock width before it is clamped.
+            self._sidebar_width = max(
+                SIDEBAR_MIN_WIDTH,
+                self.sidebar_dock.width() - SIDEBAR_HANDLE_WIDTH,
             )
-            self._split.setSizes([width, max(240, total - width)])
-        else:
-            self._sidebar_width = max(SIDEBAR_MIN_WIDTH, self.sidebar.width())
-            self.sidebar.hide()
-            self._split.setSizes([SIDEBAR_HANDLE_WIDTH, max(240, total - SIDEBAR_HANDLE_WIDTH)])
+        # Hiding first releases the sidebar's own minimum width.
+        self.sidebar.setVisible(visible)
+        self._apply_sidebar_sizes(visible)
         self.sidebar_handle.setText("‹" if visible else "›")
         self.sidebar_handle.setToolTip(
             tr("sidebar.hide" if visible else "sidebar.show") + "  (Ctrl+B)"

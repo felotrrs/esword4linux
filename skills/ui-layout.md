@@ -21,15 +21,15 @@ QMainWindow
 ```
 
 A **Workspace** is a view-tab: it groups one main resource and, if that
-resource is a Bible, its own parallel Bible and its own commentary.
+resource is a Bible, its own comparison table and its own commentary.
 
 ```
 Workspace
 └── QStackedWidget
     ├── BiblePane                    (if the main resource is a Bible)
-    │   ├── toolbar  (translation · book · chapter · parallel · commentary)
+    │   ├── toolbar  (translation · book · chapter · parallel · add · commentary)
     │   └── QSplitter(Vertical)
-    │       ├── QSplitter(Horizontal)  main | parallel
+    │       ├── QStackedWidget         reading | citations | comparison
     │       └── CommentaryPane         (bottom, ~28 %)
     └── LibraryView                  (any other type)
 ```
@@ -42,9 +42,11 @@ Workspace
    (`＋`, `Ctrl+T`).
 2. **One tab = one group.** Changing the resource inside a tab replaces its
    main resource; it does not accumulate materials.
-3. **Parallel Bible and commentary only exist in Bible mode.** If the main
+3. **Comparison table and commentary only exist in Bible mode.** If the main
    resource is not a Bible, `Workspace` shows `LibraryView` and the Bible
-   toolbar disappears. There is no "parallel dictionary view".
+   toolbar disappears. There is no "comparison dictionary view". The
+   **Vista paralela** checkbox opens the verse-aligned table of installed
+   translations; it does not open a second chapter pane.
 4. **`FIXED_TABS = 1`.** The *Search* tab cannot be closed (its button is
    removed with `setTabButton(0, RightSide, None)`). Do not reorder that
    assumption: if the number changes, review `_close_tab()`.
@@ -69,7 +71,7 @@ Workspace
   (`color_dot`).
 - Workspace tab context menu: **Rename**, **Color**, **Close**.
 - State (`name`, `color`, `main_rel`, `parallel`, `parallel_rel`,
-  `commentary`, `commentary_rel`, `split`) is persisted in
+  `compare_columns`, `commentary`, `commentary_rel`, `split`) is persisted in
   `Settings.workspaces` and restored by `_restore_state()`.
 
 ## Menus and preferences
@@ -95,9 +97,20 @@ Workspace
 - Hidden with **View → Resource panel** (Ctrl+B) or the ☰ button in the tab
   corner; the state is stored in `Settings.sidebar_visible`.
 - With the panel **visible**, the `QSplitter` is not collapsible and the dock
-  has a minimum of `SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH` (240 + 15 px).
+  has a minimum of `SIDEBAR_MIN_WIDTH + SIDEBAR_HANDLE_WIDTH` (200 + 15 px).
   Dragging the divider never makes it disappear; when hidden, only the 15 px
   handle remains.
+- **`_apply_sidebar_sizes(visible)` is the only place that sizes the band.**
+  It applies the dock constraints *and* the splitter sizes together, because
+  the `QSplitter` keeps its own copy: clamping the dock with a maximum width
+  alone leaves the splitter reserving the old width and an empty band appears
+  where the panel used to be (it happened after reopening the app with the
+  panel collapsed).
+- The toolbar of a Bible workspace lives inside a `QScrollArea` (horizontal
+  scroll only). Its controls demand ~975 px; without the wrapper that became
+  the **window's** minimum width, and a window manager disables *maximise*
+  when the minimum exceeds the usable screen width. The window minimum must
+  stay below ~800 px with the panel shown or hidden.
 - The "type" and "language" filter buttons are adjacent and left-aligned: do
   not insert a `stretch` between them.
 
@@ -114,17 +127,46 @@ Workspace
   margins come from the QSS padding (`8px 18px`). The old side `stretch`
   widgets were removed because they left ~17 % of the width unused.
 - **Translation combo** (`fill_bible_combo`): drop-down grouped by language and
-  sorted by abbreviation/title. It preserves the selection by `rel_path`; the
-  parallel view combo uses the same grouping and is hidden when the parallel
-  pane is unchecked.
+  sorted by abbreviation/title. It preserves the selection by `rel_path`.
+- **Comparison table** (`CompareView`): the *Vista paralela* checkbox shows a
+  verse-aligned table of installed translations. The chapter name and
+  **Agregar versión +** live in their own top strip (`#cmpTop`, page
+  background) above the tinted header strip, so the table header reads as such.
+  The first column is the locked main translation: the accent-coloured caption
+  over a tinted cell marks it, and it only follows the *Traducción* combo.
+  Additional columns use a flat inline `BibleComboBox` that fills the column
+  and shows the full `ABBR — Título` caption (elided if the column is narrow,
+  full title and language in the tooltip). It only becomes a bounded field on
+  hover or focus, plus a muted `✕` that turns red on hover. The dropdown is
+  independent of the column width (`view().setMinimumWidth`), so names are
+  readable; its rows are normal weight and its language headings stay bold.
+  **Agregar versión** creates a local draft header until a version is chosen
+  and scrolls the table to the new right-most column first, so the column and
+  its menu are never off-screen.
+  The header is the **column model**: `column_metrics()` returns the pixel
+  width of every column and both the native header cells and the `QTextTable`
+  consume it, so a caption always sits exactly over its column — with one
+  version or with twenty. The body starts at the browser's left edge
+  (`QTextBrowser#cmpBrowser` has no padding, no frame and no document margin)
+  and the strip is clipped to the viewport width, so the vertical scrollbar
+  cannot desync it. **The two header bands are free children of `CompareView`,
+  positioned by `_place_bands()`, not layout items**: a layout item with a
+  fixed width turns that width into the minimum of the whole view, and the
+  viewport width depends on the view width, so the view could never get
+  narrower than itself (the window grew on every sidebar toggle).
+  Below `MIN_VERSION_WIDTH` (200 px) per version the table scrolls horizontally
+  and the header track follows the scrollbar.
+  The table uses `core.compare_reader.build_compare_table()` and never runs
+  SQLite queries from the widget. `compare_columns` is persisted per
+  workspace.
 - **Citation box** (`src/esword4linux/core/refchain.py` +
   `src/esword4linux/ui/citation_pane.py`): accepts
   `Gen 23:1-6, 2:5-7; Mark 2:1; John 3:16`, inherits book/chapter and
   **replaces the main view** with the collection grouped by chapter. The ↩
   button returns to the chapter. Book, chapter and ◀ ▶ arrows always remain
   visible in citation mode: hiding them left the bar with no way back to normal
-  navigation. The parallel view shows the same collection in the secondary
-  translation.
+  navigation. Leaving citation mode returns to the comparison table if the
+  parallel view is still checked.
 - The bar uses no vertical chapter arrows: the chapter is editable without
   buttons and navigated with ◀ ▶.
 
@@ -142,6 +184,19 @@ Workspace
 
 - `isVisible()` is **false** while the window has not been shown yet: do not
   use it to decide whether to render. Use the toggle state instead.
+- A `QSplitter` keeps its **own copy** of the sizes. Resizing one of its
+  children (e.g. `setMaximumWidth`) does not update that copy: call
+  `setSizes()` again or the splitter will keep reserving the old space and an
+  empty band will be painted.
+- A wide child (a toolbar with many controls) raises the **window's** minimum
+  width, and window managers hide the *maximise* button when that minimum
+  exceeds the usable screen. Wrap such a bar in a horizontal `QScrollArea`.
+- A layout item with a **fixed width** turns that width into the layout's
+  minimum. If the width is derived from the viewport, the dependency is
+  circular and the view can never shrink (the window grows on every toggle).
+  Size such an item by hand as a free child, never through the layout.
+- Giving a widget **its own layout** while it is already a layout item takes
+  it out of the parent layout: it becomes a free child with its default size.
 - `QTextDocument` ignores inline `color` on `<a>`: use `<font color>` inside.
 - A `QLabel` with `wordWrap` inside a `QSplitter` does not calculate its height
   correctly.

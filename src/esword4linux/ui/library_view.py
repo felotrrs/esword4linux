@@ -235,9 +235,8 @@ class LibraryView(QWidget):
         self.split.addWidget(self.right_split)
         self.split.setStretchFactor(0, 0)
         self.split.setStretchFactor(1, 1)
-        width = max(LIST_MIN_WIDTH, int(self.settings.library_list_width or 300))
-        self.split.setSizes([width + HANDLE_WIDTH, 700])
         self._apply_list_constraints(self.settings.library_list_visible)
+        self._apply_list_sizes(self.settings.library_list_visible)
         self._update_handle()
         layout.addWidget(self.split, 1)
 
@@ -298,7 +297,31 @@ class LibraryView(QWidget):
         else:
             self.left.hide()
             self.left_dock.setMinimumWidth(HANDLE_WIDTH)
-            self.left_dock.setMaximumWidth(16)
+            self.left_dock.setMaximumWidth(HANDLE_WIDTH + 1)
+
+    def _apply_list_sizes(self, visible: bool) -> None:
+        """Splitter sizes matched to the panel visibility from one place.
+
+        The splitter keeps its own copy of the sizes: clamping the dock without
+        calling ``setSizes`` again leaves an empty band where the list was.
+        """
+        if visible:
+            total = max(
+                self.width(), LIST_MIN_WIDTH + DETAIL_MIN_WIDTH + HANDLE_WIDTH
+            )
+            width = min(
+                max(LIST_MIN_WIDTH, int(self.settings.library_list_width or 300)),
+                max(LIST_MIN_WIDTH, total - DETAIL_MIN_WIDTH - HANDLE_WIDTH),
+            )
+            self.split.setSizes([
+                width + HANDLE_WIDTH,
+                max(DETAIL_MIN_WIDTH, total - width - HANDLE_WIDTH),
+            ])
+        else:
+            self.split.setSizes([
+                HANDLE_WIDTH,
+                max(DETAIL_MIN_WIDTH, self.width() - HANDLE_WIDTH),
+            ])
 
     def _update_handle(self) -> None:
         visible = self.settings.library_list_visible
@@ -312,15 +335,7 @@ class LibraryView(QWidget):
         if not visible and self.left.isVisible():
             self.settings.library_list_width = max(LIST_MIN_WIDTH, self.left.width())
         self._apply_list_constraints(visible)
-        if visible:
-            total = max(self.width(), LIST_MIN_WIDTH + DETAIL_MIN_WIDTH + HANDLE_WIDTH)
-            width = min(
-                max(LIST_MIN_WIDTH, int(self.settings.library_list_width or 300)),
-                max(LIST_MIN_WIDTH, total - DETAIL_MIN_WIDTH - HANDLE_WIDTH),
-            )
-            self.split.setSizes([width + HANDLE_WIDTH, max(DETAIL_MIN_WIDTH, total - width - HANDLE_WIDTH)])
-        else:
-            self.split.setSizes([HANDLE_WIDTH, max(DETAIL_MIN_WIDTH, self.width() - HANDLE_WIDTH)])
+        self._apply_list_sizes(visible)
         self.settings.library_list_visible = visible
         self.settings.save()
         self._update_handle()

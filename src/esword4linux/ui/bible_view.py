@@ -1,4 +1,4 @@
-"""Bible view: navigation, parallel translation and stacked bottom panel.
+"""Bible view: navigation, multi-version comparison and stacked bottom panel.
 
 The bottom panel switches between **Commentary** and **Strong**. Text markers
 (notes `(B)` and numbers `G2316`) are links with a bubble:
@@ -16,25 +16,27 @@ import re
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import (
-    QAction, QGuiApplication, QIntValidator, QStandardItem, QStandardItemModel,
+    QAction, QCursor, QGuiApplication, QIntValidator,
 )
 from PySide6.QtWidgets import (
-    QButtonGroup, QCheckBox, QComboBox, QCompleter, QHBoxLayout, QLabel,
-    QLineEdit, QMenu, QPushButton, QSplitter, QStackedWidget, QToolButton,
-    QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
+    QLineEdit, QMenu, QPushButton, QScrollArea, QSizePolicy, QSplitter,
+    QStackedWidget, QToolButton, QToolTip, QVBoxLayout, QWidget,
 )
 
 from ..core.books import Reference, book_name, parse_reference
 from ..core.commentary import best_commentary
-from ..core.refchain import parse_reference_chain
+from ..core.compare_reader import build_compare_table
 from ..core.context import AppContext
+from ..core.refchain import parse_reference_chain
 from ..core.text import snippet, to_plain, to_rich
 from ..i18n import tr
+from .bible_combo import fill_bible_combo
 from .citation_pane import CitationPane
 from .commentary_pane import CommentaryPane
+from .compare_view import CompareView
 from .rich_browser import RichBrowser
 from .strong_pane import StrongPane
-from .language import language_label, language_sort_key
 from .theme import document_css_for, palette
 
 _STRONG_COLOR = "#8f6bc4"
@@ -45,69 +47,6 @@ _STRONG_IN_TEXT = re.compile(r"\b([GH]\d{1,5})\b")
 _REF_A_RE = re.compile(r'<a href="ref:([^"]+)">')
 
 
-def fill_bible_combo(combo: QComboBox, bibles: list[dict], current_rel: str,
-                     *, editable: bool = True) -> None:
-    """Fill a Bible combo grouped by language (optionally editable)."""
-    combo.blockSignals(True)
-    model = QStandardItemModel(combo)
-    grouped: dict[str, list[dict]] = {}
-    for mod in bibles:
-        grouped.setdefault(mod.get("language") or "und", []).append(mod)
-
-    first_selectable = -1
-    for code in sorted(grouped, key=language_sort_key):
-        items = grouped[code]
-        header = QStandardItem(f"— {language_label(code)} ({len(items)}) —")
-        header.setEnabled(False)
-        header.setSelectable(False)
-        header.setData(None, Qt.UserRole)
-        font = header.font()
-        font.setBold(True)
-        header.setFont(font)
-        model.appendRow(header)
-        for mod in sorted(
-            items,
-            key=lambda m: ((m.get("abbreviation") or "").lower(),
-                           (m.get("title") or "").lower()),
-        ):
-            label = (
-                f"{mod['abbreviation']} — {mod['title']}"
-                if mod.get("abbreviation") else (mod.get("title") or "")
-            )
-            item = QStandardItem(label[:110])
-            item.setData(mod["rel_path"], Qt.UserRole)
-            item.setToolTip(
-                f"{mod.get('title') or ''}\n{language_label(code)}"
-            )
-            model.appendRow(item)
-            if first_selectable < 0:
-                first_selectable = model.rowCount() - 1
-
-    combo.setModel(model)
-    combo.setEditable(editable)
-    combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-    combo.setMaxVisibleItems(20)
-    combo.setSizeAdjustPolicy(
-        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
-    )
-    combo.setMinimumContentsLength(18)
-    combo.setMaximumWidth(320)
-    if editable:
-        completer = QCompleter(model, combo)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setFilterMode(Qt.MatchContains)
-        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-        combo.setCompleter(completer)
-    idx = combo.findData(current_rel)
-    if idx < 0:
-        idx = first_selectable
-    if idx >= 0:
-        combo.setCurrentIndex(idx)
-    if editable and combo.lineEdit() is not None:
-        # With a long title, QLineEdit leaves the cursor at the end and it
-        # looks as if the translation starts with "...titles, notes...".
-        combo.lineEdit().setCursorPosition(0)
-    combo.blockSignals(False)
 
 
 class BiblePane(QWidget):
@@ -123,7 +62,9 @@ class BiblePane(QWidget):
         self._loading = False
         self._current = Reference(1, 1, None)
         self._main_rel = ""
-        self._secondary_rel = ""
+        self._compare_columns: list[str] = []
+        self._compare_columns_initialized = False
+        self._compare_notice_names: list[str] = []
         self._sizes_applied = False
         self._comments_cache: dict[tuple, dict] = {}
         self._chapter_max = 200
@@ -144,30 +85,32 @@ class BiblePane(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._build_toolbar())
+        layout.addWidget(self._wrap_toolbar(self._build_toolbar()))
 
         self.vsplit = QSplitter(Qt.Vertical)
-        self.hsplit = QSplitter(Qt.Horizontal)
         self.primary = self._make_browser()
-        self.second = self._make_browser()
         self.primary_host = self._center(self.primary)
-        self.second_host = self._center(self.second)
         self.citations = CitationPane(self.ctx)
         self.citations.btn_hide.hide()
         self.citations.open_reference.connect(self._open_citation_reference)
-        self.citations_second = CitationPane(self.ctx)
-        self.citations_second.btn_hide.hide()
-        self.citations_second.open_reference.connect(self._open_citation_reference)
+        self.compare_view = CompareView(
+            self.settings, resolver=self._resolve_tooltip
+        )
+        self.compare_view.remove_requested.connect(self._remove_compare_column)
+        self.compare_view.verse_clicked.connect(self._select_compare_verse)
+        self.compare_view.add_requested.connect(
+            self._begin_add_compare_column
+        )
+        self.compare_view.column_changed.connect(
+            self._apply_compare_pick
+        )
+        self.compare_view.browser.anchorClicked.connect(
+            self._on_compare_anchor
+        )
         self.primary_stack = QStackedWidget()
         self.primary_stack.addWidget(self.primary_host)
         self.primary_stack.addWidget(self.citations)
-        self.second_stack = QStackedWidget()
-        self.second_stack.addWidget(self.second_host)
-        self.second_stack.addWidget(self.citations_second)
-        self.hsplit.addWidget(self.primary_stack)
-        self.hsplit.addWidget(self.second_stack)
-        self.host_second = self.second_stack
-        self.host_second.hide()
+        self.primary_stack.addWidget(self.compare_view)
 
         self.commentary = CommentaryPane(self.ctx)
         self.commentary.open_module.connect(self.open_module)
@@ -181,7 +124,7 @@ class BiblePane(QWidget):
         self.bottom.addWidget(self.commentary)
         self.bottom.addWidget(self.strong)
 
-        self.vsplit.addWidget(self.hsplit)
+        self.vsplit.addWidget(self.primary_stack)
         self.vsplit.addWidget(self.bottom)
         self.vsplit.setStretchFactor(0, 4)
         self.vsplit.setStretchFactor(1, 1)
@@ -192,6 +135,31 @@ class BiblePane(QWidget):
                               else "commentary",
                               show=self.settings.show_commentary_inline)
 
+    def _wrap_toolbar(self, bar: QWidget) -> QScrollArea:
+        """Keep the toolbar from dictating the window's minimum width.
+
+        The bar has many controls and a rigid ~975 px minimum. Inside a
+        layout that minimum becomes the window's minimum, and a window manager
+        disables *maximise* when it exceeds the usable screen width. A
+        horizontal scroller keeps the bar reachable on narrow windows without
+        touching the window's geometry.
+        """
+        scroll = QScrollArea()
+        scroll.setObjectName("bibleBarScroll")
+        scroll.setWidget(bar)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        return scroll
+
     def _build_toolbar(self) -> QWidget:
         bar = QWidget()
         row = QHBoxLayout(bar)
@@ -201,13 +169,13 @@ class BiblePane(QWidget):
         self.lbl_translation = QLabel(tr("bible.translation"))
         row.addWidget(self.lbl_translation)
         self.translation = QComboBox()
-        self.translation.setMinimumWidth(200)
+        self.translation.setMinimumWidth(110)
         self.translation.setToolTip(tr("bible.translation_help"))
         self.translation.currentIndexChanged.connect(self._on_translation)
         row.addWidget(self.translation)
 
         self.citation_input = QLineEdit()
-        self.citation_input.setMinimumWidth(220)
+        self.citation_input.setMinimumWidth(60)
         self.citation_input.setMaximumWidth(360)
         self.citation_input.setPlaceholderText(tr("bible.citation_placeholder"))
         self.citation_input.setToolTip(tr("bible.citation_help"))
@@ -224,7 +192,7 @@ class BiblePane(QWidget):
 
         row.addSpacing(8)
         self.book = QComboBox()
-        self.book.setMinimumWidth(140)
+        self.book.setMinimumWidth(85)
         self.book.setToolTip(tr("bible.book_help"))
         self.book.currentIndexChanged.connect(self._on_book)
         row.addWidget(self.book)
@@ -254,12 +222,10 @@ class BiblePane(QWidget):
         self.parallel.setToolTip(tr("bible.parallel_help"))
         self.parallel.toggled.connect(self._on_parallel)
         row.addWidget(self.parallel)
-        self.secondary = QComboBox()
-        self.secondary.setMinimumWidth(150)
-        self.secondary.setToolTip(tr("bible.parallel_help"))
-        self.secondary.currentIndexChanged.connect(self._on_secondary)
-        self.secondary.setVisible(self.parallel.isChecked())
-        row.addWidget(self.secondary)
+        self.compare_notice = QLabel("")
+        self.compare_notice.setObjectName("matchBadge")
+        self.compare_notice.hide()
+        row.addWidget(self.compare_notice)
 
         row.addStretch(1)
 
@@ -360,20 +326,86 @@ class BiblePane(QWidget):
             self._main_rel or self.settings.bible_module,
             editable=False,
         )
-        primary_rel = self.translation.currentData()
-        previous_secondary = self._secondary_rel or ""
-        default_secondary = previous_secondary
-        if not default_secondary:
-            candidates = [m for m in bibles if m["rel_path"] != primary_rel]
-            if candidates:
-                default_secondary = max(candidates, key=lambda m: m["entries"] or 0)["rel_path"]
-        fill_bible_combo(self.secondary, bibles, default_secondary, editable=False)
-        self._secondary_rel = self.secondary.currentData() or ""
         self._loading = False
         self._main_rel = self.translation.currentData() or ""
+        self._sync_compare_columns(bibles)
         self._rebuild_books()
         self._apply_commentary_match()
         self.navigate(self._current)
+
+    def _column_label(self, rel: str) -> str:
+        row = self.ctx.catalog.by_rel_path(rel)
+        if row:
+            name = row.get("abbreviation") or row.get("title") or rel
+            if name != rel:
+                return f"{name} ({rel})"
+        return rel
+
+    def _show_compare_notice(self, names: list[str]) -> None:
+        self._compare_notice_names = list(names)
+        if not names:
+            self.compare_notice.hide()
+            self.compare_notice.setText("")
+            self.compare_notice.setToolTip("")
+            return
+        self.compare_notice.setText(
+            tr("compare.columns_unavailable_short", n=len(names))
+        )
+        self.compare_notice.setToolTip(
+            tr("compare.columns_unavailable", names=", ".join(names))
+        )
+        self.compare_notice.show()
+
+    def _ensure_main_column(self) -> None:
+        """The active translation is always column 0 and is never removable."""
+        if not self._main_rel:
+            return
+        old_main = self._compare_columns[0] if self._compare_columns else ""
+        rest = [
+            rel for rel in self._compare_columns
+            if rel not in (self._main_rel, old_main)
+        ]
+        self._compare_columns = [self._main_rel] + rest
+
+    def _sync_compare_columns(self, bibles: list[dict]) -> None:
+        """Drop removed modules and choose a sensible default on first use."""
+        valid = {m["rel_path"] for m in bibles}
+        filtered: list[str] = []
+        dropped: list[str] = []
+        for rel in self._compare_columns:
+            if rel in valid:
+                if rel not in filtered:
+                    filtered.append(rel)
+            else:
+                dropped.append(self._column_label(rel))
+        self._compare_columns = filtered
+
+        if dropped:
+            self._show_compare_notice(dropped)
+
+        if self._compare_columns_initialized:
+            self._ensure_main_column()
+            return
+
+        columns: list[str] = []
+        if self._main_rel and self._main_rel in valid:
+            columns.append(self._main_rel)
+
+        preferred = self.settings.secondary_bible
+        if preferred and preferred in valid and preferred not in columns:
+            columns.append(preferred)
+        else:
+            candidates = [
+                m for m in bibles
+                if m["rel_path"] not in columns
+            ]
+            if candidates:
+                columns.append(
+                    max(candidates, key=lambda m: m["entries"] or 0)["rel_path"]
+                )
+        self._compare_columns = columns
+        self._compare_columns_initialized = True
+        self._ensure_main_column()
 
     def load_module(self, row: dict) -> None:
         self._loading = True
@@ -383,6 +415,7 @@ class BiblePane(QWidget):
             self.translation.setCurrentIndex(idx)
         self._loading = False
         self._main_rel = row["rel_path"]
+        self._ensure_main_column()
         self.ctx.refs.set_bible(self._main_rel)
         self._rebuild_books()
         self._apply_commentary_match()
@@ -540,24 +573,21 @@ class BiblePane(QWidget):
             return
         self._current = Reference(int(book_id), int(chapter), anchor)
         label = self._current.label(self.settings.locale)
-        chapter_label = f"{book_name(int(book_id), self.settings.locale)} {int(chapter)}"
         self.primary.document().setDefaultStyleSheet(self._css())
-        self.second.document().setDefaultStyleSheet(self._css())
         self.primary.setHtml(self._render_chapter(mod, int(book_id), int(chapter)))
         self.primary.clear_cache()
 
         if self.parallel.isChecked():
-            srow = self.ctx.catalog.by_rel_path(self.secondary.currentData() or "")
-            smod = self.ctx.module(srow) if srow else None
-            if smod:
-                if self._citation_mode and self.citations._refs:
-                    self.citations_second.show_chain(self.citations._refs, smod)
-                    self.second_stack.setCurrentWidget(self.citations_second)
-                else:
-                    self.second.setHtml(
-                        self._render_chapter(smod, int(book_id), int(chapter))
-                    )
-                    self.second_stack.setCurrentWidget(self.second_host)
+            build = build_compare_table(
+                self.ctx,
+                self._compare_columns,
+                int(book_id),
+                int(chapter),
+            )
+            self.compare_view.browser.bible_rel = self._main_rel or None
+            self.compare_view.set_build(
+                build, bibles=self.ctx.bibles()
+            )
 
         if self.bottom.isVisible():
             if self.bottom.currentWidget() is self.commentary:
@@ -568,7 +598,15 @@ class BiblePane(QWidget):
         if self._citation_mode and self.citations._refs:
             self.citations.show_chain(self.citations._refs, mod)
             self.primary_stack.setCurrentWidget(self.citations)
-        if anchor:
+        elif self.parallel.isChecked():
+            self.primary_stack.setCurrentWidget(self.compare_view)
+        else:
+            self.primary_stack.setCurrentWidget(self.primary_host)
+
+        if self.parallel.isChecked() and not self._citation_mode:
+            if anchor:
+                self.compare_view.scroll_to_verse(anchor)
+        elif anchor:
             self.primary.scrollToAnchor(f"v{anchor}")
         else:
             self.primary.verticalScrollBar().setValue(0)
@@ -691,7 +729,7 @@ class BiblePane(QWidget):
         scroll = self.primary.verticalScrollBar().value()
         self.commentary.browser.clear_cache()
         self.primary.clear_cache()
-        self.second.clear_cache()
+        self.compare_view.browser.clear_cache()
         if self._current.book and self._current.chapter:
             self.reload()
             self.primary.verticalScrollBar().setValue(scroll)
@@ -708,8 +746,10 @@ class BiblePane(QWidget):
         # switch are enough for citation mode.
         self.btn_citation_back.setVisible(active)
         if not active:
-            self.primary_stack.setCurrentWidget(self.primary_host)
-            self.second_stack.setCurrentWidget(self.second_host)
+            self.primary_stack.setCurrentWidget(
+                self.compare_view if self.parallel.isChecked()
+                else self.primary_host
+            )
 
     def _exit_citation_mode(self) -> None:
         if getattr(self, "_citation_mode", False):
@@ -768,6 +808,7 @@ class BiblePane(QWidget):
         rel = self.translation.currentData()
         if rel:
             self._main_rel = rel
+            self._ensure_main_column()
             self.settings.bible_module = rel
             self.ctx.refs.set_bible(rel)
             self.main_changed.emit(rel)
@@ -800,23 +841,110 @@ class BiblePane(QWidget):
         self.reload()
 
     def _on_parallel(self, checked: bool) -> None:
-        self.host_second.setVisible(checked)
-        self.secondary.setVisible(checked)
         if checked:
+            self._exit_citation_mode()
+            if not self._compare_columns_initialized:
+                self._sync_compare_columns(self.ctx.bibles())
+        self.reload()
+
+    def _begin_add_compare_column(self) -> None:
+        used = set(self._compare_columns)
+        if not any(
+            mod["rel_path"] not in used for mod in self.ctx.bibles()
+        ):
+            QToolTip.showText(QCursor.pos(), tr("compare.all_added"))
+            return
+        self.compare_view.begin_add()
+
+    def _apply_compare_pick(self, index: int, rel: str) -> None:
+        row = self.ctx.catalog.by_rel_path(rel)
+        if row is None or row.get("kind") != "bible":
+            return
+
+        build = self.compare_view.current_build()
+        table = build.table if build is not None else None
+        columns = table.columns if table is not None else ()
+        draft_index = len(columns) if table is not None else 0
+        if table is not None and index == 0:
+            return
+
+        if index < len(columns):
+            old = columns[index].column.key
+            if rel == old:
+                self.compare_view.cancel_draft()
+                return
+            if rel in self._compare_columns:
+                return
+            try:
+                position = self._compare_columns.index(old)
+            except ValueError:
+                return
+            self._compare_columns[position] = rel
+        elif self.compare_view.has_draft() and index == draft_index:
+            if rel in self._compare_columns:
+                return
+            self._compare_columns.append(rel)
+        else:
+            return
+
+        self._compare_columns_initialized = True
+        self.compare_view.cancel_draft()
+        self.reload()
+
+    def _remove_compare_column(self, index: int) -> None:
+        build = self.compare_view.current_build()
+        table = build.table if build is not None else None
+        if table is not None and index == 0:
+            return
+        if (self.compare_view.has_draft()
+                and index == (len(table.columns) if table is not None else 0)):
+            self.compare_view.cancel_draft()
+            return
+        if table is not None and 0 <= index < len(table.columns):
+            rel = table.columns[index].column.key
+        elif 0 <= index < len(self._compare_columns):
+            rel = self._compare_columns[index]
+        else:
+            return
+        if rel in self._compare_columns:
+            self._compare_columns.remove(rel)
+            self._compare_columns_initialized = True
             self.reload()
 
-    def _on_secondary(self, _index: int) -> None:
-        self._secondary_rel = self.secondary.currentData() or ""
-        if self.parallel.isChecked():
-            self.reload()
+    def _select_compare_verse(self, verse: int) -> None:
+        if not verse:
+            return
+        self._current = Reference(
+            self._current.book, self._current.chapter, verse
+        )
+        if (self.bottom.isVisible()
+                and self.bottom.currentWidget() is self.commentary):
+            self.commentary.scroll_to_verse(verse)
+        self.reference_changed.emit(self._current.label(self.settings.locale))
 
     def _search_selection(self) -> None:
-        browser = self.citations.browser if self._citation_mode else self.primary
+        if self._citation_mode:
+            browser = self.citations.browser
+        elif self.parallel.isChecked():
+            browser = self.compare_view.browser
+        else:
+            browser = self.primary
         text = browser.textCursor().selectedText().strip()
         if not text:
             text = self._current.label(self.settings.locale)
         if text:
             self.search_requested.emit(text)
+
+    def _on_compare_anchor(self, url) -> None:
+        """Reuse the traditional handlers for ref/strong links only.
+
+        Notes are deliberately not routed from the comparison table: there is
+        no per-column commentary selection, so a note cannot be resolved
+        safely. ``cmp-*`` anchors belong to ``CompareView``.
+        """
+        text = url.toString()
+        if text.startswith(("ref:", "strong:")):
+            self._on_anchor(url)
 
     def _on_anchor(self, url) -> None:
         scheme = url.scheme()
@@ -887,14 +1015,42 @@ class BiblePane(QWidget):
     def set_commentary(self, enabled: bool) -> None:
         self._set_bottom_page(self.settings.bottom_page or "commentary", show=enabled)
 
+    def compare_columns(self) -> list[str]:
+        """Selected translation rel_paths, including the main one if chosen."""
+        return list(self._compare_columns)
+
+    def set_compare_columns(self, rels: list[str] | None) -> None:
+        """Set the table columns, keeping only installed Bibles, no duplicates."""
+        selected: list[str] = []
+        dropped: list[str] = []
+        for rel in rels or []:
+            if not rel or rel in selected:
+                continue
+            row = self.ctx.catalog.by_rel_path(rel)
+            if row is not None and row.get("kind") == "bible":
+                selected.append(rel)
+            else:
+                dropped.append(self._column_label(rel))
+        self._compare_columns = selected
+        self._compare_columns_initialized = True
+        self._ensure_main_column()
+        self._show_compare_notice(dropped)
+        if self.parallel.isChecked():
+            self.reload()
+
     def parallel_rel(self) -> str:
-        return self.secondary.currentData() or ""
+        """Legacy state: first selected column that is not the main Bible."""
+        return next(
+            (rel for rel in self._compare_columns if rel != self._main_rel),
+            "",
+        )
 
     def set_parallel_rel(self, rel: str) -> None:
-        idx = self.secondary.findData(rel)
-        if idx >= 0:
-            self.secondary.setCurrentIndex(idx)
-            self._secondary_rel = rel
+        """Legacy restore: main Bible plus the old secondary translation."""
+        columns = [self._main_rel] if self._main_rel else []
+        if rel and rel != self._main_rel:
+            columns.append(rel)
+        self.set_compare_columns(columns)
 
     def commentary_rel(self) -> str:
         return self.commentary.commentary_rel()
@@ -912,8 +1068,8 @@ class BiblePane(QWidget):
 
     def reload_theme(self) -> None:
         css = self._css()
-        for browser in (self.primary, self.second):
-            browser.document().setDefaultStyleSheet(css)
+        self.primary.document().setDefaultStyleSheet(css)
+        self.compare_view.reload_theme()
         self.commentary.reload_theme()
         self.strong.reload_theme()
         self.citations.show_chain(self.citations._refs, self.ctx.module(self._active_module()))
@@ -926,7 +1082,8 @@ class BiblePane(QWidget):
         self.chapter.setToolTip(tr("bible.chapter_help"))
         self.parallel.setText(tr("bible.parallel"))
         self.parallel.setToolTip(tr("bible.parallel_help"))
-        self.secondary.setToolTip(tr("bible.parallel_help"))
+        if self._compare_notice_names:
+            self._show_compare_notice(self._compare_notice_names)
         self.btn_prev.setToolTip(tr("bible.prev"))
         self.btn_next.setToolTip(tr("bible.next"))
         self.btn_commentary.setText(tr("bible.bottom_commentary"))
@@ -940,5 +1097,5 @@ class BiblePane(QWidget):
         self.commentary.retranslate()
         self.strong.retranslate()
         self.citations.retranslate()
-        self.citations_second.retranslate()
+        self.compare_view.retranslate()
         self.reload()

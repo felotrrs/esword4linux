@@ -160,6 +160,7 @@ Open, known and non-blocking work. Roughly ordered by impact.
 | 13 | **Pop-ups and typography** | The pop-ups in `src/esword4linux/ui/tooltip.py` use fixed CSS and do not follow the font preferences. | Low |
 | 14 | **Accessibility** | No configurable shortcuts and no keyboard navigation beyond Ctrl+F/Ctrl+R/Ctrl+Q. | Low |
 | 15 | **Icons** | The UI uses text glyphs (`●○✕🔒`) instead of an icon set. | Low |
+| 21 | **Stacked comparison bands** | When more versions do not fit in one row, the parallel table scrolls horizontally. Splitting it into stacked bands (five versions each) that scroll together vertically is designed but not implemented. | Medium |
 
 ## Engineering
 

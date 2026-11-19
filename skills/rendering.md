@@ -138,6 +138,39 @@ watches them); the hint only activates them.
   each one is a `SELECT` against the lexicon; the header uses the lexicon
   abbreviation, not the long title.
 
+## Comparison table
+
+- `CompareView` renders one HTML `<table>` inside a `RichBrowser`; each source
+  row is formatted with `to_rich(page.raw, hint=source.hint,
+  codepages=source.codepages)`. The UI never injects raw module HTML and never
+  re-implements alignment.
+- The `cmp-*` classes live in `theme.document_css` and are theme-aware. Missing
+  cells are blank; the column header carries a coloured dot for a missing
+  book/chapter or an empty column.
+- Column widths are **fixed pixels** from `compare_view.column_metrics()`; both
+  the outer `QTextTable`'s column constraints and the native header cells use
+  the same numbers, so header and body cannot drift apart. Headers are native
+  Qt widgets, not HTML: the main translation is a locked label; additional
+  columns use a flat editable `BibleComboBox` (full `ABBR — Título` caption in
+  bold) plus a muted `✕`. The body is still the sanitized HTML table, with no
+  `width="100%"` and no top border: the header strip's bottom border closes the
+  table.
+- The two header bands are positioned by hand (`CompareView._place_bands`) as
+  free children of the view. Do not put them back in the layout with a fixed
+  width: that width becomes the view's minimum and creates a circular
+  dependency with the viewport.
+- The dropdown of those combos is a floating card: its width comes from
+  `view().setMinimumWidth()` (not from the column), its rows carry an explicit
+  `QFont.Weight.Normal` because a `QComboBox` popup inherits the combo's bold
+  font, its language headings stay bold from the model, and its background is
+  `p.bg` with a `p.accent` border. Do not rely on QSS `font-weight` on the
+  view: the delegate ignores it.
+- Multiple rows with the same verse are shown in source order, with a `×N`
+  counter; they are never merged or discarded.
+- Centered RTF headings embedded inside a verse row (for example RV1960
+  "La creación") are split visually into `.cmp-heading` blocks. The raw module
+  text is not altered.
+
 ## Codepages: registry + detection
 
 `font_codepages_for(stem)` covers known modules. For everything else,

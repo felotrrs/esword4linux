@@ -655,15 +655,44 @@ class EswordModule:
 
     # ── queries for the UI ───────────────────────────────────────────────
     def bible_chapter(self, book: int, chapter: int) -> list[Page]:
+        """Read a chapter in the traditional order (``ORDER BY Verse``)."""
+        return self._bible_pages(
+            self._rows(
+                "SELECT Book, Chapter, Verse, Scripture FROM Bible "
+                "WHERE Book=? AND Chapter=? ORDER BY Verse",
+                (book, chapter),
+            ),
+            book,
+            chapter,
+        )
+
+    def bible_chapter_stable(self, book: int, chapter: int) -> list[Page]:
+        """Read a chapter with a deterministic order for duplicate verses.
+
+        ``rowid`` is only a tiebreaker for the current database file; it is
+        not a permanent logical identifier (VACUUM, rebuilds or imports may
+        change it). The comparison view needs a stable order while a module
+        is open, not persistent identity.
+        """
+        return self._bible_pages(
+            self._rows(
+                "SELECT Book, Chapter, Verse, Scripture FROM Bible "
+                "WHERE Book=? AND Chapter=? ORDER BY Verse, rowid",
+                (book, chapter),
+            ),
+            book,
+            chapter,
+        )
+
+    def _bible_pages(self, rows, book: int, chapter: int) -> list[Page]:
+        """Build ``Page`` objects from ``Bible`` rows (shared by both readers)."""
         from ..books import book_name
 
         pages = []
-        for row in self._rows(
-            "SELECT Book, Chapter, Verse, Scripture FROM Bible "
-            "WHERE Book=? AND Chapter=? ORDER BY Verse",
-            (book, chapter),
-        ):
-            avg = self._decode(row["Scripture"], "Bible", f"{book}:{chapter}:{row['Verse']}")
+        for row in rows:
+            avg = self._decode(
+                row["Scripture"], "Bible", f"{book}:{chapter}:{row['Verse']}"
+            )
             pages.append(Page(
                 ref=f"{book}:{chapter}:{row['Verse']}",
                 title=f"{book_name(book)} {chapter}:{row['Verse']}",

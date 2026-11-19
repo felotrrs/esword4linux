@@ -94,7 +94,8 @@ QLineEdit, QComboBox, QSpinBox {{
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus {{ border: 1px solid {p.accent}; }}
 QComboBox::drop-down {{ border: 0; width: 18px; }}
 QComboBox QAbstractItemView {{
-    background: {p.panel}; border: 1px solid {p.border};
+    background: {p.panel_alt}; color: {p.text};
+    border: 1px solid {p.accent};
     selection-background-color: {p.accent}; selection-color: {p.accent_text};
 }}
 
@@ -132,6 +133,67 @@ QToolButton {{
 }}
 QToolButton:hover {{ border-color: {p.accent}; }}
 QToolButton:checked {{ background: {p.accent}; color: {p.accent_text}; border-color: {p.accent}; }}
+QWidget#cmpTop {{
+    background: {p.bg}; border-bottom: 0;
+}}
+QWidget#cmpHeader {{
+    background: {p.panel}; border-bottom: 1px solid {p.border};
+}}
+QWidget#cmpHeaderTrack {{ background: transparent; }}
+QLabel#cmpChapter {{ color: {p.accent}; font-weight: 700; }}
+QLabel#cmpVerseHead {{
+    background: transparent; color: {p.muted}; font-weight: 700;
+    border-left: 1px solid {p.border};
+    padding: 3px 4px;
+}}
+QLabel#cmpMainHead {{
+    background: {p.panel_alt}; color: {p.accent};
+    border-left: 1px solid {p.border};
+    font-weight: 700; padding: 3px 6px;
+}}
+QWidget#cmpColumnHead {{
+    background: transparent; border-left: 1px solid {p.border};
+}}
+QComboBox#cmpCombo {{
+    background: transparent; border: 1px solid transparent;
+    border-radius: 4px; padding: 2px 3px; font-weight: 600;
+}}
+QComboBox#cmpCombo:hover, QComboBox#cmpCombo:focus {{
+    background: {p.bg}; border-color: {p.border};
+}}
+QComboBox#cmpCombo QLineEdit {{
+    background: transparent; border: 0; padding: 0; border-radius: 0;
+}}
+QComboBox#cmpCombo::drop-down {{
+    width: 18px; border: 0; background: transparent;
+}}
+QComboBox#cmpCombo::down-arrow {{ width: 10px; height: 10px; }}
+/* The dropdown is a floating card: a page-coloured body, an accent border and
+   normal-weight rows. The combo itself stays bold and inherits nothing here;
+   only the language headings keep the bold font the model gives them. */
+QComboBox#cmpCombo QAbstractItemView {{
+    background: {p.bg}; color: {p.text};
+    border: 1px solid {p.accent}; border-radius: 6px;
+    padding: 4px; outline: 0; font-weight: normal;
+    selection-background-color: {p.accent}; selection-color: {p.accent_text};
+}}
+QComboBox#cmpCombo QAbstractItemView::item {{
+    padding: 5px 8px; border-radius: 4px;
+}}
+QComboBox#cmpCombo QAbstractItemView::item:selected {{
+    background: {p.accent}; color: {p.accent_text};
+}}
+QToolButton#cmpAdd {{
+    color: {p.success}; border: 1px solid {p.success};
+    background: {p.panel_alt}; font-weight: 700;
+}}
+QToolButton#cmpAdd:hover {{ background: {p.panel}; border-color: {p.success}; }}
+QToolButton#cmpAdd:disabled {{ color: {p.muted}; border-color: {p.border}; }}
+QToolButton#cmpClose {{
+    background: transparent; color: {p.muted}; border: 0;
+    border-radius: 8px; font-weight: 700; padding: 0;
+}}
+QToolButton#cmpClose:hover {{ background: {p.panel_alt}; color: {p.error}; }}
 QToolButton#sidebarMode {{ padding: 4px 3px; }}
 QFrame#sidebarOrganizer {{
     background: {p.panel_alt}; border: 1px solid {p.border};
@@ -183,6 +245,9 @@ QTextBrowser {{
     background: {p.bg}; border: 0; padding: 8px 18px;
     selection-background-color: {p.highlight}; selection-color: {p.text};
 }}
+/* The comparison table owns its own geometry: the document must start at the
+   very left edge so its columns land on the header cells. */
+QTextBrowser#cmpBrowser {{ padding: 0; }}
 QSplitter::handle {{ background: {p.border}; }}
 QSplitter::handle:horizontal {{ width: 1px; }}
 QSplitter::handle:vertical {{ height: 1px; }}
@@ -201,8 +266,8 @@ QScrollBar:horizontal {{ background: transparent; height: 11px; margin: 2px; }}
 QScrollBar::handle:horizontal {{ background: {p.border}; border-radius: 5px; min-width: 30px; }}
 
 QToolTip {{
-    background: {p.panel}; color: {p.text};
-    border: 1px solid {p.border}; padding: 4px;
+    background: {p.panel_alt}; color: {p.text};
+    border: 1px solid {p.accent}; padding: 4px;
 }}
 QLabel#sectionTitle {{ color: {p.muted}; font-weight: 600; text-transform: uppercase;
     font-size: {max(9, font_size - 4)}px; padding: 6px 8px 2px 8px; }}
@@ -254,6 +319,32 @@ a.strong {{ color: {p.strong}; font-size: 82%; text-decoration: none; font-weigh
 a.strong:hover {{ text-decoration: underline; }}
 .entry-title {{ color: {p.accent}; font-family: "{serif_family}", Georgia, serif;
     font-size: {font_size + 4}px; font-weight: 700; margin-bottom: 10px; }}
+.cmp-table {{ border-collapse: collapse; margin: 0; }}
+.cmp-table td {{
+    border-left: 1px solid {p.border};
+    border-right: 1px solid {p.border};
+    border-bottom: 1px solid {p.border};
+    padding: 3px 5px; vertical-align: top;
+}}
+.cmp-verse {{
+    color: {p.verse_num}; text-align: center; vertical-align: middle;
+    font-weight: 700;
+}}
+.cmp-verse a {{ color: {p.verse_num}; text-decoration: none; }}
+.cmp-row-alt {{ background-color: {p.panel}; }}
+.cmp-count {{
+    color: {p.accent}; font-size: {max(9, content_size - 3)}px;
+    font-weight: 700; margin-right: 4px;
+}}
+.cmp-src {{ margin: 0 0 4px 0; }}
+.cmp-heading {{
+    color: {p.accent}; font-family: "{serif_family}", Georgia, serif;
+    font-weight: 700; text-align: center;
+    margin: 2px 0 6px 0; font-size: {max(10, content_size + 1)}px;
+}}
+.cmp-draft {{ color: {p.muted}; }}
+.cmp-missing, .cmp-empty {{ color: {p.muted}; }}
+.cmp-warning {{ margin: 0 0 8px 0; }}
 """
 
 

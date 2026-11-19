@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased
+
+- The Bible **Parallel view** now opens a verse-aligned comparison table of
+  installed translations, with zebra rows, add/remove columns and explicit
+  missing book/chapter/verse states. Traditional single-version reading is
+  unchanged.
+- The comparison header is now the table's **column model**: one pixel
+  geometry (`column_metrics`) feeds both the native header cells and the HTML
+  table, so every caption sits exactly over its column with one version or
+  with many. Captions fill their column, stay flat until hover/focus, and the
+  header follows the horizontal scrollbar when many versions do not fit.
+  **Agregar Biblia** is now **Agregar versión** and lives in its own white top
+  strip, separate from the tinted table header.
+- The version dropdown is a floating card whose width no longer depends on the
+  column: translation names are readable, rows are normal weight (the closed
+  caption keeps the bold), language headings stay bold, and the list sits on a
+  page-coloured background with an accent border.
+- Adding a version scrolls the table to the new right-most column before the
+  dropdown opens, so the new column and its menu are never off-screen.
+- Closing the app with the resources panel collapsed no longer leaves an empty
+  band on the next start, and showing the panel no longer raises the window's
+  minimum width above the screen (which disabled *maximise*): the band is
+  sized from one place and the Bible toolbar scrolls horizontally instead of
+  dictating the window minimum.
+- The comparison header strip no longer turns its own width into a hard
+  minimum for the view. It is a free child positioned by `_place_bands()`
+  instead of a fixed-width layout item, which used to make the window grow on
+  every sidebar toggle and kept the panel from being resized. The dictionary
+  term list got the same single-source sizing at startup.
+
 ## 0.5.0 — 2026-11-16
 
 - Restore the original application/window icon and the distinct illustrated
