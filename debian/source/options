@@ -1,0 +1,4 @@
+# docs/e-sword_guide.md is a local-only third-party e-Sword document: it is
+# never tracked in Git nor packaged. Ignore it when diffing the source tree
+# so that "dpkg-source -b" run directly in the working tree still succeeds.
+extend-diff-ignore = "(^|/)e-sword_guide\.md$"

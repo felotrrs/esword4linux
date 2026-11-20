@@ -42,3 +42,7 @@ _duplicados/
 build/
 dist/
 .build/
+
+# Local-only e-Sword reference material. Never versioned nor distributed:
+# third-party e-Sword documentation kept for internal study only.
+docs/e-sword_guide.md
