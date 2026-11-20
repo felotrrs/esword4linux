@@ -320,7 +320,7 @@ verified:
   python: "3.12.3"
   pyside6: "6.12.0"
   qt: "6.12.0"
-  deb_version: "0.5.2-1"
+  deb_version: "0.5.2-2"
   elf_objects_checked: 36
   unresolved_libraries: 0
   distro_qt_dependency: false

@@ -1,3 +1,12 @@
+esword4linux (0.5.2-2) noble; urgency=medium
+
+  * Declare the runtime system libraries as Build-Depends. Launchpad's clean
+    Noble chroot failed in override_dh_auto_test because ldd could not resolve
+    libglib-2.0.so.0, libgthread-2.0.so.0 and the other X11, Wayland and GL
+    libraries used by the private Qt runtime. No code or runtime change.
+
+ -- Felipe <felotrrs@gmail.com>  Fri, 20 Nov 2026 22:30:00 +0000
+
 esword4linux (0.5.2-1) noble; urgency=medium
 
   * Split the parallel comparison view into two stacked bands (the *Dividir*
