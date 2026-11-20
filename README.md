@@ -39,7 +39,7 @@ extension, and never modifies a single byte of your library.
 
 ## Requirements
 
-The reference environment for v0.5.0 is:
+The reference environment for v0.5.2 is:
 
 - **Linux Mint 22.3** (Ubuntu 24.04/noble base), Cinnamon/X11
 - **Python 3.12.3**
@@ -50,7 +50,7 @@ The reference environment for v0.5.0 is:
   environment is ready, normal launches work offline.
 
 The project declares Python 3.10 or newer. Other Debian/Ubuntu-based releases
-were not verified for v0.5.0.
+were not verified for v0.5.2.
 
 ### System dependencies on Linux Mint / Ubuntu
 
@@ -86,7 +86,7 @@ notes are in [`docs/INSTALL.md`](docs/INSTALL.md).
 ### Native Debian package (Ubuntu 24.04 / Linux Mint 22.x)
 
 ```bash
-sudo apt install ./esword4linux_0.5.0-1_amd64.deb
+sudo apt install ./esword4linux_0.5.2-1_amd64.deb
 esword4linux
 ```
 
@@ -99,7 +99,7 @@ modifying system Python. Build it from a checkout with:
 packaging/build-deb.sh
 ```
 
-The result is `dist/deb/esword4linux_0.5.0-1_amd64.deb`. X11 was validated on
+The result is `dist/deb/esword4linux_0.5.2-1_amd64.deb`. X11 was validated on
 Linux Mint 22.3; Wayland was validated with Weston 13 headless/kiosk, but a
 full desktop compositor session was not available during packaging.
 
@@ -135,23 +135,23 @@ make run
 
 ### From a source ZIP/TAR archive
 
-Download the v0.5.0 source archive from GitHub:
+Download the v0.5.2 source archive from GitHub:
 
-- [esword4linux v0.5.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz)
-- [esword4linux v0.5.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.zip)
+- [esword4linux v0.5.2 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz)
+- [esword4linux v0.5.2 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.zip)
 
 Extract it with your file manager, or from a terminal:
 
 ```bash
-curl -L -o esword4linux-v0.5.0.tar.gz \
-  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz
-tar -xzf esword4linux-v0.5.0.tar.gz
-cd esword4linux-0.5.0
+curl -L -o esword4linux-v0.5.2.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz
+tar -xzf esword4linux-v0.5.2.tar.gz
+cd esword4linux-0.5.2
 ./run.sh
 ```
 
 For the ZIP archive, replace the download and extraction commands with
-`curl -L -o esword4linux-v0.5.0.zip ...` and `unzip esword4linux-v0.5.0.zip`.
+`curl -L -o esword4linux-v0.5.2.zip ...` and `unzip esword4linux-v0.5.2.zip`.
 The command-line examples use `curl`, `tar` and `unzip`; a file manager works
 too.
 
@@ -195,11 +195,11 @@ in.
 
 ## Uninstall
 
-v0.5.0 has no system-wide installer and no `make uninstall` target. The
+v0.5.2 has no system-wide installer and no `make uninstall` target. The
 application runs from the checkout and stores user data separately.
 
 1. Delete the checkout folder (for example `esword4linux` or
-   `esword4linux-0.5.0`).
+   `esword4linux-0.5.2`).
 2. If you ran `make desktop`, remove the launcher and icons:
 
    ```bash
@@ -250,7 +250,7 @@ No module is indexed or decrypted automatically at startup.
 
 ## Distribution status
 
-v0.5.0 is distributed as Git source, as the GitHub tag archives and as a native
+v0.5.2 is distributed as Git source, as the GitHub tag archives and as a native
 Debian package for Ubuntu 24.04 / Linux Mint 22.x (amd64). No AppImage, Flatpak
 or Snap package is provided yet. See
 [`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)

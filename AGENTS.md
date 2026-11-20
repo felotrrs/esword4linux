@@ -234,6 +234,32 @@ print(c.counts_by_kind(), c.status_counts())"
 - New convention → the `skills/*.md` file that owns it.
 - New UI string → added to both `src/esword4linux/i18n/es.json` and `en.json`.
 
+## Version bump
+
+`src/esword4linux/__init__.py:__version__` is the **single source of truth**. A
+version bump updates *all* of these in the same commit, or the build fails or
+the published documentation lies about the release:
+
+| File | What to change |
+|---|---|
+| `src/esword4linux/__init__.py` | `__version__` |
+| `debian/changelog` | a new `<version>-1` entry |
+| `packaging/runtime-manifest.yaml` | `app_version` and the `verified` block |
+| `docs/CHANGELOG.md` | `## Unreleased` → `## <version> — <date>` |
+| `README.md`, `README.es.md` | package file name, tag download links, `cd esword4linux-<version>` |
+| `docs/INSTALL.md` | package and source-package names, tag links |
+| `.github/ISSUE_TEMPLATE/bug_report.yml` | version placeholder |
+
+Then rebuild the `.deb` and check that the previous version is gone:
+
+```bash
+git grep -n "<previous version>" -- README.md README.es.md docs/INSTALL.md
+```
+
+The full maintainer checklist, including tag publishing, lives in
+`docs/RELEASING.md`. Tags are only created and pushed with explicit
+authorization.
+
 ## Documentation language
 
 Documentation, code comments, identifiers and commit messages are

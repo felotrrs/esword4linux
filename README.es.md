@@ -43,7 +43,7 @@ no por la extensión, y no modifica ni un byte de tu biblioteca.
 
 ## Requisitos
 
-El entorno de referencia para v0.5.0 es:
+El entorno de referencia para v0.5.2 es:
 
 - **Linux Mint 22.3** (base Ubuntu 24.04/noble), Cinnamon/X11
 - **Python 3.12.3**
@@ -54,7 +54,7 @@ El entorno de referencia para v0.5.0 es:
   creado el entorno virtual, los arranques normales funcionan sin red.
 
 El proyecto declara Python 3.10 o superior. Otras versiones basadas en
-Debian/Ubuntu no se verificaron para v0.5.0.
+Debian/Ubuntu no se verificaron para v0.5.2.
 
 ### Dependencias del sistema en Linux Mint / Ubuntu
 
@@ -110,23 +110,23 @@ make run
 
 ### Desde un archivo ZIP/TAR de código fuente
 
-Descarga el código fuente de v0.5.0 desde GitHub:
+Descarga el código fuente de v0.5.2 desde GitHub:
 
-- [esword4linux v0.5.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz)
-- [esword4linux v0.5.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.zip)
+- [esword4linux v0.5.2 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz)
+- [esword4linux v0.5.2 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.zip)
 
 Extráelo con tu gestor de archivos o desde una terminal:
 
 ```bash
-curl -L -o esword4linux-v0.5.0.tar.gz \
-  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz
-tar -xzf esword4linux-v0.5.0.tar.gz
-cd esword4linux-0.5.0
+curl -L -o esword4linux-v0.5.2.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz
+tar -xzf esword4linux-v0.5.2.tar.gz
+cd esword4linux-0.5.2
 ./run.sh
 ```
 
 Para el ZIP, sustituye la descarga y la extracción por
-`curl -L -o esword4linux-v0.5.0.zip ...` y `unzip esword4linux-v0.5.0.zip`.
+`curl -L -o esword4linux-v0.5.2.zip ...` y `unzip esword4linux-v0.5.2.zip`.
 Los ejemplos de terminal usan `curl`, `tar` y `unzip`; también puedes usar el
 gestor de archivos.
 
@@ -171,12 +171,12 @@ y volver a iniciar sesión.
 
 ## Desinstalación
 
-v0.5.0 no tiene instalador para todo el sistema ni un objetivo `make uninstall`.
+v0.5.2 no tiene instalador para todo el sistema ni un objetivo `make uninstall`.
 La aplicación se ejecuta desde el checkout y guarda los datos de usuario por
 separado.
 
 1. Borra la carpeta del checkout (por ejemplo `esword4linux` o
-   `esword4linux-0.5.0`).
+   `esword4linux-0.5.2`).
 2. Si ejecutaste `make desktop`, elimina el lanzador y los iconos:
 
    ```bash
@@ -227,7 +227,7 @@ Ningún módulo se indexa ni se descifra automáticamente al arrancar.
 
 ## Estado de distribución
 
-**v0.5.0 es solo código fuente.** Se distribuye como código Git y como los
+**v0.5.2 es solo código fuente.** Se distribuye como código Git y como los
 archivos fuente generados automáticamente por GitHub desde el tag. No se
 proporciona ningún paquete DEB, AppImage, Flatpak ni Snap.
 

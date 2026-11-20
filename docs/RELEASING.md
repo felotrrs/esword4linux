@@ -4,10 +4,27 @@ This is the maintainer checklist for a public release.
 
 ## Before tagging
 
-1. Update `__version__` in `src/esword4linux/__init__.py`. `pyproject.toml`
-   reads the version from there.
-2. Add the release entry at the top of `docs/CHANGELOG.md`.
-3. Confirm that no module files are tracked:
+1. Bump the version in **every** place. They must agree or the build fails or
+   the published documentation lies:
+
+   | File | What to change |
+   |---|---|
+   | `src/esword4linux/__init__.py` | `__version__` — the single source of truth (`pyproject.toml` reads it) |
+   | `debian/changelog` | a new `<version>-1` entry at the top |
+   | `packaging/runtime-manifest.yaml` | `app_version` and the `verified` block (`date`, `deb_version`) |
+   | `docs/CHANGELOG.md` | `## Unreleased` → `## <version> — <date>` |
+   | `README.md`, `README.es.md` | package file name, tag download links, `cd esword4linux-<version>` |
+   | `docs/INSTALL.md` | package and source-package names, tag links |
+   | `.github/ISSUE_TEMPLATE/bug_report.yml` | version placeholder |
+
+   Then confirm the previous version no longer appears in the user-facing
+   documentation:
+
+   ```bash
+   git grep -n "<previous version>" -- README.md README.es.md docs/INSTALL.md
+   ```
+
+2. Confirm that no module files are tracked:
 
    ```bash
    git ls-files | grep -Ei '\.(bblx|bbli|cmtx|cmti|dctx|dcti|lexi|lexx|refx|refi|topx|devx|harx|mapx|twm)$'
@@ -15,25 +32,25 @@ This is the maintainer checklist for a public release.
 
    The command must print nothing.
 
-4. Run the default suite without a corpus:
+3. Run the default suite without a corpus:
 
    ```bash
    make test
    ```
 
-5. If a private corpus is available, run the real-module tests too:
+4. If a private corpus is available, run the real-module tests too:
 
    ```bash
    ESWORD4LINUX_TEST_CORPUS=/path/to/modules make test
    ```
 
-6. Check the vendored core when the upstream is available:
+5. Check the vendored core when the upstream is available:
 
    ```bash
    ESWORD4LINUX_VENDOR_ORIGIN=/path/to/shared/esword make drift
    ```
 
-7. If the application logo changed, regenerate the assets and hicolor icons:
+6. If the application logo changed, regenerate the assets and hicolor icons:
 
    ```bash
    .venv/bin/python tools/make_icons.py packaging/icons/hicolor
@@ -57,7 +74,7 @@ This is the maintainer checklist for a public release.
 ## Native Debian package
 
 The package version in `debian/changelog` is `<app version>-<Debian revision>`,
-for example `0.5.0-1`. The upstream part must match `__version__` in
+for example `0.5.2-1`. The upstream part must match `__version__` in
 `src/esword4linux/__init__.py`; `packaging/build-deb.sh` enforces this.
 
 1. Build and validate:
@@ -196,8 +213,8 @@ without a source-policy exception and a source-based Qt build. See
 git add -A
 git commit -m "chore: prepare public release"
 git push origin main
-git tag -a v0.5.0 -m "esword4linux 0.5.0"
-git push origin v0.5.0
+git tag -a v<version> -m "esword4linux <version>"
+git push origin v<version>
 ```
 
 Then create the GitHub release from the tag and paste the top

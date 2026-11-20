@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.2 — 2026-11-20
 
 - The comparison table can be **split into two stacked bands** (`Dividir` /
   *Split* button in the header strip, enabled from four versions on). The

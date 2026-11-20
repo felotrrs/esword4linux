@@ -1,6 +1,6 @@
 # Installation guide — Linux Mint and Ubuntu
 
-This guide covers the native Debian package of **esword4linux v0.5.0** and,
+This guide covers the native Debian package of **esword4linux v0.5.2** and,
 as an alternative, a source installation on Debian/Ubuntu-based systems. Both
 keep user data in the XDG directories and never modify the e-Sword modules
 folder.
@@ -54,7 +54,7 @@ imports, runs `lintian`, and writes a report.
 The resulting package is:
 
 ```text
-dist/deb/esword4linux_0.5.0-1_amd64.deb
+dist/deb/esword4linux_0.5.2-1_amd64.deb
 ```
 
 Useful variants:
@@ -80,11 +80,11 @@ make deb-src-verify    # also rebuilds the .deb offline
 Artifacts are written to `dist/src/`:
 
 ```text
-esword4linux_0.5.0.orig.tar.xz
-esword4linux_0.5.0-1.debian.tar.xz
-esword4linux_0.5.0-1.dsc
-esword4linux_0.5.0-1_source.changes
-esword4linux_0.5.0-1_source.buildinfo
+esword4linux_0.5.2.orig.tar.xz
+esword4linux_0.5.2-1.debian.tar.xz
+esword4linux_0.5.2-1.dsc
+esword4linux_0.5.2-1_source.changes
+esword4linux_0.5.2-1_source.buildinfo
 ```
 
 `dpkg-source` never creates the orig for `3.0 (quilt)`; `packaging/build_source.py`
@@ -129,7 +129,7 @@ python3 packaging/validate_runtime.py --root /tmp/esword4linux-runtime
 ### Install
 
 ```bash
-sudo apt install ./esword4linux_0.5.0-1_amd64.deb
+sudo apt install ./esword4linux_0.5.2-1_amd64.deb
 ```
 
 Then launch **esword4linux** from the desktop menu or run:
@@ -238,7 +238,7 @@ The commands and package names below were verified against:
 - The actual PySide6 Qt plugin `libqxcb.so` from the project virtual environment
 
 The project declares Python 3.10 or newer. Other Mint or Ubuntu releases were
-**not verified** for v0.5.0. In particular, Wayland was not verified; the
+**not verified** for v0.5.2. In particular, Wayland was not verified; the
 PySide6 package does include a Wayland platform plugin.
 
 ### 1. Install system dependencies
@@ -298,34 +298,34 @@ make run
 
 ### Option B — from a source ZIP/TAR archive
 
-Download the v0.5.0 source archive:
+Download the v0.5.2 source archive:
 
-- [esword4linux v0.5.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz)
-- [esword4linux v0.5.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.zip)
+- [esword4linux v0.5.2 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz)
+- [esword4linux v0.5.2 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.zip)
 
 Extract it with your file manager, or from a terminal:
 
 ```bash
-curl -L -o esword4linux-v0.5.0.tar.gz \
-  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.tar.gz
-tar -xzf esword4linux-v0.5.0.tar.gz
-cd esword4linux-0.5.0
+curl -L -o esword4linux-v0.5.2.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz
+tar -xzf esword4linux-v0.5.2.tar.gz
+cd esword4linux-0.5.2
 ./run.sh
 ```
 
 For the ZIP archive:
 
 ```bash
-curl -L -o esword4linux-v0.5.0.zip \
-  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.0.zip
-unzip esword4linux-v0.5.0.zip
-cd esword4linux-0.5.0
+curl -L -o esword4linux-v0.5.2.zip \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.zip
+unzip esword4linux-v0.5.2.zip
+cd esword4linux-0.5.2
 ./run.sh
 ```
 
 The command-line examples use `curl`, `tar` and `unzip`; a graphical file
 manager and archive tool work as well. The extracted folder is named
-`esword4linux-0.5.0`.
+`esword4linux-0.5.2`.
 
 ### 3. First launch and offline use
 
@@ -383,11 +383,11 @@ update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
 ### 5. Uninstall
 
-v0.5.0 has no system-wide installer and no `make uninstall` target. The
+v0.5.2 has no system-wide installer and no `make uninstall` target. The
 application runs from the checkout, so removal is manual.
 
 1. Delete the checkout directory (for example `esword4linux` or
-   `esword4linux-0.5.0`).
+   `esword4linux-0.5.2`).
 2. If you ran `make desktop`, remove the desktop entry and icons:
 
    ```bash
@@ -551,7 +551,7 @@ what was actually exercised; do not claim a row that was not run.
   validation used Weston 13 headless/kiosk.
 - No clean Ubuntu 24.04 VM was available; the development host is Linux Mint
   22.3 (Ubuntu 24.04/noble base).
-- No upgrade from an earlier `.deb` was possible because 0.5.0-1 is the first
+- No upgrade from an earlier `.deb` was possible because 0.5.2-1 is the first
   native package.
 - The source installation has no `make uninstall` target; the manual commands
   above are its documented removal method.
