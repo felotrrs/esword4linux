@@ -269,5 +269,8 @@
   "compare.verse_short": "Vers.",
   "compare.add_version": "Agregar versión",
   "compare.add_version_help": "Añade otra traducción instalada a la tabla comparativa.",
+  "compare.split": "Dividir",
+  "compare.split_help": "Muestra las versiones en dos tablas apiladas que se desplazan juntas.",
+  "compare.split_needs_versions": "Se necesitan al menos {n} versiones para dividir la vista.",
   "compare.main_column_hint": "Cámbiala desde el selector Traducción."
 }

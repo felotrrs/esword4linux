@@ -12,7 +12,7 @@
 # Keep the comments that explain *why* a component is retained or excluded.
 
 schema_version: 1
-app_version: "0.5.0"   # mirrored from src/esword4linux/__init__.py; enforced by packaging/stage_runtime.py
+app_version: "0.5.2"   # mirrored from src/esword4linux/__init__.py; enforced by packaging/stage_runtime.py
 
 python:
   minimum: "3.10"
@@ -315,12 +315,12 @@ format_specific_notes:
     reuses_staging_from: "the same /opt/esword4linux-style staging layout produced for the .deb — do not build an independent staging tree from scratch"
 
 verified:
-  date: "2026-11-16"
+  date: "2026-11-20"
   host: "Linux Mint 22.3 (Ubuntu 24.04/noble base), amd64, glibc 2.39"
   python: "3.12.3"
   pyside6: "6.12.0"
   qt: "6.12.0"
-  deb_version: "0.5.0-1"
+  deb_version: "0.5.2-1"
   elf_objects_checked: 36
   unresolved_libraries: 0
   distro_qt_dependency: false

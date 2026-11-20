@@ -7,9 +7,12 @@ The header is not a decorative strip: it is the **column model** of the table.
 :func:`column_metrics` is the single source of truth for the pixel width of
 every column, and both sides consume it, so a native header cell always sits
 exactly over its HTML column — with one version or with twenty, with or without
-a scrollbar. The header lives in a clipping host and follows the table's
-horizontal scroll, because keeping the two decoupled is what made the old
-header drift out of place.
+a scrollbar.
+
+One :class:`CompareBand` is one horizontal band: a header strip plus its table.
+The view stacks one band by default and **two** when the split is requested and
+at least :data:`SPLIT_MIN_VERSIONS` translations are open. The bands show the
+same rows and their vertical scrolls follow each other by verse.
 
 Headers are native widgets so changing a translation, typing and removing a
 column do not depend on nested popups; the body stays a sanitized HTML table
@@ -23,15 +26,17 @@ import html as _html
 import re
 from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QRect, QTimer, Qt, Signal
-from PySide6.QtGui import QGuiApplication, QTextLength, QTextTable
+from PySide6.QtCore import QEvent, QRect, QTimer, Qt, Signal, QUrl
+from PySide6.QtGui import QGuiApplication, QTextCursor, QTextLength, QTextTable
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel, QSizePolicy, QToolButton,
-    QVBoxLayout, QWidget,
+    QComboBox, QFrame, QHBoxLayout, QLabel, QSizePolicy, QSplitter,
+    QToolButton, QVBoxLayout, QWidget,
 )
 
 from ..core.books import book_name
-from ..core.compare import CellStatus, ColumnStatus, CompareCell
+from ..core.compare import (
+    CellStatus, ColumnStatus, CompareCell, CompareColumnState,
+)
 from ..core.compare_reader import CompareBuild, CompareSource
 from ..core.text import to_rich
 from ..i18n import tr
@@ -43,7 +48,9 @@ from .theme import document_css_for, palette
 __all__ = [
     "BibleColumnHeader",
     "ColumnMetrics",
+    "CompareBand",
     "CompareView",
+    "SPLIT_MIN_VERSIONS",
     "column_metrics",
 ]
 
@@ -55,6 +62,11 @@ MIN_VERSION_WIDTH = 200
 #: ``border + 5 px`` of padding, so the caption needs ``3 + border + 3`` to
 #: land on the same pixel column.
 CELL_PAD = 3
+#: The split needs at least this many open translations.
+SPLIT_MIN_VERSIONS = 4
+
+#: Sentinel for the pending (draft) column inside a band plan.
+DRAFT_SLOT = "\0draft"
 
 #: Qt's "no maximum" sentinel, spelled out so the intent is obvious.
 QWIDGETSIZE_MAX = 16777215
@@ -117,7 +129,7 @@ def _format_headings(html: str) -> str:
 
 
 def _short_label(row: dict) -> str:
-    """Compact header caption: the abbreviation is what a header needs."""
+    """Compact caption: the abbreviation is what a header needs."""
     return (row.get("abbreviation") or row.get("title") or "")[:110]
 
 
@@ -158,9 +170,9 @@ class BibleColumnHeader(QWidget):
     """Editable translation cell of the comparison header.
 
     Visually it is a table-header caption (flat, bold, left aligned); it turns
-    into a field only on hover or focus. The closed caption shows the short
-    abbreviation, while the dropdown keeps the full ``ABBR — Title`` so the
-    list stays informative.
+    into a field only on hover or focus. The closed caption shows the full
+    ``ABBR — Title`` so it fills the column, while the tooltip carries the
+    language.
     """
 
     changed = Signal(int, str)
@@ -340,52 +352,30 @@ class BibleColumnHeader(QWidget):
         self.combo.showPopup()
 
 
-class CompareView(QWidget):
-    """Verse-aligned table with a header coupled to its columns."""
+class CompareBand(QWidget):
+    """One horizontal band of the comparison: a header strip and its table.
 
-    remove_requested = Signal(int)
-    verse_clicked = Signal(int)
-    column_changed = Signal(int, str)
-    add_requested = Signal()
+    The two bands show the same verses with different translation columns.
+    The header strip is a **free child** positioned by hand: a layout item with
+    a fixed width turns that width into the minimum of the whole view, and the
+    viewport width depends on the view width, so the view could never get
+    narrower than itself.
+    """
 
     def __init__(self, settings, resolver=None, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self._build: CompareBuild | None = None
-        self._bibles: list[dict] = []
-        self._draft = False
-        self._draft_header: BibleColumnHeader | None = None
         self._metrics: ColumnMetrics | None = None
+        self._versions = 0
         self._header_height = 30
+        self._verses: list[int] = []
+        self._verse_index: dict[int, int] = {}
         self.header_widgets: list[QWidget] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # ── top strip: chapter name and the "add version" action ─────────
-        # The two header bands are **free children**, not layout items: a
-        # layout item with a fixed width turns that width into the minimum of
-        # the whole view, and the viewport width depends on the view width, so
-        # the view could never get narrower than itself (the window grew on
-        # every sidebar toggle). `_place_bands()` positions them.
-        self.top = QWidget(self)
-        self.top.setObjectName("cmpTop")
-        top = QHBoxLayout(self.top)
-        top.setContentsMargins(12, 6, 12, 5)
-        top.setSpacing(8)
-        self.chapter_label = QLabel("")
-        self.chapter_label.setObjectName("cmpChapter")
-        top.addWidget(self.chapter_label)
-        top.addStretch(1)
-        self.add_button = QToolButton()
-        self.add_button.setObjectName("cmpAdd")
-        self.add_button.setText(self._add_label())
-        self.add_button.setToolTip(tr("compare.add_version_help"))
-        self.add_button.clicked.connect(self.add_requested)
-        top.addWidget(self.add_button)
-
-        # ── header strip: a clipping host for the scrolling column track ──
         self.header_host = QWidget(self)
         self.header_host.setObjectName("cmpHeader")
         self.header_track = QWidget(self.header_host)
@@ -394,7 +384,6 @@ class CompareView(QWidget):
         self.header_row.setContentsMargins(0, 0, 0, 0)
         self.header_row.setSpacing(0)
 
-        # ── body ──────────────────────────────────────────────────────────
         self.browser = RichBrowser(resolver=resolver)
         self.browser.setObjectName("cmpBrowser")
         # No frame, no padding and no document margin: the table's left border
@@ -402,99 +391,26 @@ class CompareView(QWidget):
         self.browser.setFrameShape(QFrame.Shape.NoFrame)
         self.browser.setOpenLinks(False)
         self.browser.setOpenExternalLinks(False)
-        self.browser.anchorClicked.connect(self._on_anchor)
         self.browser.document().setDocumentMargin(0)
         self.browser.document().setDefaultStyleSheet(
-            document_css_for(self.settings)
+            document_css_for(settings)
         )
         self.browser.viewport().installEventFilter(self)
         self.browser.horizontalScrollBar().valueChanged.connect(
             self._sync_header_offset
         )
         layout.addWidget(self.browser, 1)
-        self._place_bands()
+        self._place_header()
 
-    # ── API ──────────────────────────────────────────────────────────────
-    def _add_label(self) -> str:
-        return f"＋  {tr('compare.add_version')}"
-
-    def begin_add(self) -> None:
-        """Create a local draft header and focus its native combo."""
-        self._draft = True
-        self._render()
-        # A new column always grows to the right: bring it into view *before*
-        # focusing, otherwise the combo and its popup open off-screen.
-        self._scroll_to_end()
-        QTimer.singleShot(0, self._focus_draft)
-
-    def _scroll_to_end(self) -> None:
-        """Scroll to the right edge, where new columns appear."""
-        bar = self.browser.horizontalScrollBar()
-        bar.setValue(bar.maximum())
-
-    def _focus_draft(self) -> None:
-        self._scroll_to_end()
-        if self._draft_header is not None:
-            self._draft_header.focus_combo()
-
-    def cancel_draft(self) -> None:
-        if self._draft:
-            self._draft = False
-            self._render()
-
-    def has_draft(self) -> bool:
-        return self._draft
-
-    def draft_index(self) -> int:
-        table = self._build.table if self._build is not None else None
-        return len(table.columns) if table is not None else 0
-
-    def set_build(self, build: CompareBuild | None,
-                  bibles: list[dict] | None = None) -> None:
-        self._build = build
-        if bibles is not None:
-            self._bibles = list(bibles)
-        self._render()
-
-    def current_build(self) -> CompareBuild | None:
-        return self._build
-
-    def scroll_to_verse(self, verse: int) -> None:
-        if verse:
-            self.browser.scrollToAnchor(f"cv{verse}")
-
-    def reload_theme(self) -> None:
-        self._render()
-
-    def retranslate(self) -> None:
-        self.add_button.setText(self._add_label())
-        self.add_button.setToolTip(tr("compare.add_version_help"))
-        self._render()
-
-    # ── events ───────────────────────────────────────────────────────────
+    # ── geometry ─────────────────────────────────────────────────────────
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        self._place_bands()
+        self._place_header()
         self._sync_widths()
-
-    def _place_bands(self) -> None:
-        """Position the two header bands above the browser.
-
-        They are free children so their width can follow the view without
-        becoming the view's minimum width.
-        """
-        top_h = self.top.sizeHint().height()
-        head_h = self._header_height if self.header_host.isVisible() else 0
-        width = max(1, self.browser.viewport().width())
-        self.top.setGeometry(0, 0, self.width(), top_h)
-        self.header_host.setGeometry(0, top_h, width, head_h)
-        margins = self.layout().contentsMargins()
-        if margins.top() != top_h + head_h:
-            self.layout().setContentsMargins(0, top_h + head_h, 0, 0)
 
     def eventFilter(self, obj, event) -> bool:  # noqa: N802
         # The viewport also resizes when the vertical scrollbar appears, which
-        # changes the usable width without resizing `CompareView`.
+        # changes the usable width without resizing this band.
         if (
             obj is self.browser.viewport()
             and event.type() == QEvent.Type.Resize
@@ -502,15 +418,13 @@ class CompareView(QWidget):
             QTimer.singleShot(0, self._sync_widths)
         return super().eventFilter(obj, event)
 
-    # ── rendering ────────────────────────────────────────────────────────
-    def _render(self) -> None:
-        self.browser.document().setDefaultStyleSheet(
-            document_css_for(self.settings)
-        )
-        self.browser.setHtml(self._html())
-        self._rebuild_header()
-        self._sync_widths()
-        self.browser.clear_cache()
+    def _place_header(self) -> None:
+        head_h = self._header_height if self.header_host.isVisible() else 0
+        width = max(1, self.browser.viewport().width())
+        self.header_host.setGeometry(0, 0, width, head_h)
+        margins = self.layout().contentsMargins()
+        if margins.top() != head_h:
+            self.layout().setContentsMargins(0, head_h, 0, 0)
 
     def _document_table(self) -> QTextTable | None:
         frames = self.browser.document().rootFrame().childFrames()
@@ -519,22 +433,16 @@ class CompareView(QWidget):
             None,
         )
 
-    def _table_columns(self) -> int:
-        table = self._build.table if self._build is not None else None
-        return len(table.columns) if table is not None else 0
-
     def _sync_widths(self) -> None:
         """Apply the shared pixel geometry to the header and to the table."""
-        columns = self._table_columns()
-        if columns == 0 and not self._draft:
+        if self._versions <= 0:
             self.header_host.setVisible(False)
             self._metrics = None
-            self._place_bands()
+            self._place_header()
             return
 
-        versions = max(1, columns) + (1 if self._draft else 0)
         usable = max(1, self.browser.viewport().width() - BORDER_SLACK)
-        metrics = column_metrics(usable, versions)
+        metrics = column_metrics(usable, self._versions)
         self._metrics = metrics
 
         for widget, width in zip(self.header_widgets, metrics.widths):
@@ -543,7 +451,7 @@ class CompareView(QWidget):
         heights = [w.sizeHint().height() for w in self.header_widgets]
         self._header_height = max([30] + heights)
         self.header_host.setVisible(True)
-        self._place_bands()
+        self._place_header()
         self._sync_header_offset()
 
         table = self._document_table()
@@ -577,7 +485,9 @@ class CompareView(QWidget):
         if self.header_track.geometry() != target:
             self.header_track.setGeometry(target)
 
-    def _clear_header(self) -> None:
+    # ── content ──────────────────────────────────────────────────────────
+    def set_header(self, widgets: list[QWidget]) -> None:
+        """Replace the header cells (created by the view)."""
         while self.header_row.count():
             item = self.header_row.takeAt(0)
             widget = item.widget()
@@ -588,12 +498,335 @@ class CompareView(QWidget):
                 widget.setParent(None)
                 widget.deleteLater()
         self.header_widgets = []
-        self._draft_header = None
+        for widget in widgets:
+            self.header_row.addWidget(widget)
+            self.header_widgets.append(widget)
+        self.header_host.setVisible(bool(widgets))
 
-    def _rebuild_header(self) -> None:
-        self._clear_header()
+    def render(self, *, header: list[QWidget], versions: int, html: str,
+               verses: list[int]) -> None:
+        """Show ``html`` with ``header`` cells and ``versions`` columns."""
+        self.set_header(header)
+        self._versions = max(0, versions)
+        self.browser.setHtml(html)
+        self._verses = list(verses)
+        self._verse_index = {verse: i for i, verse in enumerate(self._verses)}
+        self.browser.clear_cache()
+        self._sync_widths()
+
+    def set_rows(self, verses: list[int]) -> None:
+        self._verses = list(verses)
+        self._verse_index = {verse: i for i, verse in enumerate(self._verses)}
+
+    # ── vertical sync ────────────────────────────────────────────────────
+    def top_verse(self) -> int:
+        """Verse shown at the top of the viewport (0 when the table is empty)."""
+        table = self._document_table()
+        if table is None or not self._verses:
+            return 0
+        offset = self.browser.verticalScrollBar().value()
+        best = self._verses[0]
+        for index, verse in enumerate(self._verses):
+            if index >= table.rows():
+                break
+            cursor = QTextCursor(table.cellAt(index, 0).firstCursorPosition())
+            y = self.browser.cursorRect(cursor).y() + offset
+            if y > offset + 2:
+                break
+            best = verse
+        return best
+
+    def scroll_to_verse(self, verse: int) -> None:
+        """Put ``verse`` at the top of the viewport."""
+        index = self._verse_index.get(verse)
+        table = self._document_table()
+        if index is None or table is None or index >= table.rows():
+            return
+        cursor = QTextCursor(table.cellAt(index, 0).firstCursorPosition())
+        offset = self.browser.verticalScrollBar().value()
+        y = self.browser.cursorRect(cursor).y() + offset
+        self.browser.verticalScrollBar().setValue(max(0, int(y)))
+
+    def scroll_to_end(self) -> None:
+        """Scroll to the right edge, where new columns appear."""
+        bar = self.browser.horizontalScrollBar()
+        bar.setValue(bar.maximum())
+
+
+class CompareView(QWidget):
+    """Verse-aligned table with one or two stacked bands."""
+
+    remove_requested = Signal(int)
+    verse_clicked = Signal(int)
+    column_changed = Signal(int, str)
+    add_requested = Signal()
+    split_changed = Signal(bool)
+    anchor_clicked = Signal(QUrl)
+
+    def __init__(self, settings, resolver=None, parent=None):
+        super().__init__(parent)
+        self.settings = settings
+        self._build: CompareBuild | None = None
+        self._bibles: list[dict] = []
+        self._draft = False
+        self._draft_header: BibleColumnHeader | None = None
+        self._split = False
+        self._syncing = False
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # ── top strip: chapter, split action and "add version" ───────────
+        # It is a **free child**, positioned by `_place_bands()`, because a
+        # layout item with a fixed width would dictate the view's minimum.
+        self.top = QWidget(self)
+        self.top.setObjectName("cmpTop")
+        top = QHBoxLayout(self.top)
+        top.setContentsMargins(12, 6, 12, 5)
+        top.setSpacing(8)
+        self.chapter_label = QLabel("")
+        self.chapter_label.setObjectName("cmpChapter")
+        top.addWidget(self.chapter_label)
+        top.addStretch(1)
+        self.split_button = QToolButton()
+        self.split_button.setObjectName("cmpSplit")
+        self.split_button.setText(tr("compare.split"))
+        self.split_button.setCheckable(True)
+        self.split_button.setToolTip(tr("compare.split_help"))
+        self.split_button.clicked.connect(self._on_split)
+        top.addWidget(self.split_button)
+        self.add_button = QToolButton()
+        self.add_button.setObjectName("cmpAdd")
+        self.add_button.setText(self._add_label())
+        self.add_button.setToolTip(tr("compare.add_version_help"))
+        self.add_button.clicked.connect(self.add_requested)
+        top.addWidget(self.add_button)
+
+        # ── bands ────────────────────────────────────────────────────────
+        self._bands = [
+            CompareBand(settings, resolver=resolver, parent=self)
+            for _ in range(2)
+        ]
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setChildrenCollapsible(False)
+        for band in self._bands:
+            self.splitter.addWidget(band)
+            band.browser.anchorClicked.connect(self._on_band_anchor)
+            band.browser.verticalScrollBar().valueChanged.connect(
+                lambda value, source=band: self._on_band_scroll(source, value)
+            )
+        layout.addWidget(self.splitter, 1)
+        self._bands[1].setVisible(False)
+        self._place_bands()
+
+    # ── read-only views of the first band (public API) ───────────────────
+    @property
+    def browser(self) -> RichBrowser:
+        return self._bands[0].browser
+
+    @property
+    def header_host(self) -> QWidget:
+        return self._bands[0].header_host
+
+    @property
+    def header_track(self) -> QWidget:
+        return self._bands[0].header_track
+
+    @property
+    def header_widgets(self) -> list[QWidget]:
+        widgets: list[QWidget] = []
+        for band in self._bands:
+            if band.isVisibleTo(self):
+                widgets.extend(band.header_widgets)
+        return widgets
+
+    @property
+    def _metrics(self) -> ColumnMetrics | None:
+        return self._bands[0]._metrics
+
+    # ── API ──────────────────────────────────────────────────────────────
+    def _add_label(self) -> str:
+        return f"＋  {tr('compare.add_version')}"
+
+    def is_split(self) -> bool:
+        """Whether the stacked split was requested (it needs 4 versions)."""
+        return self._split
+
+    def set_split(self, split: bool) -> None:
+        """Request or drop the stacked split. Persisted by the workspace."""
+        split = bool(split)
+        if split == self._split:
+            return
+        self._split = split
+        self.split_button.setChecked(split)
+        self._render()
+        if split:
+            self._balance_splitter()
+
+    def split_active(self) -> bool:
+        """Whether two bands are really shown right now."""
+        table = self._build.table if self._build is not None else None
+        return (
+            self._split
+            and table is not None
+            and len(table.columns) >= SPLIT_MIN_VERSIONS
+        )
+
+    def begin_add(self) -> None:
+        """Create a local draft header and focus its native combo."""
+        self._draft = True
+        self._render()
+        # A new column always grows to the right of the last band: bring it
+        # into view *before* focusing, otherwise the combo and its popup open
+        # off-screen.
+        self._last_band().scroll_to_end()
+        QTimer.singleShot(0, self._focus_draft)
+
+    def _focus_draft(self) -> None:
+        self._last_band().scroll_to_end()
+        if self._draft_header is not None:
+            self._draft_header.focus_combo()
+
+    def cancel_draft(self) -> None:
+        if self._draft:
+            self._draft = False
+            self._render()
+
+    def has_draft(self) -> bool:
+        return self._draft
+
+    def draft_index(self) -> int:
+        table = self._build.table if self._build is not None else None
+        return len(table.columns) if table is not None else 0
+
+    def set_build(self, build: CompareBuild | None,
+                  bibles: list[dict] | None = None) -> None:
+        self._build = build
+        if bibles is not None:
+            self._bibles = list(bibles)
+        self._render()
+
+    def current_build(self) -> CompareBuild | None:
+        return self._build
+
+    def scroll_to_verse(self, verse: int) -> None:
+        if not verse:
+            return
+        for band in self._active_bands():
+            band.scroll_to_verse(verse)
+
+    def bands(self) -> list["CompareBand"]:
+        """Bands actually shown right now (one, or two when split)."""
+        return self._active_bands()
+
+    def reload_theme(self) -> None:
+        self._render()
+
+    def retranslate(self) -> None:
+        self.add_button.setText(self._add_label())
+        self.add_button.setToolTip(tr("compare.add_version_help"))
+        self.split_button.setText(tr("compare.split"))
+        self.split_button.setToolTip(tr("compare.split_help"))
+        self._render()
+
+    # ── events ───────────────────────────────────────────────────────────
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._place_bands()
+
+    def _place_bands(self) -> None:
+        top_h = self.top.sizeHint().height()
+        self.top.setGeometry(0, 0, self.width(), top_h)
+        margins = self.layout().contentsMargins()
+        if margins.top() != top_h:
+            self.layout().setContentsMargins(0, top_h, 0, 0)
+
+    def _balance_splitter(self) -> None:
+        height = self.splitter.height()
+        if height > 0:
+            self.splitter.setSizes([height // 2, height - height // 2])
+
+    def _active_bands(self) -> list[CompareBand]:
+        return [band for band in self._bands if band.isVisibleTo(self)]
+
+    def _last_band(self) -> CompareBand:
+        active = self._active_bands()
+        return active[-1] if active else self._bands[0]
+
+    # ── split ────────────────────────────────────────────────────────────
+    def _on_split(self, checked: bool) -> None:
+        self.set_split(checked)
+        self.split_changed.emit(bool(self._split))
+
+    def _band_plan(self, columns) -> list[list[str]]:
+        """Slots of each band; the pending column is the last slot.
+
+        The plan counts **slots**, not versions: the draft column occupies the
+        free slot of the lower band instead of widening the grid, so adding a
+        version fills the empty column and does not leave two holes.
+        """
+        slots = [state.column.key for state in columns]
+        if self._draft:
+            slots.append(DRAFT_SLOT)
+        if not slots:
+            return [[]]
+        if not self.split_active():
+            return [slots]
+        top = (len(slots) + 1) // 2
+        return [slots[:top], slots[top:]]
+
+    def _on_band_scroll(self, source: CompareBand, value: int) -> None:
+        """Keep the other band on the same verse."""
+        if self._syncing or not self.split_active():
+            return
+        verse = source.top_verse()
+        if not verse:
+            return
+        self._syncing = True
+        try:
+            for band in self._active_bands():
+                if band is not source:
+                    band.scroll_to_verse(verse)
+        finally:
+            self._syncing = False
+
+    # ── rendering ────────────────────────────────────────────────────────
+    def _render(self) -> None:
+        css = document_css_for(self.settings)
         table = self._build.table if self._build is not None else None
         columns = table.columns if table is not None else ()
+        plan = self._band_plan(columns)
+        # Both bands keep the same number of columns so the vertical grid
+        # lines up; the band with fewer slots fills the rest with empty cells.
+        # The draft is one more *slot*, so it lands in the free column.
+        width = max((len(slots) for slots in plan), default=0)
+        verses = [row.verse for row in table.rows] if table is not None else []
+
+        for index, band in enumerate(self._bands):
+            active = index < len(plan)
+            band.setVisible(active)
+            if not active:
+                continue
+            slots = plan[index]
+            is_last = index == len(plan) - 1
+            keys = [slot for slot in slots if slot != DRAFT_SLOT]
+            draft = self._draft and is_last
+            states = [state for state in columns if state.column.key in keys]
+            pad = max(0, width - len(keys) - (1 if draft else 0))
+            band.browser.document().setDefaultStyleSheet(css)
+            band.render(
+                header=self._header_cells(states, columns, is_last, pad),
+                versions=len(states) + pad + (1 if draft else 0),
+                html=self._html(keys, is_last=is_last, pad=pad),
+                verses=verses,
+            )
+
+        self._update_actions(columns)
+        self._place_bands()
+
+    def _update_actions(self, columns) -> None:
+        table = self._build.table if self._build is not None else None
         self.chapter_label.setText(
             f"{book_name(table.book, self.settings.locale)} {table.chapter}"
             if table is not None else ""
@@ -605,16 +838,29 @@ class CompareView(QWidget):
             f'font-weight: 700; color: {pal.accent};'
         )
         self.add_button.setEnabled(not self._draft)
+        enough = len(columns) >= SPLIT_MIN_VERSIONS
+        self.split_button.setEnabled(enough and not self._draft)
+        self.split_button.setChecked(self._split and enough)
+        self.split_button.setToolTip(
+            tr("compare.split_help")
+            if enough
+            else tr("compare.split_needs_versions", n=SPLIT_MIN_VERSIONS)
+        )
 
-        self.verse_header = QLabel(tr("compare.verse_short"))
-        self.verse_header.setObjectName("cmpVerseHead")
-        self.verse_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.header_row.addWidget(self.verse_header)
-        self.header_widgets.append(self.verse_header)
+    def _header_cells(self, states, columns, is_last: bool,
+                      pad: int = 0) -> list[QWidget]:
+        """Native cells for one band (verse column first)."""
+        widgets: list[QWidget] = []
+
+        verse = QLabel(tr("compare.verse_short"))
+        verse.setObjectName("cmpVerseHead")
+        verse.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        widgets.append(verse)
 
         used = [state.column.key for state in columns]
-        for index, state in enumerate(columns):
-            if index == 0:
+        position = {state.column.key: i for i, state in enumerate(columns)}
+        for state in states:
+            if position.get(state.column.key) == 0:
                 label = QLabel(state.column.label)
                 label.setObjectName("cmpMainHead")
                 label.setMinimumWidth(0)
@@ -622,15 +868,13 @@ class CompareView(QWidget):
                     QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred
                 )
                 label.setAlignment(
-                    Qt.AlignmentFlag.AlignLeft
-                    | Qt.AlignmentFlag.AlignVCenter
+                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
                 )
                 label.setToolTip(
                     f"{state.column.title or state.column.key}\n"
                     f"{tr('compare.main_column_hint')}"
                 )
-                self.header_row.addWidget(label)
-                self.header_widgets.append(label)
+                widgets.append(label)
                 continue
 
             candidates = [
@@ -639,15 +883,21 @@ class CompareView(QWidget):
                 or mod["rel_path"] == state.column.key
             ]
             header = BibleColumnHeader(
-                index, candidates, state.column.key, status=state.status,
-                theme=self.settings.theme,
+                position[state.column.key], candidates, state.column.key,
+                status=state.status, theme=self.settings.theme,
             )
             header.changed.connect(self.column_changed)
             header.remove_requested.connect(self.remove_requested)
-            self.header_row.addWidget(header)
-            self.header_widgets.append(header)
+            widgets.append(header)
 
-        if self._draft:
+        # Empty cells keep the column count (and the grid) equal to the other
+        # band when this one has fewer translations.
+        for _ in range(max(0, pad)):
+            filler = QWidget()
+            filler.setObjectName("cmpPadHead")
+            widgets.append(filler)
+
+        if self._draft and is_last:
             candidates = [
                 mod for mod in self._bibles
                 if mod["rel_path"] not in used
@@ -655,21 +905,21 @@ class CompareView(QWidget):
             # An empty `current_rel` is the draft: the combo shows its
             # placeholder until the user picks a translation.
             header = BibleColumnHeader(
-                len(columns), candidates, "",
-                theme=self.settings.theme,
+                len(columns), candidates, "", theme=self.settings.theme,
             )
             header.changed.connect(self.column_changed)
             header.remove_requested.connect(self.remove_requested)
-            self.header_row.addWidget(header)
-            self.header_widgets.append(header)
+            widgets.append(header)
             self._draft_header = header
+        elif is_last:
+            self._draft_header = None
 
-        visible = bool(columns) or self._draft
-        self.header_host.setVisible(visible)
+        return widgets
 
-    def _html(self) -> str:
+    def _html(self, keys=None, *, is_last: bool = True, pad: int = 0) -> str:
         build = self._build
         table = build.table if build is not None else None
+        selected = None if keys is None else set(keys)
         if table is None or not table.columns:
             out = [f"<style>{document_css_for(self.settings)}</style>"]
             if build is not None and build.warnings:
@@ -705,12 +955,18 @@ class CompareView(QWidget):
                 f'<a href="cmp-verse:{row.verse}">{row.verse}</a></td>'
             )
             for cell in row.cells:
+                if selected is not None and cell.column.key not in selected:
+                    continue
                 source = sources.get(cell.column.key)
                 out.append(
                     f'<td class="cmp-cell cmp-{cell.status.value}{alt}">'
                     f"{self._cell_html(cell, source)}</td>"
                 )
-            if self._draft:
+            for _ in range(max(0, pad)):
+                out.append(
+                    f'<td class="cmp-cell cmp-pad{alt}">&nbsp;</td>'
+                )
+            if self._draft and is_last:
                 out.append(
                     f'<td class="cmp-cell cmp-draft{alt}">&nbsp;</td>'
                 )
@@ -758,10 +1014,12 @@ class CompareView(QWidget):
         )
 
     # ── anchors ──────────────────────────────────────────────────────────
-    def _on_anchor(self, url) -> None:
+    def _on_band_anchor(self, url) -> None:
         text = url.toString()
         if text.startswith("cmp-verse:"):
             try:
                 self.verse_clicked.emit(int(text.split(":", 1)[1]))
             except ValueError:
                 pass
+            return
+        self.anchor_clicked.emit(url)

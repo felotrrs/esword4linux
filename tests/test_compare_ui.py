@@ -859,3 +859,197 @@ def test_compare_view_never_imposes_a_minimum_width(app, tmp_path):
         pane.deleteLater()
         app.processEvents()
         _close(modules)
+
+
+# ── stacked bands (split) ────────────────────────────────────────────────
+def _many_specs(*names, verses: int = 40):
+    return [
+        (name, f"{name}.bblx", f"Title {name.upper()}", name.upper(),
+         [(BOOK, CHAPTER, verse, f"{name} verse {verse}")
+          for verse in range(1, verses + 1)])
+        for name in names
+    ]
+
+
+def _split_view(pane, app):
+    pane.parallel.setChecked(True)
+    app.processEvents()
+    pane.compare_view.split_button.click()
+    for _ in range(4):
+        app.processEvents()
+    return pane.compare_view
+
+
+def test_split_button_requires_four_versions(app, tmp_path):
+    ctx, modules = _context(tmp_path, _specs("a", "b", "c"))
+    pane = BiblePane(ctx)
+    pane.resize(1000, 700)
+    pane.show()
+    app.processEvents()
+    try:
+        pane.set_compare_columns(["a", "b", "c"])
+        pane.parallel.setChecked(True)
+        app.processEvents()
+
+        view = pane.compare_view
+        assert not view.split_button.isEnabled()
+        assert tr("compare.split_needs_versions", n=4) in view.split_button.toolTip()
+        assert len(view.bands()) == 1
+    finally:
+        pane.deleteLater()
+        app.processEvents()
+        _close(modules)
+
+
+def test_split_balances_an_odd_count_three_plus_two(app, tmp_path):
+    specs = _many_specs("a", "b", "c", "d", "e", verses=2)
+    ctx, modules = _context(tmp_path, specs)
+    pane = BiblePane(ctx)
+    pane.resize(1200, 800)
+    pane.show()
+    app.processEvents()
+    try:
+        pane.set_compare_columns([spec[0] for spec in specs])
+        view = _split_view(pane, app)
+
+        assert view.split_button.isEnabled()
+        assert view.split_button.isChecked()
+        assert view.is_split() is True
+        bands = view.bands()
+        assert len(bands) == 2
+        # Five versions: three on top; the lower band shows two versions plus
+        # one empty column so the vertical grid stays aligned.
+        assert len(bands[0].header_widgets) == 1 + 3
+        assert len(bands[1].header_widgets) == 1 + 3
+        assert bands[0]._metrics.widths == bands[1]._metrics.widths
+        # Both bands show the same verses.
+        assert bands[0]._verses == bands[1]._verses == [1, 2]
+        # One band is above the other.
+        assert bands[0].geometry().bottom() <= bands[1].geometry().top()
+    finally:
+        pane.deleteLater()
+        app.processEvents()
+        _close(modules)
+
+
+def test_split_bands_follow_each_other_vertically(app, tmp_path):
+    specs = _many_specs("a", "b", "c", "d", verses=40)
+    ctx, modules = _context(tmp_path, specs)
+    pane = BiblePane(ctx)
+    pane.resize(1000, 700)
+    pane.show()
+    app.processEvents()
+    try:
+        pane.set_compare_columns([spec[0] for spec in specs])
+        view = _split_view(pane, app)
+        bands = view.bands()
+        assert len(bands) == 2
+
+        top_bar = bands[0].browser.verticalScrollBar()
+        assert top_bar.maximum() > 0
+        top_bar.setValue(top_bar.maximum() // 2)
+        for _ in range(4):
+            app.processEvents()
+
+        verse = bands[0].top_verse()
+        assert verse > 1
+        assert bands[1].top_verse() == verse
+    finally:
+        pane.deleteLater()
+        app.processEvents()
+        _close(modules)
+
+
+def test_adding_a_version_goes_to_the_last_band(app, tmp_path):
+    specs = _many_specs("a", "b", "c", "d", verses=2)
+    ctx, modules = _context(tmp_path, specs)
+    pane = BiblePane(ctx)
+    pane.resize(1200, 800)
+    pane.show()
+    app.processEvents()
+    try:
+        pane.set_compare_columns([spec[0] for spec in specs])
+        view = _split_view(pane, app)
+        view.begin_add()
+        for _ in range(6):
+            app.processEvents()
+
+        draft = view._draft_header
+        assert draft is not None
+        assert draft in view.bands()[-1].header_widgets
+        assert draft not in view.bands()[0].header_widgets
+    finally:
+        pane.deleteLater()
+        app.processEvents()
+        _close(modules)
+
+
+def test_split_state_is_persisted_per_workspace(app, tmp_path):
+    specs = _many_specs("a", "b", "c", "d", verses=2)
+    ctx, modules = _context(tmp_path, specs)
+    ws = Workspace(ctx, "Workspace A", "#c9973f")
+    try:
+        ws.set_main(ctx.catalog.by_rel_path("a"))
+        ws.bible.set_compare_columns([spec[0] for spec in specs])
+        ws.bible.set_parallel(True)
+        ws.bible.set_compare_split(True)
+        state = ws.state()
+        assert state["compare_split"] is True
+
+        restored = Workspace(ctx, "Workspace B", "#4a7fb5")
+        try:
+            restored.apply_state(state)
+            assert restored.bible.compare_split() is True
+        finally:
+            restored.deleteLater()
+            app.processEvents()
+    finally:
+        ws.deleteLater()
+        app.processEvents()
+        _close(modules)
+
+
+def test_a_new_version_fills_the_empty_split_column(app, tmp_path):
+    """The draft must occupy the free column, not widen the grid.
+
+    With five versions the lower band shows two versions and one empty
+    column. Adding a version used to add *another* column and leave two
+    holes (4th and 6th positions).
+    """
+    specs = _many_specs("a", "b", "c", "d", "e", "f", verses=2)
+    ctx, modules = _context(tmp_path, specs)
+    pane = BiblePane(ctx)
+    pane.resize(1200, 800)
+    pane.show()
+    app.processEvents()
+    try:
+        pane.set_compare_columns([spec[0] for spec in specs[:5]])
+        view = _split_view(pane, app)
+        bands = view.bands()
+        widths = bands[0]._metrics.widths
+        assert len(bands[0].header_widgets) == 1 + 3
+        assert len(bands[1].header_widgets) == 1 + 3
+
+        view.begin_add()
+        for _ in range(6):
+            app.processEvents()
+        bands = view.bands()
+        # The draft fills the free column: the grid does not grow.
+        assert len(bands[0].header_widgets) == 1 + 3
+        assert len(bands[1].header_widgets) == 1 + 3
+        assert bands[1].header_widgets[-1] is view._draft_header
+        assert bands[0]._metrics.widths == bands[1]._metrics.widths == widths
+
+        draft = view._draft_header
+        draft._on_activated(draft.combo.findData("f"))
+        for _ in range(6):
+            app.processEvents()
+        bands = view.bands()
+        # Six versions: three and three, no free column.
+        assert len(bands[0].header_widgets) == 1 + 3
+        assert len(bands[1].header_widgets) == 1 + 3
+        assert bands[0]._metrics.widths == bands[1]._metrics.widths == widths
+    finally:
+        pane.deleteLater()
+        app.processEvents()
+        _close(modules)

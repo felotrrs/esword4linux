@@ -15,6 +15,23 @@ except ImportError:  # pragma: no cover - package-style collection
     from tests.support import CORPUS, corpus_available
 
 
+@pytest.fixture(autouse=True)
+def isolated_user_config(tmp_path_factory, monkeypatch):
+    """Never let a test touch the user's real ``settings.json``.
+
+    ``Settings.save()`` writes to the module-level ``SETTINGS_FILE``
+    (``~/.config/esword4linux/settings.json``). A test that builds a
+    ``MainWindow`` and toggles the sidebar would overwrite the user's
+    configuration — including ``cache_dir``, which would then point at a
+    temporary path that pytest deletes.
+    """
+    import esword4linux.config as config
+
+    directory = tmp_path_factory.mktemp("userconfig")
+    monkeypatch.setattr(config, "CONFIG_DIR", directory)
+    monkeypatch.setattr(config, "SETTINGS_FILE", directory / "settings.json")
+
+
 @pytest.fixture
 def empty_settings(tmp_path):
     """Settings pointing at a temporary, empty catalog."""

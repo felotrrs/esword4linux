@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- The comparison table can be **split into two stacked bands** (`Dividir` /
+  *Split* button in the header strip, enabled from four versions on). The
+  translations are balanced between the bands (5 → 3 + 2), both bands show the
+  same verses and their vertical scrolls follow each other by verse. The verse
+  column repeats in each band so every band is readable on its own. The state
+  is persisted per workspace.
+- In a split view both bands keep the **same number of columns**: when one half
+  has fewer translations the remaining cells are empty columns, so the vertical
+  grid stays aligned.
+- The table-header band uses its own `header` palette token, always darker than
+  the zebra rows, so it cannot be confused with the table body in either theme.
+- Fixed: the widget tests could overwrite the user's real
+  `~/.config/esword4linux/settings.json` (a `MainWindow` test calls
+  `Settings.save()`); `tests/conftest.py` now redirects the settings path to a
+  temporary directory.
+
+## 0.5.1 — 2026-11-19
+
 - The Bible **Parallel view** now opens a verse-aligned comparison table of
   installed translations, with zebra rows, add/remove columns and explicit
   missing book/chapter/verse states. Traditional single-version reading is

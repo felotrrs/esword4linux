@@ -116,6 +116,7 @@ class Workspace(QWidget):
                 "parallel": self.bible.is_parallel(),
                 "parallel_rel": self.bible.parallel_rel(),
                 "compare_columns": self.bible.compare_columns(),
+                "compare_split": self.bible.compare_split(),
                 "commentary": self.bible.is_commentary(),
                 "commentary_rel": self.bible.commentary_rel(),
                 "split": list(self.bible.split_sizes()),
@@ -156,6 +157,7 @@ class Workspace(QWidget):
                 self.bible.set_compare_columns(data.get("compare_columns") or [])
             elif data.get("parallel_rel"):
                 self.bible.set_parallel_rel(data["parallel_rel"])
+            self.bible.set_compare_split(bool(data.get("compare_split", False)))
             self.bible.set_commentary(bool(data.get("commentary", True)))
             self.bible.set_parallel(bool(data.get("parallel", False)))
             split = data.get("split")

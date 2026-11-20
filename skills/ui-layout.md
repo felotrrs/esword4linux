@@ -156,6 +156,17 @@ Workspace
   narrower than itself (the window grew on every sidebar toggle).
   Below `MIN_VERSION_WIDTH` (200 px) per version the table scrolls horizontally
   and the header track follows the scrollbar.
+- **Stacked bands** (`CompareBand`): one band = header strip + table. The
+  **Dividir** button in the top strip (enabled from 4 versions) stacks two
+  bands; the translations are balanced (`arriba = ceil(n/2)`) and the verse
+  column repeats in each band. **Both bands keep the same column count**: the
+  band with fewer translations pads the rest with empty cells (`cmpPadHead` in
+  the header, `cmp-pad` in the body) so the vertical grid lines up. Both bands
+  render the same rows from the same `CompareTable`, only with a different
+  column subset. Their vertical scrolls follow each other **by verse**
+  (`top_verse()` / `scroll_to_verse()`), not by fraction, because a row has a
+  different height in each band. The state is persisted as `compare_split` per
+  workspace.
   The table uses `core.compare_reader.build_compare_table()` and never runs
   SQLite queries from the widget. `compare_columns` is persisted per
   workspace.

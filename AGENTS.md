@@ -219,6 +219,11 @@ print(c.counts_by_kind(), c.status_counts())"
 - `make test` is green. Tests that need real modules use
   `ESWORD4LINUX_TEST_CORPUS` and skip when it is unset; they never read the
   developer's cache.
+- **Tests never write the user's real configuration.** `Settings.save()`
+  writes to the module-level `SETTINGS_FILE`; `tests/conftest.py` redirects
+  `SETTINGS_FILE`/`CONFIG_DIR` to a temporary directory, because a test that
+  builds a `MainWindow` calls `Settings.save()` and would otherwise overwrite
+  `~/.config/esword4linux/settings.json` (including `cache_dir`).
 - `make drift` reports no unexpected drift when `ESWORD4LINUX_VENDOR_ORIGIN` is
   set; without it the check skips cleanly.
 - The app starts with `./run.sh`: on first run it asks for the modules folder,

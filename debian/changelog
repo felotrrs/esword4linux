@@ -1,3 +1,30 @@
+esword4linux (0.5.2-1) noble; urgency=medium
+
+  * Split the parallel comparison view into two stacked bands (the *Dividir*
+    button, enabled from four versions on) whose vertical scrolls follow each
+    other by verse. Both bands keep the same column count so the grid stays
+    aligned and a new translation fills the free column.
+  * Give the table-header band its own palette colour, always darker than the
+    zebra rows, so it cannot be confused with the table body.
+  * Never let the widget tests overwrite the user's real settings.json
+    (conftest redirects the settings path), and read the packaged version from
+    the runtime manifest instead of a hardcoded string.
+
+ -- Felipe <felotrrs@gmail.com>  Fri, 20 Nov 2026 09:00:00 +0000
+
+esword4linux (0.5.1-1) noble; urgency=medium
+
+  * Add the multi-version parallel Bible view: the *Vista paralela* shows the
+    same chapter of several installed translations aligned by verse, with a
+    native header coupled to the table columns and explicit missing
+    book/chapter/verse states.
+  * Fix the window behaviour: the resources panel no longer leaves an empty
+    band when the app reopens with it collapsed, the Bible toolbar scrolls
+    horizontally instead of dictating the window minimum, and the comparison
+    strip no longer makes the window grow on every panel toggle.
+
+ -- Felipe <felotrrs@gmail.com>  Thu, 19 Nov 2026 12:00:00 +0000
+
 esword4linux (0.5.0-1) noble; urgency=medium
 
   * Initial native Debian package for Ubuntu 24.04 LTS and Linux Mint 22.x.

@@ -38,6 +38,9 @@ class Palette:
     success: str = "#2e7d32"
     error: str = "#c62828"
     strong: str = "#8f6bc4"
+    #: Table-header band. Always darker than `panel` (the zebra rows) so the
+    #: header cannot be confused with the table body.
+    header: str = "#e6dfd0"
 
 
 LIGHT = Palette(
@@ -45,6 +48,7 @@ LIGHT = Palette(
     text="#26231d", muted="#6f685a", accent="#9a6a3a", accent_text="#ffffff",
     link="#2f5d8a", highlight="#f6e3b4", comment_bg="#f6f1e4", verse_num="#9a6a3a",
     success="#2e7d32", error="#c62828", strong="#8f6bc4",
+    header="#e6dfd0",
 )
 
 DARK = Palette(
@@ -52,6 +56,7 @@ DARK = Palette(
     text="#f0e9db", muted="#b9ae9b", accent="#e0a96b", accent_text="#17130e",
     link="#9cc4e8", highlight="#6a5328", comment_bg="#2a2419", verse_num="#e0a96b",
     success="#66bb6a", error="#ef5350", strong="#b39ddb",
+    header="#191713",
 )
 
 
@@ -137,9 +142,10 @@ QWidget#cmpTop {{
     background: {p.bg}; border-bottom: 0;
 }}
 QWidget#cmpHeader {{
-    background: {p.panel}; border-bottom: 1px solid {p.border};
+    background: {p.header}; border-bottom: 1px solid {p.border};
 }}
 QWidget#cmpHeaderTrack {{ background: transparent; }}
+QWidget#cmpPadHead {{ background: transparent; }}
 QLabel#cmpChapter {{ color: {p.accent}; font-weight: 700; }}
 QLabel#cmpVerseHead {{
     background: transparent; color: {p.muted}; font-weight: 700;
@@ -189,6 +195,15 @@ QToolButton#cmpAdd {{
 }}
 QToolButton#cmpAdd:hover {{ background: {p.panel}; border-color: {p.success}; }}
 QToolButton#cmpAdd:disabled {{ color: {p.muted}; border-color: {p.border}; }}
+QToolButton#cmpSplit {{
+    color: {p.text}; border: 1px solid {p.border};
+    background: {p.panel_alt}; font-weight: 700;
+}}
+QToolButton#cmpSplit:hover {{ border-color: {p.accent}; }}
+QToolButton#cmpSplit:checked {{
+    background: {p.accent}; color: {p.accent_text}; border-color: {p.accent};
+}}
+QToolButton#cmpSplit:disabled {{ color: {p.muted}; border-color: {p.border}; }}
 QToolButton#cmpClose {{
     background: transparent; color: {p.muted}; border: 0;
     border-radius: 8px; font-weight: 700; padding: 0;

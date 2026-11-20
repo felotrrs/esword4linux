@@ -5,5 +5,5 @@ application (PySide6/Qt6) that opens any module from a single user-selected
 folder and classifies it by its SQL structure.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.5.2"
 APP_NAME = "esword4linux"

@@ -104,9 +104,7 @@ class BiblePane(QWidget):
         self.compare_view.column_changed.connect(
             self._apply_compare_pick
         )
-        self.compare_view.browser.anchorClicked.connect(
-            self._on_compare_anchor
-        )
+        self.compare_view.anchor_clicked.connect(self._on_compare_anchor)
         self.primary_stack = QStackedWidget()
         self.primary_stack.addWidget(self.primary_host)
         self.primary_stack.addWidget(self.citations)
@@ -1018,6 +1016,13 @@ class BiblePane(QWidget):
     def compare_columns(self) -> list[str]:
         """Selected translation rel_paths, including the main one if chosen."""
         return list(self._compare_columns)
+
+    def compare_split(self) -> bool:
+        """Whether the stacked split was requested for this workspace."""
+        return self.compare_view.is_split()
+
+    def set_compare_split(self, split: bool) -> None:
+        self.compare_view.set_split(bool(split))
 
     def set_compare_columns(self, rels: list[str] | None) -> None:
         """Set the table columns, keeping only installed Bibles, no duplicates."""

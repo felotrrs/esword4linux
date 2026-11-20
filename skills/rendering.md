@@ -66,9 +66,11 @@ the preference is not lost.
 
 - `LIGHT` / `DARK`: a `Palette` with `bg, panel, panel_alt, border, text,
   muted, accent, accent_text, link, highlight, comment_bg, verse_num`, plus the
-  semantic tokens `success`, `error` and `strong`.
+  semantic tokens `success`, `error`, `strong` and `header`.
 - In `DARK`, the `bg → panel → panel_alt` steps and the border have enough
   contrast to distinguish panels, entries and alternating rows.
+- `header` is the table-header band and must stay **darker than `panel`** (the
+  zebra rows) in both themes, or the header blends into the table body.
 - `ui_stylesheet(settings)` → application QSS (uses the UI typography).
 - `document_css_for(settings)` → CSS embedded in every `QTextBrowser`.
 
@@ -155,10 +157,14 @@ watches them); the hint only activates them.
   bold) plus a muted `✕`. The body is still the sanitized HTML table, with no
   `width="100%"` and no top border: the header strip's bottom border closes the
   table.
-- The two header bands are positioned by hand (`CompareView._place_bands`) as
-  free children of the view. Do not put them back in the layout with a fixed
+- The two header bands are positioned by hand (`CompareBand._place_header`) as
+  free children of the band. Do not put them back in the layout with a fixed
   width: that width becomes the view's minimum and creates a circular
   dependency with the viewport.
+- A split workspace renders **two `CompareBand`s** stacked in a `QSplitter`.
+  The HTML is generated per band from the same `CompareTable` (column subset
+  only), and the vertical scrolls are kept in step by verse. Never regenerate
+  the table per band from the reader: that would duplicate the SQLite reads.
 - The dropdown of those combos is a floating card: its width comes from
   `view().setMinimumWidth()` (not from the column), its rows carry an explicit
   `QFont.Weight.Normal` because a `QComboBox` popup inherits the combo's bold

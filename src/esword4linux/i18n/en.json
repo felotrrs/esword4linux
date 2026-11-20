@@ -269,5 +269,8 @@
   "compare.verse_short": "Vers.",
   "compare.add_version": "Add version",
   "compare.add_version_help": "Add another installed translation to the comparison table.",
+  "compare.split": "Split",
+  "compare.split_help": "Show the versions in two stacked tables that scroll together.",
+  "compare.split_needs_versions": "At least {n} versions are needed to split the view.",
   "compare.main_column_hint": "Change it from the Translation selector."
 }

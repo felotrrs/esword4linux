@@ -168,8 +168,9 @@ def check_payload(root: Path, staging: dict) -> None:
             fail(f"manifest Qt plugin missing: {rel}")
 
 
-def run_imports(root: Path, env: dict[str, str]) -> None:
+def run_imports(root: Path, env: dict[str, str], app_version: str) -> None:
     code = r"""
+import os
 import sys
 sys.dont_write_bytecode = True
 import yaml
@@ -184,13 +185,17 @@ assert len(BOOKS) >= 66, f"book table incomplete: {len(BOOKS)}"
 assert len(BOOKS) == len({book[0] for book in BOOKS}), "duplicate book IDs"
 assert QtCore.__version__ == PySide6.__version__, "Qt version mismatch"
 assert QtGui.__name__ == "PySide6.QtGui"
-assert esword4linux.__version__ == "0.5.0"
+expected = os.environ["ESWORD4LINUX_EXPECTED_VERSION"]
+assert esword4linux.__version__ == expected, (
+    f"packaged version {esword4linux.__version__} != manifest {expected}")
 assert isinstance(tr("app.title"), str)
 print("python", sys.version.split()[0])
 print("PySide6", QtCore.__version__)
 print("PyYAML", yaml.__version__, "pure-python")
 print("books", len(BOOKS))
 """
+    env = dict(env)
+    env["ESWORD4LINUX_EXPECTED_VERSION"] = app_version
     proc = subprocess.run(
         [sys.executable, "-B", "-s", "-c", code],
         capture_output=True, text=True, env=env, check=False,
@@ -217,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
     check_payload(root, manifest["staging"])
     env = runtime_env(root)
     checked = check_elf_closure(root, env)
-    run_imports(root, env)
+    run_imports(root, env, manifest["app_version"])
     print(f"ELF objects checked: {checked}")
     print(f"runtime root: {root}")
     return 0
