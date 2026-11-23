@@ -71,8 +71,50 @@ _FAMILY_ALIAS: dict[str, str] = {}
 _FAMILY_BOOKS: dict[str, dict[int, int]] = {}
 
 
+@dataclass(frozen=True)
+class BookRange:
+    """A named, inclusive range of e-Sword book ids (testament or group)."""
+
+    key: str
+    names: dict[str, str]
+    start: int
+    end: int
+
+    def label(self, lang: str = "es") -> str:
+        return (self.names.get(lang) or self.names.get("es")
+                or self.names.get("en") or self.key)
+
+    def books(self) -> range:
+        return range(self.start, self.end + 1)
+
+
+#: Loaded from ``books.yaml`` (single source of truth for the books).
+TESTAMENTS: list[BookRange] = []
+BOOK_GROUPS: list[BookRange] = []
+
+
+def _load_ranges(section, target: list[BookRange]) -> None:
+    for key, spec in (section or {}).items():
+        if not isinstance(spec, dict):
+            continue
+        try:
+            start = int(spec["start"])
+            end = int(spec["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end < start:
+            continue
+        names = {
+            str(lang): str(value)
+            for lang, value in (spec.get("names") or {}).items()
+        }
+        target.append(BookRange(str(key), names, start, end))
+
+
 def _load() -> None:
     data = _load_yaml()
+    _load_ranges(data.get("testaments"), TESTAMENTS)
+    _load_ranges(data.get("groups"), BOOK_GROUPS)
 
     for family, spec in (data.get("families") or {}).items():
         if not isinstance(spec, dict):

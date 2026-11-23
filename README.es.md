@@ -17,6 +17,8 @@ no por la extensión, y no modifica ni un byte de tu biblioteca.
 > tus propios módulos. Los módulos de e-Sword son propiedad de sus respectivos
 > editores.
 
+![esword4linux leyendo un capítulo en paralelo con dos traducciones](docs/screenshots/parallel-bible.png)
+
 ## Características
 
 - **Una sola carpeta de módulos.** Lee cualquier módulo compatible en su sitio,
@@ -35,16 +37,64 @@ no por la extensión, y no modifica ni un byte de tu biblioteca.
 - **Búsqueda unificada.** Una sola caja entiende referencias bíblicas, números
   Strong y texto libre. El índice FTS5 es opcional y solo se construye cuando tú
   lo pides.
+- **Cuatro modos de búsqueda.** Todas las palabras, cualquiera de las palabras,
+  frase exacta o una expresión regular. La búsqueda se lanza al pulsar Intro o
+  *Buscar*, nunca mientras escribes.
+- **Filtros de búsqueda avanzados.** Acota cualquier búsqueda por tipo de
+  material, por una obra concreta y —en las biblias— por libro y capítulo, o por
+  un rango avanzado (testamento, grupo canónico, rango de libros, rango de
+  capítulos). Los filtros se combinan y se mantienen coherentes: un valor exacto
+  y un rango son mutuamente excluyentes.
+- **Vista previa de cualquier resultado.** Las citas de los resultados son
+  enlaces; al pasar el ratón se muestra el pasaje completo de la versión de la
+  que procede el resultado, sin salir de la lista.
+- **Áreas de herramientas adaptables.** Las barras y los filtros saltan a la
+  línea siguiente en ventanas estrechas en lugar de esconder controles tras un
+  desplazamiento horizontal.
 - **Módulos cifrados.** Los módulos SQLitePlus/Twofish-128 se pueden leer e
   indexar.
 - **Interfaz bilingüe.** Español e inglés, con cambio en caliente.
 - **Tipografía legible.** Fuentes independientes para interfaz, Escritura y texto
   corriente; temas claro y oscuro.
 
+## Capturas
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/parallel-bible.png" alt="Vista paralela con dos traducciones"><br>
+      <b>Biblia paralela.</b> Dos traducciones lado a lado, con el árbol de
+      recursos, el organizador de agrupaciones y una pestaña por espacio de
+      trabajo.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/multi-version-compare.png" alt="Seis traducciones en la tabla comparativa"><br>
+      <b>Tabla comparativa.</b> Seis traducciones —incluidas la Septuaginta y el
+      texto hebreo— alineadas versículo a versículo en dos bandas apiladas.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/bible-atlas-maps.png" alt="Mapa del atlas bíblico con el visor de imágenes"><br>
+      <b>Mapas.</b> Los módulos de mapas se leen en su sitio, con zoom, ajuste a
+      la ventana y leyenda.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/dictionary-reader.png" alt="Lector de diccionarios con índice A–Z"><br>
+      <b>Diccionarios.</b> Índice A–Z, filtro instantáneo y una biblia de
+      referencia independiente para las burbujas de los versículos de la entrada.
+    </td>
+  </tr>
+</table>
+
 ## Requisitos
 
 El entorno de referencia para v0.5.2 es:
 
+- **Ubuntu 24.04 LTS (noble), amd64** — verificado instalando desde el PPA de
+  Launchpad (ver *Instalación*). Lubuntu 24.04 se probó en una máquina virtual:
+  el paquete se instaló con APT y varias biblias, diccionarios y comentarios
+  cargaron correctamente.
 - **Linux Mint 22.3** (base Ubuntu 24.04/noble), Cinnamon/X11
 - **Python 3.12.3**
 - Una sesión gráfica de escritorio. Esta guía se verificó en X11; el paquete de
@@ -53,8 +103,8 @@ El entorno de referencia para v0.5.2 es:
   `make install`, para descargar las dependencias de Python desde PyPI. Una vez
   creado el entorno virtual, los arranques normales funcionan sin red.
 
-El proyecto declara Python 3.10 o superior. Otras versiones basadas en
-Debian/Ubuntu no se verificaron para v0.5.2.
+El proyecto declara Python 3.10 o superior. Otras versiones de Ubuntu, Mint o
+Debian y otras arquitecturas no se verificaron para v0.5.2.
 
 ### Dependencias del sistema en Linux Mint / Ubuntu
 
@@ -87,6 +137,83 @@ contra el plugin `libqxcb.so` real de PySide6.
 
 Los requisitos detallados, la solución de problemas y las notas de
 desinstalación están en [`docs/INSTALL.md`](docs/INSTALL.md) (en inglés).
+
+### Ubuntu 24.04 LTS desde el PPA de Launchpad (recomendado)
+
+El PPA es la forma más sencilla de instalar y mantener la aplicación actualizada
+en un sistema Ubuntu compatible:
+
+```bash
+sudo apt update
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:felotrrs/esword4linux
+sudo apt update
+sudo apt install esword4linux
+```
+
+Página del PPA: <https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux>
+
+- Es un **PPA público de terceros alojado en Launchpad**, no un repositorio
+  oficial de Ubuntu. Ubuntu no revisa ni da soporte a sus paquetes.
+- El objetivo verificado es **Ubuntu 24.04 LTS (noble) en amd64**; el paquete
+  publicado es `0.5.2-3`. Lubuntu 24.04 se probó en una máquina virtual: la
+  instalación con APT funcionó y varios módulos de biblia, diccionario y
+  comentario cargaron correctamente.
+- Otras versiones de Ubuntu, otras arquitecturas y otras distribuciones **no se
+  declaran compatibles**.
+- Tras la primera instalación, las actualizaciones llegan con el flujo normal de
+  APT:
+
+  ```bash
+  sudo apt update
+  sudo apt upgrade
+  ```
+
+  `apt` conserva `~/.config/esword4linux/` y `~/.cache/esword4linux/`.
+
+Para desinstalarlo:
+
+```bash
+sudo apt remove esword4linux
+sudo add-apt-repository --remove ppa:felotrrs/esword4linux
+```
+
+### Paquete Debian nativo (Ubuntu 24.04 / Linux Mint 22.x)
+
+Descarga el paquete publicado e instálalo con `apt`:
+
+```bash
+curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.5.2-3_amd64.deb
+sudo apt install ./esword4linux_0.5.2-3_amd64.deb
+esword4linux
+```
+
+El paquete incluye PySide6-Essentials, shiboken6, Qt 6 y PyYAML en un entorno
+privado bajo `/opt/esword4linux` e instala la entrada de escritorio, los iconos,
+la página de manual y los textos de licencia. Usa el `/usr/bin/python3` de la
+distribución sin modificar el Python del sistema. Construcción desde un
+checkout:
+
+```bash
+packaging/build-deb.sh
+```
+
+El resultado es `dist/deb/esword4linux_<version>_amd64.deb`, donde `<version>`
+es la revisión Debian de `debian/changelog`. X11 se validó en Linux Mint 22.3;
+Wayland se validó con Weston 13 headless/kiosk, pero no hubo una sesión completa
+de compositor de escritorio durante el empaquetado.
+
+Para construir el paquete Debian de código fuente (por ejemplo para un PPA de
+Launchpad):
+
+```bash
+make deb-src-verify
+```
+
+El `.orig.tar.xz` generado en `dist/src/` incorpora las ruedas fijadas, así que
+la construcción no necesita acceso a PyPI. El resultado está orientado a un PPA:
+las ruedas precompiladas no son aceptables directamente en los archivos
+principales de Debian/Ubuntu.
 
 ### Desde Git
 
@@ -171,9 +298,20 @@ y volver a iniciar sesión.
 
 ## Desinstalación
 
-v0.5.2 no tiene instalador para todo el sistema ni un objetivo `make uninstall`.
-La aplicación se ejecuta desde el checkout y guarda los datos de usuario por
-separado.
+### Instalado desde el PPA o desde un `.deb`
+
+```bash
+sudo apt remove esword4linux
+sudo add-apt-repository --remove ppa:felotrrs/esword4linux   # solo el PPA
+```
+
+La desinstalación borra solo los archivos del paquete. Tus preferencias y cachés
+se **conservan** (ver abajo).
+
+### Ejecutando desde un checkout
+
+Un checkout de código fuente no tiene instalador para todo el sistema ni un
+objetivo `make uninstall`.
 
 1. Borra la carpeta del checkout (por ejemplo `esword4linux` o
    `esword4linux-0.5.2`).
@@ -227,9 +365,13 @@ Ningún módulo se indexa ni se descifra automáticamente al arrancar.
 
 ## Estado de distribución
 
-**v0.5.2 es solo código fuente.** Se distribuye como código Git y como los
-archivos fuente generados automáticamente por GitHub desde el tag. No se
-proporciona ningún paquete DEB, AppImage, Flatpak ni Snap.
+**v0.5.2** se distribuye como código Git, como los archivos fuente que genera
+GitHub desde el tag, como paquete Debian nativo para Ubuntu 24.04 / Linux Mint
+22.x (amd64) y a través del PPA público de Launchpad
+[`ppa:felotrrs/esword4linux`](https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux)
+(`0.5.2-3`, noble/amd64). Todavía no se proporciona AppImage, Flatpak ni Snap.
+Consulta [`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)
+para ver qué se validó realmente.
 
 ## Ubicación de los datos
 

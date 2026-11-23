@@ -16,6 +16,8 @@ extension, and never modifies a single byte of your library.
 > in this repository.** You choose the folder that contains your own modules on
 > first run. e-Sword modules are copyrighted by their respective publishers.
 
+![esword4linux reading a chapter side by side in two translations](docs/screenshots/parallel-bible.png)
+
 ## Features
 
 - **One modules folder.** Read any supported e-Sword module in place, read-only.
@@ -32,15 +34,59 @@ extension, and never modifies a single byte of your library.
   and shown in a bottom panel; Strong's entries open in the same area.
 - **Unified search.** One box understands Bible references, Strong's numbers and
   free text. The FTS5 index is optional and built only when you ask for it.
+- **Four search modes.** All of the words, any of the words, exact phrase or a
+  regular expression. The query runs when you press Enter or *Search* — never
+  while you type.
+- **Advanced search filters.** Narrow a search by material type, by one specific
+  work and — for Bibles — by book and chapter, or by an advanced range
+  (testament, canonical group, book range, chapter range). Filters combine and
+  stay consistent: an exact value and a range are mutually exclusive.
+- **Preview any result.** Result citations are links; hovering one shows the
+  whole passage of the version the hit came from, without leaving the results.
+- **Responsive tool areas.** Toolbars and filters wrap to the next line on
+  narrow windows instead of hiding controls behind a horizontal scroller.
 - **Encrypted modules.** SQLitePlus/Twofish-128 modules can be read and indexed.
 - **Bilingual UI.** Spanish and English, switchable at runtime.
 - **Readable typography.** Independent fonts for the interface, Scripture and
   running text; light and dark themes.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/parallel-bible.png" alt="Parallel Bible view with two translations"><br>
+      <b>Parallel Bible.</b> Two translations side by side, with the resource
+      tree, the grouping organizer and one tab per workspace.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/multi-version-compare.png" alt="Six translations in the comparison table"><br>
+      <b>Comparison table.</b> Six translations — including the Septuagint and
+      the Hebrew text — aligned verse by verse in two stacked bands.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/bible-atlas-maps.png" alt="Bible atlas map with the image viewer"><br>
+      <b>Maps.</b> The map modules are read in place, with zoom, fit-to-window
+      and the legend.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/dictionary-reader.png" alt="Dictionary reader with the A–Z index"><br>
+      <b>Dictionaries.</b> A–Z index, instant filter and an independent
+      reference Bible for the verse pop-ups of the entry.
+    </td>
+  </tr>
+</table>
+
 ## Requirements
 
 The reference environment for v0.5.2 is:
 
+- **Ubuntu 24.04 LTS (noble), amd64** — verified by installing from the
+  Launchpad PPA (see *Installation*). Lubuntu 24.04 was tested in a virtual
+  machine: the package installed through APT and multiple Bible, dictionary and
+  commentary modules loaded correctly.
 - **Linux Mint 22.3** (Ubuntu 24.04/noble base), Cinnamon/X11
 - **Python 3.12.3**
 - A graphical desktop session. This guide was verified on X11; the PySide6
@@ -49,8 +95,8 @@ The reference environment for v0.5.2 is:
   Python dependencies can be downloaded from PyPI. After the virtual
   environment is ready, normal launches work offline.
 
-The project declares Python 3.10 or newer. Other Debian/Ubuntu-based releases
-were not verified for v0.5.2.
+The project declares Python 3.10 or newer. Other Ubuntu, Mint or Debian
+releases and other architectures were not verified for v0.5.2.
 
 ### System dependencies on Linux Mint / Ubuntu
 
@@ -83,10 +129,52 @@ provides its own `pip`. The Qt package names above were verified on Linux Mint
 Detailed prerequisites, troubleshooting, the validation matrix and uninstall
 notes are in [`docs/INSTALL.md`](docs/INSTALL.md).
 
-### Native Debian package (Ubuntu 24.04 / Linux Mint 22.x)
+### Ubuntu 24.04 LTS from the Launchpad PPA (recommended)
+
+The PPA is the simplest way to install and keep the application updated on a
+supported Ubuntu system:
 
 ```bash
-sudo apt install ./esword4linux_0.5.2-1_amd64.deb
+sudo apt update
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:felotrrs/esword4linux
+sudo apt update
+sudo apt install esword4linux
+```
+
+PPA page: <https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux>
+
+- This is a **public third-party Launchpad PPA**, not an official Ubuntu
+  repository. Ubuntu does not review or support its packages.
+- The verified target is **Ubuntu 24.04 LTS (noble) on amd64**; the published
+  package is `0.5.2-3`. Lubuntu 24.04 was tested in a virtual machine: the
+  installation through APT worked and several Bible, dictionary and commentary
+  modules loaded correctly.
+- Other Ubuntu releases, other architectures and other distributions are **not
+  claimed as supported**.
+- After the first install, updates arrive through the normal APT workflow:
+
+  ```bash
+  sudo apt update
+  sudo apt upgrade
+  ```
+
+  `apt` keeps `~/.config/esword4linux/` and `~/.cache/esword4linux/` intact.
+
+To remove it:
+
+```bash
+sudo apt remove esword4linux
+sudo add-apt-repository --remove ppa:felotrrs/esword4linux
+```
+
+### Native Debian package (Ubuntu 24.04 / Linux Mint 22.x)
+
+Download the published package and install it with `apt`:
+
+```bash
+curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.5.2-3_amd64.deb
+sudo apt install ./esword4linux_0.5.2-3_amd64.deb
 esword4linux
 ```
 
@@ -99,9 +187,10 @@ modifying system Python. Build it from a checkout with:
 packaging/build-deb.sh
 ```
 
-The result is `dist/deb/esword4linux_0.5.2-1_amd64.deb`. X11 was validated on
-Linux Mint 22.3; Wayland was validated with Weston 13 headless/kiosk, but a
-full desktop compositor session was not available during packaging.
+The result is `dist/deb/esword4linux_<version>_amd64.deb`, where `<version>`
+is the Debian revision from `debian/changelog`. X11 was validated on Linux Mint
+22.3; Wayland was validated with Weston 13 headless/kiosk, but a full desktop
+compositor session was not available during packaging.
 
 To build the Debian source package (for example for a Launchpad PPA):
 
@@ -195,8 +284,19 @@ in.
 
 ## Uninstall
 
-v0.5.2 has no system-wide installer and no `make uninstall` target. The
-application runs from the checkout and stores user data separately.
+### Installed from the PPA or from a `.deb`
+
+```bash
+sudo apt remove esword4linux
+sudo add-apt-repository --remove ppa:felotrrs/esword4linux   # PPA only
+```
+
+Removal deletes only the package files. Your settings and caches are
+**preserved** (see below).
+
+### Running from a checkout
+
+A source checkout has no system-wide installer and no `make uninstall` target.
 
 1. Delete the checkout folder (for example `esword4linux` or
    `esword4linux-0.5.2`).
@@ -250,10 +350,11 @@ No module is indexed or decrypted automatically at startup.
 
 ## Distribution status
 
-v0.5.2 is distributed as Git source, as the GitHub tag archives and as a native
-Debian package for Ubuntu 24.04 / Linux Mint 22.x (amd64). No AppImage, Flatpak
-or Snap package is provided yet. See
-[`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)
+v0.5.2 is distributed as Git source, as the GitHub tag archives, as a native
+Debian package for Ubuntu 24.04 / Linux Mint 22.x (amd64) and through the
+public Launchpad PPA [`ppa:felotrrs/esword4linux`](https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux)
+(`0.5.2-3`, noble/amd64). No AppImage, Flatpak or Snap package is provided yet.
+See [`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)
 for what was actually validated.
 
 ## Data locations

@@ -59,24 +59,61 @@ CREATE TABLE IF NOT EXISTS index_meta (
 
 _TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
 
+#: How the words of a query are combined. The UI offers exactly these four.
+MODE_ALL = "all"        # every term must appear (default)
+MODE_ANY = "any"        # one term is enough
+MODE_PHRASE = "phrase"  # the exact phrase
+MODE_REGEX = "regex"    # a regular expression (FTS5 seeds, Python decides)
+SEARCH_MODES = (MODE_ALL, MODE_ANY, MODE_PHRASE, MODE_REGEX)
 
-def build_match(query: str) -> str:
-    """User text → FTS5 MATCH expression.
 
-    - Quoted phrases are respected as a phrase.
-    - The last term becomes a prefix (search-as-you-type).
-    - Terms are combined with AND; `search()` retries with OR if there are no
-      results.
+def _words(query: str) -> list[str]:
+    """Tokens of a phrase: the quoted parts are kept together."""
+    phrases = re.findall(r'"([^"]+)"', query or "")
+    rest = re.sub(r'"[^"]+"', " ", query or "")
+    tokens = [t for t in _TOKEN.findall(rest)]
+    words: list[str] = []
+    for phrase in phrases:
+        clean = " ".join(_TOKEN.findall(phrase))
+        if clean:
+            words.append(clean)
+    words.extend(tokens)
+    return words
+
+
+def build_match(query: str, mode: str = MODE_ALL) -> str:
+    """User text → FTS5 MATCH expression for the selected mode.
+
+    - ``all``: quoted terms joined with AND, the last one a prefix (the user is
+      typing it). No OR fallback any more: «all of the words» means all.
+    - ``any``: quoted terms joined with OR.
+    - ``phrase``: the whole query as a single quoted phrase.
+    - ``regex``: the literal words found in the pattern, OR-ed (a safe
+      superset; :func:`regex_hit` applies the expression itself).
     """
     query = (query or "").strip()
     if not query:
         return ""
+    if mode == MODE_PHRASE:
+        clean = " ".join(_TOKEN.findall(query))
+        return f'"{clean}"' if clean else ""
+    if mode == MODE_REGEX:
+        parts = []
+        for word, prefix in regex_literals(query):
+            term = f'"{word}"*' if prefix else f'"{word}"'
+            if term not in parts:
+                parts.append(term)
+        return " OR ".join(parts)
+    if mode == MODE_ANY:
+        words = _words(query)
+        return " OR ".join(f'"{w}"' for w in words) if words else ""
+    # MODE_ALL — unchanged behaviour.
     phrases = re.findall(r'"([^"]+)"', query)
     rest = re.sub(r'"[^"]+"', " ", query)
     tokens = _TOKEN.findall(rest)
     parts: list[str] = []
-    for p in phrases:
-        clean = " ".join(_TOKEN.findall(p))
+    for phrase in phrases:
+        clean = " ".join(_TOKEN.findall(phrase))
         if clean:
             parts.append(f'"{clean}"')
     for i, tok in enumerate(tokens):
@@ -86,6 +123,7 @@ def build_match(query: str) -> str:
 
 
 def build_match_or(query: str) -> str:
+    """OR of the query terms (the «any of the words» shape, no prefixes)."""
     query = (query or "").strip()
     if not query:
         return ""
@@ -93,6 +131,43 @@ def build_match_or(query: str) -> str:
     if not tokens:
         return build_match(query)
     return " OR ".join(f'"{t}"' for t in tokens)
+
+
+def regex_literals(pattern: str) -> list[tuple[str, bool]]:
+    """(word, is_prefix) pairs found in a regular expression.
+
+    A word is a *prefix* candidate when a quantifier follows it or when it is
+    followed/preceded by ``.*``; that only widens the FTS5 seed set. The
+    expression is still the final judge, so the result is exact.
+    """
+    out: list[tuple[str, bool]] = []
+    seen: set[str] = set()
+    # Escape classes (\d, \w, \b…) are not literal words: drop them before
+    # tokenising so «\bpaz\b» yields «paz» and not «bpaz».
+    text = re.sub(r"\\[A-Za-z]", " ", pattern or "")
+    for match in _TOKEN.finditer(text):
+        word = match.group(0)
+        if word in seen:
+            continue
+        seen.add(word)
+        after = text[match.end():match.end() + 1]
+        following = text[match.end():match.end() + 2]
+        pre = text[max(0, match.start() - 2):match.start()]
+        prefix = (
+            after in ("*", "+", "{")
+            or following.startswith(".*") or following.startswith(".+")
+            or pre.endswith(".*")
+        )
+        out.append((word, prefix))
+    return out
+
+
+def regex_hit(pattern, row: dict) -> bool:
+    """True when the compiled *pattern* matches the page text."""
+    for value in (row.get("body"), row.get("title")):
+        if value and pattern.search(value):
+            return True
+    return False
 
 
 class ContentStore:
@@ -140,21 +215,37 @@ class ContentStore:
 
     # ── querying ─────────────────────────────────────────────────────────
     def search(self, query: str, module_ids: list[int], limit: int = 200,
-               kinds: list[str] | None = None) -> list[dict]:
+               kinds: list[str] | None = None,
+               book: int | None = None,
+               chapter: int | None = None,
+               book_range: tuple[int, int] | None = None,
+               chapter_range: tuple[int, int] | None = None,
+               mode: str = MODE_ALL,
+               pattern=None) -> list[dict]:
         if not module_ids:
             return []
-        match = build_match(query)
+        match = build_match(query, mode)
         if not match:
             return []
-        rows = self._run_match(match, module_ids, limit, kinds)
-        if not rows:
-            alt = build_match_or(query)
-            if alt and alt != match:
-                rows = self._run_match(alt, module_ids, limit, kinds)
+        # The regex mode filters the FTS5 candidates in Python, so it needs a
+        # wider window; the final list is trimmed to `limit` below.
+        fetch = limit
+        if mode == MODE_REGEX:
+            fetch = min(2000, max(limit, limit * 10))
+        rows = self._run_match(
+            match, module_ids, fetch, kinds, book, chapter,
+            book_range, chapter_range,
+        )
+        if mode == MODE_REGEX and pattern is not None:
+            rows = [row for row in rows if regex_hit(pattern, row)][:limit]
         return rows
 
     def _run_match(self, match: str, module_ids: list[int], limit: int,
-                   kinds: list[str] | None) -> list[dict]:
+                   kinds: list[str] | None,
+                   book: int | None = None,
+                   chapter: int | None = None,
+                   book_range: tuple[int, int] | None = None,
+                   chapter_range: tuple[int, int] | None = None) -> list[dict]:
         placeholders = ",".join("?" * len(module_ids))
         sql = (
             "SELECT p.id, p.module_id, p.kind, p.ref, p.title, p.body, "
@@ -168,6 +259,24 @@ class ContentStore:
         if kinds:
             sql += " AND p.kind IN (" + ",".join("?" * len(kinds)) + ")"
             params.extend(kinds)
+        # Bible-only restrictions. The columns already exist in `page` and are
+        # indexed by idx_page_loc(book, chapter, verse): no schema change and
+        # no reindex. They are applied to the joined row, so they only remove
+        # results, never block.
+        if book is not None:
+            sql += " AND p.book = ?"
+            params.append(int(book))
+        if book_range is not None:
+            lo, hi = book_range
+            sql += " AND p.book BETWEEN ? AND ?"
+            params.extend((int(lo), int(hi)))
+        if chapter is not None:
+            sql += " AND p.chapter = ?"
+            params.append(int(chapter))
+        if chapter_range is not None:
+            lo, hi = chapter_range
+            sql += " AND p.chapter BETWEEN ? AND ?"
+            params.extend((int(lo), int(hi)))
         sql += " ORDER BY rank LIMIT ?"
         params.append(limit)
         try:

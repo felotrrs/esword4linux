@@ -570,6 +570,9 @@ class MainWindow(QMainWindow):
         if self._worker and self._worker.isRunning():
             self._worker.requestInterruption()
             self._worker.wait(3000)
+        # The search view owns a background worker for its filter lists; it
+        # must be stopped before the widgets are destroyed.
+        self.search.shutdown()
         self._save_state()
         self.ctx.close_all()
         super().closeEvent(event)
@@ -737,6 +740,17 @@ class MainWindow(QMainWindow):
             )
             return
         self._ensure_workspace_resource()
+        # The catalog changed: every module list in the window is stale now.
+        # This is the only place where the catalog gains or loses modules (first
+        # scan, Ctrl+R, another modules folder), so refreshing here covers every
+        # path without timers or restarts.
+        self._reload_workspaces()
+        self.search.refresh_filters()
+
+    def _reload_workspaces(self) -> None:
+        """Re-read the module lists of every workspace after a catalog change."""
+        for ws in self._workspaces:
+            ws.reload_modules()
 
     def _ensure_workspace_resource(self) -> None:
         """Give the active workspace a real resource after the first scan."""
@@ -836,6 +850,9 @@ class MainWindow(QMainWindow):
         self._idle()
         self.sidebar.refresh()
         self._refresh_status()
+        # Indexing changes which modules can be searched: the filter lists
+        # (type/work) and the current result set must follow it.
+        self.search.refresh_filters()
         self.search.run_search()
         msg = tr("index.done", indexed=result.get("indexed", 0), pages=result.get("pages", 0))
         if result.get("failed"):

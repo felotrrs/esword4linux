@@ -8,6 +8,16 @@
 2. Once a folder is configured, the window appears before any scan. If the
    catalog is empty or its metadata is stale, a metadata-only scan runs in a
    `Worker`. No indexing or decryption starts automatically.
+3. **Module lists follow the catalog.** Every selector built from
+   `ctx.bibles()` / `ctx.commentaries()` / `ctx.strong.candidates()` is created
+   before the first scan finishes, so it must be re-read when the catalog
+   changes. `MainWindow._scan_done()` calls `_reload_workspaces()` →
+   `Workspace.reload_modules()` → `BiblePane.reload_modules()` (translation,
+   commentary and Strong lists) and `LibraryView.reload_modules()` (reference
+   Bible; it also *creates* the selector when the view was built before the
+   catalog had any Bible). This is the only place where the catalog gains or
+   loses modules, so it covers the first launch, `Ctrl+R` and a new modules
+   folder. Never fix a stale selector with a timer, a sleep or a restart.
 
 ## Model
 
@@ -106,11 +116,11 @@ Workspace
   alone leaves the splitter reserving the old width and an empty band appears
   where the panel used to be (it happened after reopening the app with the
   panel collapsed).
-- The toolbar of a Bible workspace lives inside a `QScrollArea` (horizontal
-  scroll only). Its controls demand ~975 px; without the wrapper that became
-  the **window's** minimum width, and a window manager disables *maximise*
-  when the minimum exceeds the usable screen width. The window minimum must
-  stay below ~800 px with the panel shown or hidden.
+- The toolbar of a Bible workspace is a **`FlowLayout`** (see
+  `skills/design.md`): its controls wrap to the next line on narrow windows and
+  the bar grows vertically. Its minimum width is the widest control, so it no
+  longer drags the window's minimum up and no horizontal scroller is needed.
+  The window minimum must stay below ~800 px with the panel shown or hidden.
 - The "type" and "language" filter buttons are adjacent and left-aligned: do
   not insert a `stretch` between them.
 
@@ -201,7 +211,9 @@ Workspace
   empty band will be painted.
 - A wide child (a toolbar with many controls) raises the **window's** minimum
   width, and window managers hide the *maximise* button when that minimum
-  exceeds the usable screen. Wrap such a bar in a horizontal `QScrollArea`.
+  exceeds the usable screen. Put its controls in a `FlowLayout`: they wrap and
+  the bar grows vertically. Do **not** wrap such a bar in a horizontal
+  `QScrollArea` (the old behaviour): controls disappear behind a scrollbar.
 - A layout item with a **fixed width** turns that width into the layout's
   minimum. If the width is derived from the viewport, the dependency is
   circular and the view can never shrink (the window grows on every toggle).
@@ -304,3 +316,36 @@ The Lexicon panel combo lists the lexicons that index by `G####`/`H####`
 `settings.strong_rel`, invalidates the cache and refreshes the pop-ups
 immediately (just as the commentary combo updates the chapter notes). It is
 also available under **View → Default Strong lexicon**.
+
+## Search view (`src/esword4linux/ui/search_view.py`)
+
+The search tab is one box with three intents (reference, Strong, free text) plus
+the filter row. The layout rules live in `skills/design.md`; the engine rules in
+`skills/search-index.md`. Structure:
+
+```
+[ query ................................ ] [ mode ▾ ] [ Search ]
+(Type) (Work) (Book) (Chapter) [☐ Filter by ranges] [Reset filters]   ← FlowLayout
+(Testament) (Group) (Books from–to) (Chapters from–to)                ← FlowLayout
+hint line (library/index state, “press Enter”)
+results (RichBrowser: underlined links + passage bubble on hover)
+```
+
+- **Mode combo** (`search.mode_*`): all / any / phrase / regex. It sits between
+  the box and the Search button; changing it re-runs the committed query.
+- **Filters** are fixed-width label+control groups in a `FlowLayout`; they wrap
+  on narrow windows and never hide. Their state is `SearchFilters`
+  (`kinds`, `module_id`, `book`, `chapter`, `book_range`, `chapter_range`).
+- **Activation hierarchy** (see `design.md` §5): exact ↔ range are mutually
+  exclusive; a book range disables the chapter dimension; ranges are
+  forward-only; the lists narrow themselves to what the indexed Bibles contain.
+- **“Filter by ranges”** reveals the advanced row (`ok`/`no` per type): the
+  testaments and canonical groups come from `books.yaml`; the Apocrypha appears
+  only when a Bible carries it.
+- **Search on demand**: the query is committed with Enter, the Search button or
+  `set_query()`; typing only updates the box and shows the “press Enter” hint.
+- **Results**: `RichBrowser` renders the hits as underlined links; hovering a
+  hit resolves the passage from **that** module (`page_by_ref`) and shows it in
+  the `TipBubble` card; the bubble caches each result.
+- The hint line explains an empty library or a category that is not indexed, so
+  an empty combo never looks like a broken feature.

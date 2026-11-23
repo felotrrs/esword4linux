@@ -6,12 +6,15 @@
 
 - the 73 e-Sword books (`id` 1–73);
 - their names in `es`, `en`, `fr` and `pt`;
-- abbreviations and aliases from different publishing traditions.
+- abbreviations and aliases from different publishing traditions;
+- the **testaments** (`testaments:`) and the **canonical groups**
+  (`groups:`), as inclusive id ranges used by the advanced Bible filters.
 
 `src/esword4linux/core/books.py` loads the YAML, normalizes it and exposes
-`BOOKS`, `book_name()`, `book_abbrev()`, `resolve_book()` and
-`parse_reference()`. **Do not create book or alias lists in other modules,
-tests, documentation or the UI.**
+`BOOKS`, `book_name()`, `book_abbrev()`, `resolve_book()`, `parse_reference()`,
+`TESTAMENTS` and `BOOK_GROUPS` (each a `BookRange` with `start`, `end` and
+`label(lang)`). **Do not create book, alias, testament or group lists in other
+modules, tests, documentation or the UI.**
 
 Provenance: the base aliases were imported from an earlier internal project.
 They now live in `src/esword4linux/core/books.yaml` so esword4linux starts
@@ -56,6 +59,37 @@ Do not duplicate prefixed aliases in the YAML.
 
 `john_letters` has `default: null` on purpose: "Juan"/"John" without a number
 is the Gospel (43), not 1 John (62).
+
+## Testaments and groups
+
+The advanced Bible filters of the search view use the ranges declared in the
+same file. They are inclusive id ranges, so they cannot drift from the book
+numbering:
+
+```yaml
+testaments:
+  old: {names: {es: Antiguo Testamento, en: Old Testament}, start: 1, end: 39}
+  new: {names: {es: Nuevo Testamento, en: New Testament}, start: 40, end: 66}
+
+groups:
+  pentateuch:  {names: {es: Pentateuco, en: Pentateuch}, start: 1, end: 5}
+  historical:  {start: 6,  end: 17}
+  wisdom:      {start: 18, end: 22}
+  major_prophets: {start: 23, end: 27}
+  minor_prophets: {start: 28, end: 39}
+  gospels:     {start: 40, end: 44}
+  pauline:     {start: 45, end: 58}
+  general_epistles: {start: 59, end: 65}
+  apocalyptic: {start: 66, end: 66}
+  apocrypha:   {start: 67, end: 73}
+```
+
+- The groups **tile books 1–73** without gaps or overlaps; a test asserts it
+  (`test_book_and_group_data_cover_the_whole_canon`).
+- The Apocrypha is its own group: it is in neither testament, so a testament
+  filter never hides it by accident.
+- The UI only offers the testaments/groups present in the indexed Bibles, so
+  the Apocrypha appears only when a Bible carries it.
 
 ## Detection in text (`src/esword4linux/core/refs.py`)
 

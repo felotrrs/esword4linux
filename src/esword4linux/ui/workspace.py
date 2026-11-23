@@ -102,6 +102,18 @@ class Workspace(QWidget):
     def is_bible(self) -> bool:
         return self.main_kind == "bible"
 
+    # ── module lists ─────────────────────────────────────────────────────
+    def reload_modules(self) -> None:
+        """Re-read the module lists from the catalog.
+
+        Called by the window after a metadata scan: the catalog is filled
+        asynchronously, so every selector built from an empty catalog at
+        startup must be refreshed without restarting the application.
+        """
+        self.bible.reload_modules()
+        if self._library is not None:
+            self._library.reload_modules()
+
     # ── state ────────────────────────────────────────────────────────────
     def state(self) -> dict:
         data = {

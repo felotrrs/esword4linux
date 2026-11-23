@@ -19,8 +19,8 @@ from PySide6.QtGui import (
     QAction, QCursor, QGuiApplication, QIntValidator,
 )
 from PySide6.QtWidgets import (
-    QButtonGroup, QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
-    QLineEdit, QMenu, QPushButton, QScrollArea, QSizePolicy, QSplitter,
+    QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QLabel,
+    QLineEdit, QMenu, QPushButton, QSplitter,
     QStackedWidget, QToolButton, QToolTip, QVBoxLayout, QWidget,
 )
 
@@ -35,6 +35,7 @@ from .bible_combo import fill_bible_combo
 from .citation_pane import CitationPane
 from .commentary_pane import CommentaryPane
 from .compare_view import CompareView
+from .flow_layout import FlowLayout
 from .rich_browser import RichBrowser
 from .strong_pane import StrongPane
 from .theme import document_css_for, palette
@@ -85,7 +86,8 @@ class BiblePane(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._wrap_toolbar(self._build_toolbar()))
+        self.toolbar = self._build_toolbar()
+        layout.addWidget(self.toolbar)
 
         self.vsplit = QSplitter(Qt.Vertical)
         self.primary = self._make_browser()
@@ -133,36 +135,12 @@ class BiblePane(QWidget):
                               else "commentary",
                               show=self.settings.show_commentary_inline)
 
-    def _wrap_toolbar(self, bar: QWidget) -> QScrollArea:
-        """Keep the toolbar from dictating the window's minimum width.
-
-        The bar has many controls and a rigid ~975 px minimum. Inside a
-        layout that minimum becomes the window's minimum, and a window manager
-        disables *maximise* when it exceeds the usable screen width. A
-        horizontal scroller keeps the bar reachable on narrow windows without
-        touching the window's geometry.
-        """
-        scroll = QScrollArea()
-        scroll.setObjectName("bibleBarScroll")
-        scroll.setWidget(bar)
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setVerticalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAsNeeded
-        )
-        scroll.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-        return scroll
-
     def _build_toolbar(self) -> QWidget:
+        # Flow layout: the controls wrap to the next line on narrow windows, so
+        # the bar grows vertically instead of hiding behind a scroller.
         bar = QWidget()
-        row = QHBoxLayout(bar)
+        row = FlowLayout(bar, hspacing=8, vspacing=4)
         row.setContentsMargins(10, 6, 10, 6)
-        row.setSpacing(6)
 
         self.lbl_translation = QLabel(tr("bible.translation"))
         row.addWidget(self.lbl_translation)
@@ -179,7 +157,7 @@ class BiblePane(QWidget):
         self.citation_input.setToolTip(tr("bible.citation_help"))
         self.citation_input.setClearButtonEnabled(True)
         self.citation_input.returnPressed.connect(self._show_citations)
-        row.addWidget(self.citation_input, 1)
+        row.addWidget(self.citation_input)
 
         self.btn_citation_back = QToolButton()
         self.btn_citation_back.setText("↩")
@@ -188,7 +166,6 @@ class BiblePane(QWidget):
         self.btn_citation_back.hide()
         row.addWidget(self.btn_citation_back)
 
-        row.addSpacing(8)
         self.book = QComboBox()
         self.book.setMinimumWidth(85)
         self.book.setToolTip(tr("bible.book_help"))
@@ -215,7 +192,6 @@ class BiblePane(QWidget):
         self.btn_next.clicked.connect(lambda: self._step(1))
         row.addWidget(self.btn_next)
 
-        row.addSpacing(10)
         self.parallel = QCheckBox(tr("bible.parallel"))
         self.parallel.setToolTip(tr("bible.parallel_help"))
         self.parallel.toggled.connect(self._on_parallel)
@@ -225,7 +201,6 @@ class BiblePane(QWidget):
         self.compare_notice.hide()
         row.addWidget(self.compare_notice)
 
-        row.addStretch(1)
 
         self.btn_commentary = QToolButton()
         self.btn_commentary.setText(tr("bible.bottom_commentary"))
@@ -328,6 +303,12 @@ class BiblePane(QWidget):
         self._main_rel = self.translation.currentData() or ""
         self._sync_compare_columns(bibles)
         self._rebuild_books()
+        # The bottom panel lists modules too. They belong to this pane and must
+        # follow the catalog, which is only filled by the first metadata scan:
+        # the panes are built before the scan finishes, so refreshing them here
+        # (and from MainWindow after a scan) is what keeps them in sync.
+        self.commentary.reload_modules()
+        self.strong.refresh_lexicons()
         self._apply_commentary_match()
         self.navigate(self._current)
 

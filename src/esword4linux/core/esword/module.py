@@ -1072,6 +1072,24 @@ class EswordModule:
             )
         ]
 
+    def chapters(self, book: int) -> list[int]:
+        """Actual chapter numbers present for *book*.
+
+        Unlike ``chapter_count()`` (MAX) this never invents a chapter that the
+        module does not contain: a gap in the numbering stays a gap. The query
+        is answered by the module's own ``BookChapterVerseIndex`` as a covering
+        index, so it does not read the (possibly encrypted) ``Scripture``
+        column.
+        """
+        if self.structure != "bible":
+            return []
+        return [
+            int(r[0]) for r in self.conn.execute(
+                "SELECT DISTINCT Chapter FROM Bible WHERE Book=? ORDER BY Chapter",
+                (book,),
+            )
+        ]
+
     def chapter_comments(self, book: int, chapter: int) -> dict[int, list[Page]]:
         """Comments of a chapter grouped by verse.
 

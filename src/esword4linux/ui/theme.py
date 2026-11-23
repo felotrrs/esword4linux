@@ -288,6 +288,19 @@ QLabel#sectionTitle {{ color: {p.muted}; font-weight: 600; text-transform: upper
     font-size: {max(9, font_size - 4)}px; padding: 6px 8px 2px 8px; }}
 QLabel#appTitle {{ font-weight: 700; font-size: {font_size + 3}px; color: {p.text}; }}
 QLabel#appSubtitle {{ color: {p.muted}; font-size: {max(9, font_size - 2)}px; }}
+/* Inactive filters: the label dims with its control and the frame fades, so a
+   disabled selector reads as inactive at a glance (the text keeps the style's
+   disabled colour, which is lighter than `muted` in the light theme). */
+QLabel#appSubtitle:disabled {{ color: {p.border}; }}
+QComboBox#filterCombo:disabled {{
+    background: {p.bg};
+    border: 1px solid {p.panel_alt};
+}}
+QToolButton#filterReset:disabled {{
+    color: {p.border};
+    background: {p.bg};
+    border: 1px solid {p.panel_alt};
+}}
 """
 
 
@@ -325,7 +338,9 @@ p {{ margin: 0 0 6px 0; }}
 .muted {{ color: {p.muted}; }}
 .hit {{ margin: 0 0 10px 0; }}
 .hit .meta {{ color: {p.muted}; font-size: {max(9, content_size - 2)}px; }}
-.hit a {{ color: {p.link}; text-decoration: none; }}
+/* Result titles read as links: coloured *and* underlined, with a hover tone. */
+.hit a {{ color: {p.link}; text-decoration: underline; }}
+.hit a:hover {{ color: {p.accent}; }}
 .group {{ color: {p.accent}; font-weight: 700; font-size: {max(10, content_size + 1)}px;
     margin: 16px 0 8px 0; }}
 b {{ color: {p.text}; }}

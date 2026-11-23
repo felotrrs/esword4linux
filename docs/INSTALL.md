@@ -1,9 +1,61 @@
 # Installation guide — Linux Mint and Ubuntu
 
-This guide covers the native Debian package of **esword4linux v0.5.2** and,
-as an alternative, a source installation on Debian/Ubuntu-based systems. Both
-keep user data in the XDG directories and never modify the e-Sword modules
-folder.
+This guide covers, in order of preference, the public Launchpad PPA, the native
+Debian package of **esword4linux v0.5.2** and, as an alternative, a source
+installation on Debian/Ubuntu-based systems. All of them keep user data in the
+XDG directories and never modify the e-Sword modules folder.
+
+## Launchpad PPA (recommended on Ubuntu 24.04 LTS)
+
+The public PPA is the simplest way to install and keep the application updated
+on a supported Ubuntu system:
+
+```bash
+sudo apt update
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:felotrrs/esword4linux
+sudo apt update
+sudo apt install esword4linux
+```
+
+PPA page: <https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux>
+
+APT repository used by the PPA:
+
+```text
+https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu noble main
+```
+
+> **Public third-party PPA.** `ppa:felotrrs/esword4linux` is hosted on
+> Launchpad by the project, **not** an official Ubuntu repository. Ubuntu does
+> not review or support its packages.
+
+### Verified target
+
+- **Ubuntu 24.04 LTS (noble), amd64**, package `0.5.2-3`.
+- **Lubuntu 24.04** was tested in a virtual machine: the APT installation
+  worked and multiple Bible, dictionary and commentary modules loaded.
+- Other Ubuntu releases, other architectures and other Linux distributions are
+  **not claimed as supported**.
+
+### Upgrade and remove
+
+Updates use the normal APT workflow; `apt` replaces the package and keeps the
+user data:
+
+```bash
+sudo apt update
+sudo apt upgrade
+```
+
+```bash
+sudo apt remove esword4linux
+sudo add-apt-repository --remove ppa:felotrrs/esword4linux
+```
+
+The archive signing key of the PPA is published on the PPA page (fingerprint
+`FE3010331F71FDFE99412A87DE0B8E55374556B0`); `add-apt-repository` fetches and
+trusts it automatically.
 
 ## Native Debian package
 
@@ -15,8 +67,10 @@ distribution Qt libraries at runtime.
 
 ### Supported platforms
 
-- Ubuntu 24.04 LTS (noble), amd64.
-- Linux Mint 22.x (Ubuntu 24.04 base), amd64.
+- Ubuntu 24.04 LTS (noble), amd64 — native `.deb` and Launchpad PPA.
+- Linux Mint 22.x (Ubuntu 24.04 base), amd64 — native `.deb`.
+- Lubuntu 24.04, amd64 — validated in a virtual machine with the PPA package
+  (installation and module loading).
 
 The package bundles Qt 6.12.0 built against glibc 2.34 or newer. Other Ubuntu,
 Mint or Debian releases, other architectures and non-glibc systems are **not
@@ -54,8 +108,11 @@ imports, runs `lintian`, and writes a report.
 The resulting package is:
 
 ```text
-dist/deb/esword4linux_0.5.2-1_amd64.deb
+dist/deb/esword4linux_<version>_amd64.deb
 ```
+
+`<version>` is the Debian revision from `debian/changelog`; the package
+published in the PPA is `esword4linux_0.5.2-3_amd64.deb`.
 
 Useful variants:
 
@@ -77,14 +134,15 @@ make deb-src           # requires a clean Git tree
 make deb-src-verify    # also rebuilds the .deb offline
 ```
 
-Artifacts are written to `dist/src/`:
+Artifacts are written to `dist/src/` (`<version>` comes from
+`debian/changelog`, e.g. `0.5.2-3`):
 
 ```text
-esword4linux_0.5.2.orig.tar.xz
-esword4linux_0.5.2-1.debian.tar.xz
-esword4linux_0.5.2-1.dsc
-esword4linux_0.5.2-1_source.changes
-esword4linux_0.5.2-1_source.buildinfo
+esword4linux_<upstream>.orig.tar.xz
+esword4linux_<version>.debian.tar.xz
+esword4linux_<version>.dsc
+esword4linux_<version>_source.changes
+esword4linux_<version>_source.buildinfo
 ```
 
 `dpkg-source` never creates the orig for `3.0 (quilt)`; `packaging/build_source.py`
@@ -128,8 +186,18 @@ python3 packaging/validate_runtime.py --root /tmp/esword4linux-runtime
 
 ### Install
 
+Install the package you built:
+
 ```bash
-sudo apt install ./esword4linux_0.5.2-1_amd64.deb
+sudo apt install ./dist/deb/esword4linux_<version>_amd64.deb
+```
+
+To install the **published** package instead, download it from the PPA pool and
+install the file:
+
+```bash
+curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.5.2-3_amd64.deb
+sudo apt install ./esword4linux_0.5.2-3_amd64.deb
 ```
 
 Then launch **esword4linux** from the desktop menu or run:
@@ -383,8 +451,10 @@ update-desktop-database ~/.local/share/applications 2>/dev/null || true
 
 ### 5. Uninstall
 
-v0.5.2 has no system-wide installer and no `make uninstall` target. The
-application runs from the checkout, so removal is manual.
+A source checkout has no system-wide installer and no `make uninstall` target.
+The application runs from the checkout, so removal is manual. (When the
+application was installed from the PPA or from a `.deb`, use
+`sudo apt remove esword4linux` instead.)
 
 1. Delete the checkout directory (for example `esword4linux` or
    `esword4linux-0.5.2`).
@@ -537,10 +607,11 @@ location.
 
 | Distribution | Session | Method | Status |
 |---|---|---|---|
+| Ubuntu 24.04 LTS (Lubuntu 24.04 VM) | X11 | APT from the Launchpad PPA (`0.5.2-3`) | Validated: installation and multiple Bible, dictionary and commentary modules load |
 | Linux Mint 22.3 (Ubuntu 24.04 base) | X11 | Native `.deb`, xcb plugin | Validated |
 | Linux Mint 22.3 (Ubuntu 24.04 base) | Wayland | Native `.deb`, Weston 13 headless/kiosk | Wayland plugin + window process validated; full desktop session not validated |
-| Ubuntu 24.04 LTS | X11 | Native `.deb` | Not validated in a clean VM |
-| Ubuntu 24.04 LTS | Wayland | Native `.deb` | Not validated in a clean VM |
+| Ubuntu 24.04 LTS | X11 | Native `.deb` from a file | Not validated in a clean VM |
+| Ubuntu 24.04 LTS | Wayland | Native `.deb` from a file | Not validated in a clean VM |
 
 A `.deb` build is not a substitute for runtime validation. The table records
 what was actually exercised; do not claim a row that was not run.
@@ -549,9 +620,10 @@ what was actually exercised; do not claim a row that was not run.
 
 - No full desktop Wayland compositor session (GNOME/KDE/wlroots) was available;
   validation used Weston 13 headless/kiosk.
-- No clean Ubuntu 24.04 VM was available; the development host is Linux Mint
-  22.3 (Ubuntu 24.04/noble base).
-- No upgrade from an earlier `.deb` was possible because 0.5.2-1 is the first
-  native package.
+- The Launchpad PPA was validated on a Lubuntu 24.04 virtual machine. A clean
+  Ubuntu 24.04 desktop VM and a Linux Mint VM with the PPA package remain
+  outstanding, as does every architecture other than amd64.
+- No upgrade from an earlier `.deb` was possible because the 0.5.2 series is the
+  first native packaging.
 - The source installation has no `make uninstall` target; the manual commands
   above are its documented removal method.

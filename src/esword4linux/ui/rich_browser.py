@@ -21,7 +21,7 @@ from PySide6.QtWidgets import QTextBrowser
 
 from .tooltip import TipBubble
 
-RESOLVABLE = ("strong:", "ref:", "note:", "#")
+RESOLVABLE = ("strong:", "ref:", "note:", "hit:", "#")
 HOVER_MS = 150
 
 _ANCHOR_RE = re.compile(r"(<a\b[^>]*>)", re.I)

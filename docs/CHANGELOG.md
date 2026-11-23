@@ -1,5 +1,47 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: on the **first launch** the commentary selector was empty until the
+  application was restarted. The panes are built before the asynchronous
+  metadata scan, and only the translation combo was re-read afterwards. Every
+  workspace now re-reads its module lists after a scan (`Ctrl+R` and a new
+  modules folder included), so the commentary selector, the Strong lexicon
+  selector and the reference-Bible selector show the catalog immediately and
+  never accumulate duplicates. A library view opened before the catalog had a
+  Bible also gains its reference-Bible selector on the next refresh.
+- **Advanced search filters:** type, specific work, and — for Bibles — book and
+  chapter. The Bible selectors are dependent (work → book → chapter), the book
+  list is the union of every indexed Bible in scope (or only the selected work),
+  and the chapter list uses the actual chapter numbers of the modules, never a
+  maximum. Filters combine, can be reset, and apply as SQL predicates on the
+  existing index: no schema change and no reindex.
+- **Bible ranges** behind *Filter by ranges*: testament, canonical group, book
+  range and chapter range, built from `books.yaml` and limited to what the
+  indexed Bibles actually contain (the Apocrypha appears only when a Bible
+  carries it). The filters follow a hierarchy — an exact value and a range are
+  mutually exclusive, a book range disables the chapter dimension, and ranges
+  are forward-only — so the search never receives a contradictory selection.
+- **Four search modes:** *All of the words* (strict, no silent OR fallback),
+  *Any of the words*, *Exact phrase* and *Regular expression*. FTS5 has no
+  regex, so the expression seeds the index with its literal words and the
+  engine filters the candidates in Python; an invalid pattern shows an explicit
+  message instead of an empty list.
+- **Search on demand:** the query is committed with Enter or the *Search*
+  button. Typing no longer queries the index (a typo no longer costs a
+  whole-library search); filter and mode changes re-run the committed query.
+- **Result previews:** result citations are underlined links and hovering one
+  shows the whole passage of the version the hit came from in the toast card.
+- **Library hints:** the search view explains an empty library or a category
+  that is not indexed, so an empty selector never looks like a broken feature.
+- **Responsive tool areas:** the search filters and the Bible toolbar wrap to
+  the next line when the window narrows (`FlowLayout`) instead of hiding
+  controls behind a horizontal scroller, and disabled controls stay visible
+  with a clear inactive style.
+- Documentation: the README shows real screenshots of the application and
+  documents installation from the public Launchpad PPA
+  (`ppa:felotrrs/esword4linux`).
+
 ## 0.5.2 — 2026-11-20
 
 - The comparison table can be **split into two stacked bands** (`Dividir` /

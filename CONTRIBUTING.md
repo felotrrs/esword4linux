@@ -23,7 +23,8 @@ Thanks for helping improve a native Linux reader for e-Sword modules.
 
 Read [AGENTS.md](AGENTS.md) and the relevant [skill](skills/) before changing an
 area. The skills are the detailed conventions for modules, decryption, search,
-UI, rendering, book aliases, i18n and performance.
+design (widgets, wrapping and filter activation), UI layout, rendering, book
+aliases, i18n, testing and performance.
 
 ## Development setup
 

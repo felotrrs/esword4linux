@@ -62,6 +62,7 @@ Settings.load()                     # ~/.config/esword4linux/settings.json
    │    ├─ first workspace resource  # first available Bible, else first module
    │    └─ QTimer 200 ms → _bootstrap()
    │           └─ catalog empty or metadata stale → Worker: Catalog.scan()
+   │                  └─ _scan_done()   # sidebar + every workspace re-read the catalog
    │
    └─ app.exec()
 ```
@@ -69,6 +70,14 @@ Settings.load()                     # ~/.config/esword4linux/settings.json
 On first run, before the main window opens, a dialog asks for the user's modules
 folder. Cancelling the dialog exits the application. The window is shown
 **before** any scan runs and reading works from the first instant.
+
+Because of that order, every selector that lists modules (translation,
+commentary, Strong lexicon, reference Bible, search filters) is built against
+the empty catalog of the first launch. `_scan_done()` is the single place that
+reacts to a catalog change: it refreshes the sidebar and calls
+`Workspace.reload_modules()` for every workspace, which re-reads those lists.
+This covers the first launch, `Ctrl+R` and a new modules folder without timers
+or restarts.
 
 The first scan reads **metadata only**: structure, title, abbreviation,
 language, encryption flag and entry count. It never builds the FTS5 index and
@@ -146,14 +155,32 @@ and searches do not have to wait for decryption.
 ## Search
 
 ```
-search(query)
-   ├─ parse_reference()  → intent=reference
-   ├─ ^[GH]\d+$          → intent=strong   (lexicons + dictionaries)
-   └─ everything else    → intent=text     (FTS5 + bm25 + snippet)
+search(query, mode)
+   ├─ parse_reference()  → intent=reference   (navigation; filters and mode ignored)
+   ├─ regex compile      → regex_error | regex_empty
+   ├─ ^[GH]\d+$          → intent=strong      (lexicons + dictionaries)
+   └─ everything else    → intent=text        (FTS5 + bm25 + snippet)
 ```
 
-`build_match` quotes each term (preventing FTS syntax injection) and turns the
-last one into a prefix. If `AND` returns no results, it retries with `OR`.
+`build_match(query, mode)` quotes each term (preventing FTS syntax injection)
+and builds the FTS5 expression: **all** = AND with the last term as a prefix
+(strict — there is no silent OR fallback), **any** = OR, **phrase** = one quoted
+phrase, **regex** = the literal words of the pattern OR-ed and then filtered in
+Python with `re.search` (FTS5 has no regex). An invalid pattern or one without a
+searchable word returns an explicit note that the UI shows.
+
+`SearchFilters` restricts the module set (type, work) and the Bible pages
+(book, chapter, book_range, chapter_range) with SQL predicates on the `page` row
+that is already joined to the FTS match — no schema change and no reindex. The
+view enforces the activation hierarchy (an exact value and a range are mutually
+exclusive, a book range disables the chapter dimension, ranges are forward-only)
+and only sends values from enabled controls.
+
+The query is committed by an explicit action (Enter, the *Search* button,
+`set_query`); typing never queries the index, and filter or mode changes re-run
+the committed query. Result citations are underlined links in a `RichBrowser`;
+hovering one resolves the passage from its own module and shows it in the
+`TipBubble` card.
 
 ## Configuration and preferences
 

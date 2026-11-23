@@ -133,23 +133,13 @@ class LibraryView(QWidget):
         head_row.addWidget(self.map_toolbar)
 
         # ── reference Bible selector (always on the right) ───────────────
-        bibles = self.ctx.bibles()
-        if bibles:
-            self._bible_lbl = QLabel(tr("workspace.bible") + ":")
-            self._bible_lbl.setObjectName("appSubtitle")
-            self._bible_combo = QComboBox()
-            # Reuse the existing function in bible_view
-            fill_bible_combo(self._bible_combo, bibles,
-                             self._ref_bible_rel, editable=False)
-            # If nothing is selected, select the first available one
-            self._sync_combo_to_rel(self._ref_bible_rel)
-            self._bible_combo.setToolTip(tr("workspace.bible_help"))
-            self._bible_combo.currentIndexChanged.connect(self._on_bible_changed)
-            head_row.addWidget(self._bible_lbl)
-            head_row.addWidget(self._bible_combo)
-        else:
-            self._bible_lbl = None
-            self._bible_combo = None
+        # The row is kept so the selector can also be created later: on the
+        # first launch this view may be built before the metadata scan, when
+        # the catalog still has no Bible at all.
+        self._head_row = head_row
+        self._bible_lbl = None
+        self._bible_combo = None
+        self._build_bible_combo()
 
         layout.addWidget(head)
 
@@ -247,6 +237,31 @@ class LibraryView(QWidget):
         return f"{kind} · {entries} {tr('lib.entries').lower()}{extra}"
 
     # ── reference Bible ──────────────────────────────────────────────────
+    def _build_bible_combo(self) -> None:
+        """Create the reference Bible selector once the catalog has a Bible."""
+        bibles = self.ctx.bibles()
+        if not bibles or self._bible_combo is not None:
+            return
+        self._bible_lbl = QLabel(tr("workspace.bible") + ":")
+        self._bible_lbl.setObjectName("appSubtitle")
+        self._bible_combo = QComboBox()
+        # Reuse the existing function in bible_view
+        fill_bible_combo(self._bible_combo, bibles,
+                         self._ref_bible_rel, editable=False)
+        # If nothing is selected, select the first available one
+        self._sync_combo_to_rel(self._ref_bible_rel)
+        self._bible_combo.setToolTip(tr("workspace.bible_help"))
+        self._bible_combo.currentIndexChanged.connect(self._on_bible_changed)
+        self._head_row.addWidget(self._bible_lbl)
+        self._head_row.addWidget(self._bible_combo)
+        detail = getattr(self, "detail", None)
+        if detail is None:
+            return          # still inside _build_ui(): nothing to notify yet
+        detail.bible_rel = self._ref_bible_rel or None
+        # The workspace kept an empty reference Bible; announce the one the
+        # catalog has just provided so its bubbles resolve too.
+        self.ref_bible_changed.emit(self._ref_bible_rel)
+
     def _sync_combo_to_rel(self, rel: str) -> None:
         """Select in the combo the item whose UserRole == rel."""
         if self._bible_combo is None:
@@ -288,6 +303,24 @@ class LibraryView(QWidget):
         self._sync_combo_to_rel(self._ref_bible_rel)
         if self.detail is not None:
             self.detail.bible_rel = self._ref_bible_rel or None
+
+    def reload_modules(self) -> None:
+        """Re-read the reference Bible selector from the catalog.
+
+        The catalog is filled by the first metadata scan, after this view may
+        already exist; the selector must follow it without reopening the work.
+        If the view was built while the catalog had no Bible at all, this also
+        creates the selector that ``_build_ui`` could not create.
+        """
+        bibles = self.ctx.bibles()
+        if not bibles:
+            return
+        if self._bible_combo is None:
+            self._build_bible_combo()
+            return
+        fill_bible_combo(self._bible_combo, bibles, self._ref_bible_rel,
+                         editable=False)
+        self._sync_combo_to_rel(self._ref_bible_rel)
 
     def _apply_list_constraints(self, visible: bool) -> None:
         if visible:

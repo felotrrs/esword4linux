@@ -848,3 +848,60 @@ books:
       en: [2ma, 2macc, 2 maccabees]
       fr: [2 maccabées]
       pt: [2m, 2mac, 2 macabeus]
+
+# ── Testaments and canonical groups ───────────────────────────────────────
+# Ranges are inclusive e-Sword book ids. They feed the advanced Bible filters
+# of the search view; the UI only offers the ones present in the indexed
+# Bibles. The Apocrypha is a group of its own: it is neither in «old» nor in
+# «new» so a testament filter never hides it by accident.
+testaments:
+  old:
+    names: {es: Antiguo Testamento, en: Old Testament, fr: Ancien Testament, pt: Antigo Testamento}
+    start: 1
+    end: 39
+  new:
+    names: {es: Nuevo Testamento, en: New Testament, fr: Nouveau Testament, pt: Novo Testamento}
+    start: 40
+    end: 66
+
+groups:
+  pentateuch:
+    names: {es: Pentateuco, en: Pentateuch, fr: Pentateuque, pt: Pentateuco}
+    start: 1
+    end: 5
+  historical:
+    names: {es: Históricos, en: Historical books, fr: Livres historiques, pt: Históricos}
+    start: 6
+    end: 17
+  wisdom:
+    names: {es: Sapienciales y poéticos, en: Wisdom and poetry, fr: Sapientiaux et poétiques, pt: Sapienciais e poéticos}
+    start: 18
+    end: 22
+  major_prophets:
+    names: {es: Profetas mayores, en: Major prophets, fr: Grands prophètes, pt: Profetas maiores}
+    start: 23
+    end: 27
+  minor_prophets:
+    names: {es: Profetas menores, en: Minor prophets, fr: Petits prophètes, pt: Profetas menores}
+    start: 28
+    end: 39
+  gospels:
+    names: {es: Evangelios y Hechos, en: Gospels and Acts, fr: Évangiles et Actes, pt: Evangelhos e Atos}
+    start: 40
+    end: 44
+  pauline:
+    names: {es: Cartas paulinas, en: Pauline epistles, fr: Épîtres pauliniennes, pt: Cartas paulinas}
+    start: 45
+    end: 58
+  general_epistles:
+    names: {es: Cartas católicas, en: General epistles, fr: Épîtres catholiques, pt: Cartas católicas}
+    start: 59
+    end: 65
+  apocalyptic:
+    names: {es: Apocalíptica, en: Apocalyptic, fr: Apocalyptique, pt: Apocalíptica}
+    start: 66
+    end: 66
+  apocrypha:
+    names: {es: Deuterocanónicos, en: Apocrypha, fr: Deutérocanoniques, pt: Deuterocanônicos}
+    start: 67
+    end: 73

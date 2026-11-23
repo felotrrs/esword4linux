@@ -100,6 +100,9 @@ class _FakeStrong:
     def candidates(self) -> list[dict]:
         return []
 
+    def module(self):
+        return None
+
     def set_default(self, rel: str) -> None:
         pass
 
@@ -198,17 +201,18 @@ def test_window_minimum_stays_maximisable(app, make_window):
         app.processEvents()
 
 
-def test_toolbar_scrolls_instead_of_forcing_a_wide_window(app, make_window):
+def test_toolbar_wraps_instead_of_forcing_a_wide_window(app, make_window):
     window = make_window(visible=True)
     try:
+        from esword4linux.ui.flow_layout import FlowLayout
+
         bible = window.tabs.widget(1).bible
         assert isinstance(bible, BiblePane)
-        first = bible.layout().itemAt(0).widget()
-        assert isinstance(first, QScrollArea)
-        # Without the wrapper the bar alone demanded ~975 px.
-        assert first.minimumSizeHint().width() < 300
-        # The bar keeps its natural height; only the width scrolls.
-        assert first.verticalScrollBarPolicy().name == "ScrollBarAlwaysOff"
+        # The toolbar is a wrapping flow: its minimum width is the widest
+        # control, not the sum of all of them (~975 px before).
+        assert isinstance(bible.toolbar.layout(), FlowLayout)
+        assert bible.toolbar.minimumSizeHint().width() < 400
+        assert bible.toolbar.layout().hasHeightForWidth()
     finally:
         window.close()
         app.processEvents()

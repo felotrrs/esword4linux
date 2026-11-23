@@ -148,9 +148,11 @@ Open, known and non-blocking work. Roughly ordered by impact.
 |---|---|---|---|
 | 7 | **Full indexing** | Indexing an entire library is a long, memory-heavy job; it still needs measurement and chunking with cancellable progress. | Medium |
 | 8 | **Cancellable indexing** | The worker honours `requestInterruption()`, but `Indexer` does not check the flag between modules. | Medium |
-| 9 | **Proximity search** | FTS5 `NEAR` is not used; "love god" searches for both terms in any order or position. | Low |
+| 9 | **Proximity search** | FTS5 `NEAR` is not used; the *All of the words* mode requires the terms in any order or position (the *Exact phrase* mode covers adjacency). | Low |
 | 10 | **Highlighting in the viewer** | Jumping from a result does not highlight the term in the module text. | Low |
 | 11 | **Search in maps** | Only the title and caption are indexed, not the image content (obviously). | — |
+| 21 | **Real-corpus search timing** | The filters, modes and the regex candidate cap were measured on synthetic indexes only; the timing on a full library is still outstanding. | Medium |
+| 22 | **Module metadata cache** | `SearchEngine._module_cache` is never invalidated: titles/abbreviations could stay stale after a rescan until the app restarts. | Low |
 
 ## UI
 
@@ -160,6 +162,8 @@ Open, known and non-blocking work. Roughly ordered by impact.
 | 13 | **Pop-ups and typography** | The pop-ups in `src/esword4linux/ui/tooltip.py` use fixed CSS and do not follow the font preferences. | Low |
 | 14 | **Accessibility** | No configurable shortcuts and no keyboard navigation beyond Ctrl+F/Ctrl+R/Ctrl+Q. | Low |
 | 15 | **Icons** | The UI uses text glyphs (`●○✕🔒`) instead of an icon set. | Low |
+| 23 | **Remaining fixed rows** | The search filters and the Bible toolbar wrap with `FlowLayout`; the library header and the compare header are still plain `QHBoxLayout` rows and can overflow on very narrow windows. | Low |
+| 24 | **Window minimum** | With the sidebar shown the window minimum is ≈890 px (the commentary pane), above the ~800 px guideline; the toolbars no longer drive it. | Low |
 
 ## Engineering
 
@@ -168,5 +172,5 @@ Open, known and non-blocking work. Roughly ordered by impact.
 | 16 | **Twofish in C** | Pure-Python Twofish is CPU-bound; a C extension would reduce decryption time by orders of magnitude. Today it is compensated for with a process pool. | Low |
 | 17 | **Schema migrations** | `content.db` has no versioning; a schema change requires deleting it. | Low |
 | 18 | **Packaging** | There is no AppImage or Flatpak; the app runs from the checkout with `run.sh`. | Low |
-| 19 | **UI tests** | The widget tests (`test_ui_layout`, `test_theme`, `test_tooltip`) use `QApplication` in `offscreen` mode without `pytest-qt`. More end-to-end window flows need coverage. | Low |
+| 19 | **UI tests** | The widget tests (`test_ui_layout`, `test_theme`, `test_tooltip`, `test_search_filters`) use `QApplication` in `offscreen` mode without `pytest-qt`; the conventions are in `skills/testing.md`. More end-to-end window flows need coverage. | Low |
 | 20 | **Core drift** | `make drift` exists but does not run in a hook; it depends on someone running it. | Low |

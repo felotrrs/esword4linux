@@ -41,9 +41,10 @@ golden rules, the system map and the commands. The details live in `skills/`
    scans; `make encrypted` decrypts and indexes encrypted modules on request.
 
 6. **One source per concept.** Categories → `src/esword4linux/core/catalog.py`
-   `KIND_ORDER` / `KIND_LABELS`. Books, names and aliases →
-   `src/esword4linux/core/books.yaml` (loaded by
-   `src/esword4linux/core/books.py`; `BOOKS` is derived from it). UI strings →
+   `KIND_ORDER` / `KIND_LABELS`. Books, names, aliases, testaments and canonical
+   groups → `src/esword4linux/core/books.yaml` (loaded by
+   `src/esword4linux/core/books.py`; `BOOKS`, `TESTAMENTS` and `BOOK_GROUPS` are
+   derived from it). UI strings →
    `src/esword4linux/i18n/es.json` +
    `src/esword4linux/i18n/en.json` (same keys in both). Colors and typography
    → `src/esword4linux/ui/theme.py`, fed by `Settings`. Theme, language and
@@ -90,6 +91,16 @@ golden rules, the system map and the commands. The details live in `skills/`
 13. **The UI never goes blank.** If a module fails, the viewer shows the error
     (`index_error`/`ModuleError`) and the app stays alive. A single module
     failure must never take down the catalog.
+
+14. **Tool areas wrap; they never hide controls.** A row of controls that does
+    not fit the width grows **vertically** (`ui/flow_layout.py:FlowLayout`);
+    it never clips, never hides and never scrolls horizontally. Controls are
+    fixed-width groups packed to the left (label attached to its control,
+    groups separated), disabled — never hidden — when they do not apply, and
+    their values are cleared so an inactive control cannot filter. Search runs
+    only on an explicit action (Enter, the Search button), never while typing.
+    The full rules, including the activation hierarchy of the Bible filters,
+    are in `skills/design.md`.
 
 ## Startup and state
 
@@ -155,10 +166,10 @@ The module table uses paths relative to the repository root.
 | `src/esword4linux/core/commentary.py` | Bible↔commentary pairing by identity + actual coverage. |
 | `src/esword4linux/core/refchain.py` | Multi-citation chains (`Gen 23:1-6, 2:5-7; John 3:16`) → references. |
 | `src/esword4linux/core/catalog.py` | Incremental scan, classification, language, fingerprint, duplicates and index state. |
-| `src/esword4linux/core/store.py` | `page` + `page_fts` FTS5 schema, triggers, `build_match`. |
+| `src/esword4linux/core/store.py` | `page` + `page_fts` FTS5 schema, triggers, `build_match` (modes), regex seeds and range predicates. |
 | `src/esword4linux/core/indexer.py` | Module → pages → FTS5. Process pool for encrypted Bibles. |
-| `src/esword4linux/core/search.py` | Intent detection and store queries. |
-| `src/esword4linux/core/books.py` | Loads `src/esword4linux/core/books.yaml` (IDs 1–73, es/en/fr/pt names, aliases) and exposes `parse_reference`. |
+| `src/esword4linux/core/search.py` | Intent detection, `SearchFilters`, search modes and store queries. |
+| `src/esword4linux/core/books.py` | Loads `src/esword4linux/core/books.yaml` (IDs 1–73, names, aliases, testaments, groups) and exposes `parse_reference`, `TESTAMENTS`, `BOOK_GROUPS`. |
 | `src/esword4linux/core/context.py` | `AppContext`: catalog, store, engine and an LRU cache of open modules. |
 | `src/esword4linux/ui/bible_view.py` | `BiblePane`: navigation, parallel Bible, citation box (replaces the main view) and bottom panel (Commentary\|Lexicon). |
 | `src/esword4linux/ui/commentary_pane.py` | `CommentaryPane`: chapter commentaries, jump to note. |
@@ -171,7 +182,8 @@ The module table uses paths relative to the repository root.
 | `src/esword4linux/ui/workspace.py` | `Workspace`: a view-tab (main resource + Bible/parallel/commentary). |
 | `src/esword4linux/ui/entry_dialog.py` | `EntryDialog`: read a full entry without creating a tab. |
 | `src/esword4linux/ui/library_view.py` | Generic viewer; term list with a hide/show handle. |
-| `src/esword4linux/ui/search_view.py` | Single search box with intent and grouped results. |
+| `src/esword4linux/ui/search_view.py` | Search box (committed query), mode combo, filter flow (type/work/book/chapter + ranges), hints and grouped results with hover previews. |
+| `src/esword4linux/ui/flow_layout.py` | `FlowLayout`: wrapping layout for tool areas (grows vertically, never hides controls). |
 | `src/esword4linux/ui/sidebar.py` | Tree with combinable groupings (kind/language/work) and multiple filters. |
 | `src/esword4linux/ui/citation_pane.py` | Verse collection for a citation chain. |
 | `src/esword4linux/ui/first_run.py` | First-run dialog: asks for the user's modules folder before the main window opens. |
@@ -233,6 +245,11 @@ print(c.counts_by_kind(), c.status_counts())"
 - Open work → `docs/TECH_DEBT.md`.
 - New convention → the `skills/*.md` file that owns it.
 - New UI string → added to both `src/esword4linux/i18n/es.json` and `en.json`.
+- New tool area or filter → `skills/design.md`: it wraps with `FlowLayout`,
+  its labels stay attached to their controls, disabled states are visible and
+  clear their value, and the window minimum stays low.
+- New behaviour → a regression test in `tests/` (see `skills/testing.md`);
+  the suite stays hermetic and the corpus tests stay opt-in.
 
 ## Version bump
 
@@ -273,8 +290,10 @@ language.
 |---|---|
 | You read a module, add a type or a table | `skills/esword-modules.md` |
 | You touch Twofish, SQLitePlus or decryption | `skills/decryption.md` |
-| You touch FTS5, the indexer or search | `skills/search-index.md` |
+| You touch FTS5, the indexer, search filters or modes | `skills/search-index.md` |
+| You add or move a tool area, toolbar, filter or panel | `skills/design.md` |
 | You touch the window, tabs, sidebar or views | `skills/ui-layout.md` |
+| You add or adapt a test or a fixture | `skills/testing.md` |
 | You touch RTF/HTML, typography or themes | `skills/rendering.md` |
 | You touch Preferences (theme, language or fonts) | `skills/ui-layout.md` + `skills/rendering.md` |
 | You touch books, aliases, references or passage pop-ups | `skills/book-aliases.md` |

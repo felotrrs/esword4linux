@@ -1,7 +1,7 @@
 # Documentation
 
-- [Installation](INSTALL.md) — Linux Mint/Ubuntu prerequisites, installation,
-  launcher and uninstall.
+- [Installation](INSTALL.md) — Launchpad PPA and native Debian package for
+  Ubuntu 24.04/Linux Mint, source installation, launcher and uninstall.
 - [Architecture](ARCHITECTURE.md) — layers, startup flow, scanning, indexing and
   design decisions.
 - [e-Sword format](ESWORD-FORMAT.md) — SQLite schemas, encryption and rich-text
