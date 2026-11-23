@@ -89,7 +89,7 @@ no por la extensión, y no modifica ni un byte de tu biblioteca.
 
 ## Requisitos
 
-El entorno de referencia para v0.5.2 es:
+El entorno de referencia para v0.6.0 es:
 
 - **Ubuntu 24.04 LTS (noble), amd64** — verificado instalando desde el PPA de
   Launchpad (ver *Instalación*). Lubuntu 24.04 se probó en una máquina virtual:
@@ -104,7 +104,7 @@ El entorno de referencia para v0.5.2 es:
   creado el entorno virtual, los arranques normales funcionan sin red.
 
 El proyecto declara Python 3.10 o superior. Otras versiones de Ubuntu, Mint o
-Debian y otras arquitecturas no se verificaron para v0.5.2.
+Debian y otras arquitecturas no se verificaron para v0.6.0.
 
 ### Dependencias del sistema en Linux Mint / Ubuntu
 
@@ -156,7 +156,7 @@ Página del PPA: <https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux>
 - Es un **PPA público de terceros alojado en Launchpad**, no un repositorio
   oficial de Ubuntu. Ubuntu no revisa ni da soporte a sus paquetes.
 - El objetivo verificado es **Ubuntu 24.04 LTS (noble) en amd64**; el paquete
-  publicado es `0.5.2-3`. Lubuntu 24.04 se probó en una máquina virtual: la
+  publicado es `0.6.0-1`. Lubuntu 24.04 se probó en una máquina virtual: la
   instalación con APT funcionó y varios módulos de biblia, diccionario y
   comentario cargaron correctamente.
 - Otras versiones de Ubuntu, otras arquitecturas y otras distribuciones **no se
@@ -183,8 +183,8 @@ sudo add-apt-repository --remove ppa:felotrrs/esword4linux
 Descarga el paquete publicado e instálalo con `apt`:
 
 ```bash
-curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.5.2-3_amd64.deb
-sudo apt install ./esword4linux_0.5.2-3_amd64.deb
+curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.6.0-1_amd64.deb
+sudo apt install ./esword4linux_0.6.0-1_amd64.deb
 esword4linux
 ```
 
@@ -237,23 +237,23 @@ make run
 
 ### Desde un archivo ZIP/TAR de código fuente
 
-Descarga el código fuente de v0.5.2 desde GitHub:
+Descarga el código fuente de v0.6.0 desde GitHub:
 
-- [esword4linux v0.5.2 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz)
-- [esword4linux v0.5.2 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.zip)
+- [esword4linux v0.6.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.6.0.tar.gz)
+- [esword4linux v0.6.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.6.0.zip)
 
 Extráelo con tu gestor de archivos o desde una terminal:
 
 ```bash
-curl -L -o esword4linux-v0.5.2.tar.gz \
-  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz
-tar -xzf esword4linux-v0.5.2.tar.gz
-cd esword4linux-0.5.2
+curl -L -o esword4linux-v0.6.0.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.6.0.tar.gz
+tar -xzf esword4linux-v0.6.0.tar.gz
+cd esword4linux-0.6.0
 ./run.sh
 ```
 
 Para el ZIP, sustituye la descarga y la extracción por
-`curl -L -o esword4linux-v0.5.2.zip ...` y `unzip esword4linux-v0.5.2.zip`.
+`curl -L -o esword4linux-v0.6.0.zip ...` y `unzip esword4linux-v0.6.0.zip`.
 Los ejemplos de terminal usan `curl`, `tar` y `unzip`; también puedes usar el
 gestor de archivos.
 
@@ -314,7 +314,7 @@ Un checkout de código fuente no tiene instalador para todo el sistema ni un
 objetivo `make uninstall`.
 
 1. Borra la carpeta del checkout (por ejemplo `esword4linux` o
-   `esword4linux-0.5.2`).
+   `esword4linux-0.6.0`).
 2. Si ejecutaste `make desktop`, elimina el lanzador y los iconos:
 
    ```bash
@@ -365,11 +365,11 @@ Ningún módulo se indexa ni se descifra automáticamente al arrancar.
 
 ## Estado de distribución
 
-**v0.5.2** se distribuye como código Git, como los archivos fuente que genera
+**v0.6.0** se distribuye como código Git, como los archivos fuente que genera
 GitHub desde el tag, como paquete Debian nativo para Ubuntu 24.04 / Linux Mint
 22.x (amd64) y a través del PPA público de Launchpad
 [`ppa:felotrrs/esword4linux`](https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux)
-(`0.5.2-3`, noble/amd64). Todavía no se proporciona AppImage, Flatpak ni Snap.
+(`0.6.0-1`, noble/amd64). Todavía no se proporciona AppImage, Flatpak ni Snap.
 Consulta [`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)
 para ver qué se validó realmente.
 

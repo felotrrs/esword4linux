@@ -1,3 +1,40 @@
+esword4linux (0.6.0-1) noble; urgency=medium
+
+  * First launch: every workspace re-reads its module lists after the metadata
+    scan, so the commentary, Strong lexicon and reference-Bible selectors show
+    the catalog immediately (Ctrl+R and a new modules folder included). A
+    library view built before the catalog had a Bible also gains its selector
+    on the next refresh, without reopening the resource.
+  * Search filters: type, work, book and chapter, plus an advanced *Filter by
+    ranges* row (testament, canonical group, book and chapter ranges). The
+    activation follows a strict hierarchy: an exact value and a range are
+    mutually exclusive, a book range disables the chapter dimension, and the
+    ranges are forward-only. The chapter list uses the real chapter numbers of
+    the module, never a maximum.
+  * Search modes: all of the words (strict), any of the words, exact phrase
+    and regular expression (FTS5 seeds plus a Python filter). The query is
+    committed with Enter or the Search button, never while typing.
+  * Result citations are underlined links and hovering one shows the passage
+    of the version the hit came from. The view explains an empty library or a
+    category that is not indexed.
+  * Search filters and the Bible toolbar wrap to the next line on narrow
+    windows instead of hiding controls; inactive filters stay visible with a
+    clear disabled style.
+  * Documentation: README screenshots, Launchpad PPA installation, design and
+    testing skills, architecture and changelog.
+
+ -- Felipe <felotrrs@gmail.com>  Sun, 22 Nov 2026 19:03:11 -0600
+
+esword4linux (0.5.2-3) noble; urgency=medium
+
+  * Keep the private Qt/PySide6 runtime Build-Depends introduced in 0.5.2-2 and
+    reuse the upstream orig tarball already published for 0.5.2. The 0.5.2-2
+    upload modified packaging/runtime-manifest.yaml, which is part of the
+    upstream tree, so Launchpad rejected it because the orig contents differed.
+    The manifest is restored to its published content; only debian/ changes.
+
+ -- Felipe <felotrrs@gmail.com>  Sat, 21 Nov 2026 00:57:20 +0000
+
 esword4linux (0.5.2-2) noble; urgency=medium
 
   * Declare the runtime system libraries as Build-Depends. Launchpad's clean

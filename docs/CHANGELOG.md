@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-11-22
 
 - Fixed: on the **first launch** the commentary selector was empty until the
   application was restarted. The panes are built before the asynchronous

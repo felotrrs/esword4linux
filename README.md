@@ -81,7 +81,7 @@ extension, and never modifies a single byte of your library.
 
 ## Requirements
 
-The reference environment for v0.5.2 is:
+The reference environment for v0.6.0 is:
 
 - **Ubuntu 24.04 LTS (noble), amd64** — verified by installing from the
   Launchpad PPA (see *Installation*). Lubuntu 24.04 was tested in a virtual
@@ -96,7 +96,7 @@ The reference environment for v0.5.2 is:
   environment is ready, normal launches work offline.
 
 The project declares Python 3.10 or newer. Other Ubuntu, Mint or Debian
-releases and other architectures were not verified for v0.5.2.
+releases and other architectures were not verified for v0.6.0.
 
 ### System dependencies on Linux Mint / Ubuntu
 
@@ -147,7 +147,7 @@ PPA page: <https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux>
 - This is a **public third-party Launchpad PPA**, not an official Ubuntu
   repository. Ubuntu does not review or support its packages.
 - The verified target is **Ubuntu 24.04 LTS (noble) on amd64**; the published
-  package is `0.5.2-3`. Lubuntu 24.04 was tested in a virtual machine: the
+  package is `0.6.0-1`. Lubuntu 24.04 was tested in a virtual machine: the
   installation through APT worked and several Bible, dictionary and commentary
   modules loaded correctly.
 - Other Ubuntu releases, other architectures and other distributions are **not
@@ -173,8 +173,8 @@ sudo add-apt-repository --remove ppa:felotrrs/esword4linux
 Download the published package and install it with `apt`:
 
 ```bash
-curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.5.2-3_amd64.deb
-sudo apt install ./esword4linux_0.5.2-3_amd64.deb
+curl -L -O https://ppa.launchpadcontent.net/felotrrs/esword4linux/ubuntu/pool/main/e/esword4linux/esword4linux_0.6.0-1_amd64.deb
+sudo apt install ./esword4linux_0.6.0-1_amd64.deb
 esword4linux
 ```
 
@@ -224,23 +224,23 @@ make run
 
 ### From a source ZIP/TAR archive
 
-Download the v0.5.2 source archive from GitHub:
+Download the v0.6.0 source archive from GitHub:
 
-- [esword4linux v0.5.2 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz)
-- [esword4linux v0.5.2 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.zip)
+- [esword4linux v0.6.0 tar.gz](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.6.0.tar.gz)
+- [esword4linux v0.6.0 zip](https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.6.0.zip)
 
 Extract it with your file manager, or from a terminal:
 
 ```bash
-curl -L -o esword4linux-v0.5.2.tar.gz \
-  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.5.2.tar.gz
-tar -xzf esword4linux-v0.5.2.tar.gz
-cd esword4linux-0.5.2
+curl -L -o esword4linux-v0.6.0.tar.gz \
+  https://github.com/felotrrs/esword4linux/archive/refs/tags/v0.6.0.tar.gz
+tar -xzf esword4linux-v0.6.0.tar.gz
+cd esword4linux-0.6.0
 ./run.sh
 ```
 
 For the ZIP archive, replace the download and extraction commands with
-`curl -L -o esword4linux-v0.5.2.zip ...` and `unzip esword4linux-v0.5.2.zip`.
+`curl -L -o esword4linux-v0.6.0.zip ...` and `unzip esword4linux-v0.6.0.zip`.
 The command-line examples use `curl`, `tar` and `unzip`; a file manager works
 too.
 
@@ -299,7 +299,7 @@ Removal deletes only the package files. Your settings and caches are
 A source checkout has no system-wide installer and no `make uninstall` target.
 
 1. Delete the checkout folder (for example `esword4linux` or
-   `esword4linux-0.5.2`).
+   `esword4linux-0.6.0`).
 2. If you ran `make desktop`, remove the launcher and icons:
 
    ```bash
@@ -350,10 +350,10 @@ No module is indexed or decrypted automatically at startup.
 
 ## Distribution status
 
-v0.5.2 is distributed as Git source, as the GitHub tag archives, as a native
+v0.6.0 is distributed as Git source, as the GitHub tag archives, as a native
 Debian package for Ubuntu 24.04 / Linux Mint 22.x (amd64) and through the
 public Launchpad PPA [`ppa:felotrrs/esword4linux`](https://launchpad.net/~felotrrs/+archive/ubuntu/esword4linux)
-(`0.5.2-3`, noble/amd64). No AppImage, Flatpak or Snap package is provided yet.
+(`0.6.0-1`, noble/amd64). No AppImage, Flatpak or Snap package is provided yet.
 See [`docs/INSTALL.md`](docs/INSTALL.md#distribution-status-and-validation-matrix)
 for what was actually validated.
 

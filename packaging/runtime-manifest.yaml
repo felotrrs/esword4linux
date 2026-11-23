@@ -12,7 +12,7 @@
 # Keep the comments that explain *why* a component is retained or excluded.
 
 schema_version: 1
-app_version: "0.5.2"   # mirrored from src/esword4linux/__init__.py; enforced by packaging/stage_runtime.py
+app_version: "0.6.0"   # mirrored from src/esword4linux/__init__.py; enforced by packaging/stage_runtime.py
 
 python:
   minimum: "3.10"
@@ -320,7 +320,7 @@ verified:
   python: "3.12.3"
   pyside6: "6.12.0"
   qt: "6.12.0"
-  deb_version: "0.5.2-2"
+  deb_version: "0.6.0-1"
   elf_objects_checked: 36
   unresolved_libraries: 0
   distro_qt_dependency: false
